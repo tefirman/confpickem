@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "confpickem"
+version = "0.1.0"
+description = "Simulation-based tool to analyze Confidence Pick Em pools"
+authors = [{name = "Taylor Firman", email = "tefirman@gmail.com"}]
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = []
