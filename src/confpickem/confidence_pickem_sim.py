@@ -1,7 +1,19 @@
+#!/usr/bin/env python
+# -*-coding:utf-8 -*-
+'''
+@File    :   confidence_pickem_sim.py
+@Time    :   2024/12/07 13:38:47
+@Author  :   Taylor Firman
+@Version :   v0.1
+@Contact :   tefirman@gmail.com
+@Desc    :   Simulation script for NFL Confidence Pick 'Em groups
+'''
+
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple
 import numpy as np
 import pandas as pd
+import scipy
 
 # BRING THESE ALL TOGETHER!!!
 
@@ -143,7 +155,7 @@ class ConfidencePickEmSimulator:
         # Calculate points for each simulation
         picks_df['correct'] = picks_df.apply(
             lambda x: outcomes[x.simulation, 
-                     [g.away_team + '@' + g.home_team for g in self.games].index(x.game)] == x.picked_home,
+                    [g.away_team + '@' + g.home_team for g in self.games].index(x.game)] == x.picked_home,
             axis=1
         )
         picks_df['points'] = picks_df.correct * picks_df.confidence
@@ -151,13 +163,24 @@ class ConfidencePickEmSimulator:
         # Aggregate results
         by_sim = picks_df.groupby(['simulation', 'player'])['points'].sum().reset_index()
         
-        # Calculate various statistics
+        # Calculate win percentages more safely
+        win_pcts = []
+        for player in by_sim['player'].unique():
+            player_points = by_sim[by_sim['player'] == player]['points'].values
+            max_points_per_sim = by_sim.groupby('simulation')['points'].max().values
+            win_pct = np.mean(player_points == max_points_per_sim)
+            win_pcts.append({'player': player, 'win_pct': win_pct})
+        
+        win_pct_series = pd.Series(
+            [x['win_pct'] for x in win_pcts],
+            index=[x['player'] for x in win_pcts]
+        )
+        
+        # Calculate other statistics
         stats = {
             'expected_points': by_sim.groupby('player')['points'].mean(),
             'point_std': by_sim.groupby('player')['points'].std(),
-            'win_pct': by_sim.groupby('player')['points'].apply(
-                lambda x: (x == by_sim.groupby('simulation')['points'].max()).mean()
-            ),
+            'win_pct': win_pct_series,
             'value_at_risk': by_sim.groupby('player')['points'].quantile(0.05)
         }
         
@@ -165,36 +188,46 @@ class ConfidencePickEmSimulator:
 
     def optimize_picks(self, fixed_picks: Dict[str, int] = None) -> Dict[str, int]:
         """Optimize picks using simulation results"""
-        # Run initial simulations
-        picks_df = self.simulate_picks()
-        outcomes = self.simulate_outcomes()
-        stats = self.analyze_results(picks_df, outcomes)
-        
-        # Start with best expected value picks
+        # Initialize variables
         optimal = {}
-        available_points = set(range(1, len(self.games) + 1))
+        if fixed_picks is None:
+            fixed_picks = {}
         
-        for game in sorted(self.games, 
-                         key=lambda g: abs(g.vegas_win_prob - 0.5),
-                         reverse=True):
-            if fixed_picks and (game.home_team in fixed_picks or game.away_team in fixed_picks):
-                continue
+        # Track which points have been used
+        used_points = set(fixed_picks.values())
+        available_points = set(range(1, len(self.games) + 1)) - used_points
+        
+        # Start with fixed picks
+        optimal.update(fixed_picks)
+        
+        # Sort games by confidence (most certain to least certain)
+        remaining_games = [g for g in sorted(self.games, 
+                                        key=lambda g: abs(g.vegas_win_prob - 0.5),
+                                        reverse=True)
+                        if g.home_team not in fixed_picks 
+                        and g.away_team not in fixed_picks]
+        
+        # Assign picks for remaining games
+        for game in remaining_games:
+            if not available_points:  # Safety check
+                break
                 
+            # Get highest available point value
+            current_points = max(available_points)
+            
             # Simulate both options
-            home_results = self._simulate_with_pick(game.home_team, next(iter(available_points)))
-            away_results = self._simulate_with_pick(game.away_team, next(iter(available_points)))
+            home_results = self._simulate_with_pick(game.home_team, current_points)
+            away_results = self._simulate_with_pick(game.away_team, current_points)
             
             # Choose better option
             if home_results['expected_value'] > away_results['expected_value']:
-                optimal[game.home_team] = max(available_points)
+                optimal[game.home_team] = current_points
             else:
-                optimal[game.away_team] = max(available_points)
-            available_points.remove(max(available_points))
-            
-        # Add fixed picks
-        if fixed_picks:
-            optimal.update(fixed_picks)
-            
+                optimal[game.away_team] = current_points
+                
+            # Remove used points value
+            available_points.remove(current_points)
+        
         return optimal
 
     def _simulate_with_pick(self, team: str, points: int) -> Dict:
@@ -203,12 +236,13 @@ class ConfidencePickEmSimulator:
         picks_df = self.simulate_picks()
         outcomes = self.simulate_outcomes()
         
-        # Override pick for analysis
-        picks_df.loc[
-            (picks_df.player == self.players[0].name) & \
-            picks_df.game.str.contains(team),
-            ['picked_home', 'confidence']
-        ] = [team in picks_df.game.str.split('@').str[1], points]
+        # Find rows to update
+        mask = (picks_df.player == self.players[0].name) & picks_df.game.str.contains(team)
+        
+        # Calculate if team is home team and convert to float
+        is_home = picks_df.loc[mask, 'game'].apply(lambda x: team in x.split('@')[1])
+        picks_df.loc[mask, 'picked_home'] = is_home.astype(float)
+        picks_df.loc[mask, 'confidence'] = float(points)
         
         stats = self.analyze_results(picks_df, outcomes)
         
