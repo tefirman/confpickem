@@ -13,9 +13,62 @@ import requests
 import http.cookiejar
 import pandas as pd
 from bs4 import BeautifulSoup
+import json
+from datetime import datetime
+from pathlib import Path
+
+class PageCache:
+    def __init__(self, cache_dir: str = ".cache"):
+        """Initialize cache with specified directory"""
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(exist_ok=True)
+    
+    def get_cache_path(self, page_type: str, week: int) -> Path:
+        """Generate cache file path for given page type and week"""
+        return self.cache_dir / f"{page_type}_week{week}.html"
+    
+    def get_metadata_path(self, page_type: str, week: int) -> Path:
+        """Generate metadata file path for given page type and week"""
+        return self.cache_dir / f"{page_type}_week{week}_meta.json"
+    
+    def get_cached_content(self, page_type: str, week: int) -> str:
+        """Retrieve cached content if it exists and is not expired"""
+        cache_path = self.get_cache_path(page_type, week)
+        meta_path = self.get_metadata_path(page_type, week)
+        
+        if not cache_path.exists() or not meta_path.exists():
+            return None
+            
+        with open(meta_path) as f:
+            metadata = json.load(f)
+            
+        # Cache expires after 1 hour
+        cache_age = datetime.now() - datetime.fromisoformat(metadata['timestamp'])
+        if cache_age.total_seconds() > 3600:
+            return None
+            
+        with open(cache_path) as f:
+            return f.read()
+    
+    def save_content(self, content: str, page_type: str, week: int):
+        """Save content to cache with metadata"""
+        cache_path = self.get_cache_path(page_type, week)
+        meta_path = self.get_metadata_path(page_type, week)
+        
+        with open(cache_path, 'w') as f:
+            f.write(content)
+            
+        metadata = {
+            'timestamp': datetime.now().isoformat(),
+            'page_type': page_type,
+            'week': week
+        }
+        
+        with open(meta_path, 'w') as f:
+            json.dump(metadata, f)
 
 class YahooPickEm:
-    def __init__(self, week: int, league_id: int, cookies_file: str):
+    def __init__(self, week: int, league_id: int, cookies_file: str, cache_dir: str = ".cache"):
         """
         Initialize scraper using cookies from exported cookies.txt file
         
@@ -23,9 +76,11 @@ class YahooPickEm:
             week (int): NFL week number
             league_id (int): Yahoo Pick'em league ID
             cookies_file (str): Path to exported cookies.txt file
+            cache_dir (str): Directory to store cached pages
         """
         self.week = week
         self.league_id = league_id
+        self.cache = PageCache(cache_dir)
         
         # Create session with cookies
         self.session = requests.Session()
@@ -44,20 +99,27 @@ class YahooPickEm:
         self.get_pick_distribution()
         self.get_confidence_picks()
 
-    def get_page_content(self, url: str) -> str:
+    def get_page_content(self, url: str, page_type: str) -> str:
         """
-        Fetch page content using authenticated session
+        Fetch page content using authenticated session or cache
         """
+        cached_content = self.cache.get_cached_content(page_type, self.week)
+        if cached_content:
+            return cached_content
+            
         response = self.session.get(url)
         response.raise_for_status()
-        return response.text
+        content = response.text
+        
+        self.cache.save_content(content, page_type, self.week)
+        return content
 
     def get_pick_distribution(self):
         """
         Parse Yahoo Fantasy Pick Distribution page
         """
         url = f"https://football.fantasysports.yahoo.com/pickem/pickdistribution?gid=&week={self.week}&type=c"
-        content = self.get_page_content(url)
+        content = self.get_page_content(url, "pick_distribution")
         soup = BeautifulSoup(content, 'html.parser')
         
         # Find all game containers 
@@ -68,12 +130,12 @@ class YahooPickEm:
             game_dict = {}
             
             # Get team names and pick percentages
-            teams = game.find_all('dd', class_='team')
+            teams = game.find_all('th')
             percentages = game.find_all('dd', class_='percent')
             
-            game_dict['favorite'] = teams[0].text.strip().replace('@ ', '')
+            game_dict['favorite'] = teams[0].text.strip()
             game_dict['favorite_pick_pct'] = float(percentages[0].text.strip().replace('%', ''))
-            game_dict['underdog'] = teams[1].text.strip().replace('@ ', '') 
+            game_dict['underdog'] = teams[-1].text.strip()
             game_dict['underdog_pick_pct'] = float(percentages[1].text.strip().replace('%', ''))
             
             # Get confidence values
@@ -91,7 +153,7 @@ class YahooPickEm:
         Parse group picks page for confidence pool
         """
         url = f"https://football.fantasysports.yahoo.com/pickem/{self.league_id}/grouppicks?week={self.week}"
-        content = self.get_page_content(url)
+        content = self.get_page_content(url, "confidence_picks")
         soup = BeautifulSoup(content, 'html.parser')
         
         # Find the main picks table

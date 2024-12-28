@@ -15,8 +15,6 @@ import numpy as np
 import pandas as pd
 import scipy
 
-# BRING THESE ALL TOGETHER!!!
-
 @dataclass
 class Game:
     home_team: str
