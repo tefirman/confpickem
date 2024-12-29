@@ -14,6 +14,7 @@ from typing import List, Dict, Optional, Tuple
 import numpy as np
 import pandas as pd
 import scipy
+from datetime import datetime
 
 @dataclass
 class Game:
@@ -24,7 +25,9 @@ class Game:
     crowd_home_confidence: float
     crowd_away_confidence: float
     week: int
+    kickoff_time: datetime  # Add kickoff time
     actual_outcome: Optional[bool] = None
+    picks_locked: bool = False  # Whether picks have been revealed
 
 @dataclass 
 class Player:
@@ -50,6 +53,7 @@ class ConfidencePickEmSimulator:
                 crowd_home_confidence=row['crowd_home_confidence'],
                 crowd_away_confidence=row['crowd_away_confidence'],
                 week=row['week'],
+                kickoff_time=row['kickoff_time'],
                 actual_outcome=row.get('actual_outcome', None)
             ))
 
@@ -114,6 +118,81 @@ class ConfidencePickEmSimulator:
                 confidence[sim, p] = num_games + 1 - scipy.stats.rankdata(final_conf)
         
         return self._create_results_dataframe(picks, confidence)
+
+    def simulate_picks_for_game(self, game: pd.Series, player_names: list) -> pd.DataFrame:
+        """
+        Simulate picks for a single future game for specified players
+        
+        Args:
+            game: Series containing game information (home_team, away_team, etc)
+            player_names: List of player names to simulate picks for
+            
+        Returns:
+            DataFrame containing simulated picks in standard format
+        """
+        # Create game identifier
+        game_id = f"{game.away_team}@{game.home_team}"
+        
+        picks_list = []
+        
+        # Get player characteristics
+        player_dict = {p.name: p for p in self.players}
+        
+        for player_name in player_names:
+            player = player_dict.get(player_name)
+            if not player:
+                # If player not found in characteristics, use average values
+                skill_level = 0.5
+                crowd_following = 0.5
+                conf_following = 0.5
+            else:
+                skill_level = player.skill_level
+                crowd_following = player.crowd_following
+                conf_following = player.confidence_following
+                
+            # Calculate pick probability
+            base_prob = game.vegas_win_prob * (1 - crowd_following) + \
+                    game.crowd_home_pick_pct * crowd_following
+            
+            # Add skill-based noise
+            noise = np.random.normal(0, 0.1) * (1 - skill_level)
+            pick_prob = np.clip(base_prob + noise, 0.1, 0.9)
+            
+            # Generate picks for each simulation
+            for sim in range(self.num_sims):
+                # Determine if home team picked
+                picked_home = np.random.random() < pick_prob
+                
+                # Calculate confidence
+                if picked_home:
+                    chosen_conf = game.crowd_home_confidence
+                    opposing_conf = game.crowd_away_confidence
+                else:
+                    chosen_conf = game.crowd_away_confidence
+                    opposing_conf = game.crowd_home_confidence
+                    
+                # Calculate confidence score
+                conf_diff = (chosen_conf - opposing_conf) / (chosen_conf + opposing_conf)
+                vegas_conf = abs(game.vegas_win_prob - 0.5) * 2 * len(self.games)
+                
+                # Blend signals
+                blended_conf = chosen_conf * (1 + conf_diff) * conf_following + \
+                            vegas_conf * (1 - conf_following)
+                
+                # Add skill-based noise
+                noise = np.random.normal(0, 2) * (1 - skill_level)
+                final_conf = int(np.clip(blended_conf + noise, 1, len(self.games)))
+                
+                picks_list.append({
+                    'simulation': sim,
+                    'player': player_name,
+                    'week': game.week,
+                    'game': game_id,
+                    'picked_home': picked_home,
+                    'confidence': final_conf
+                })
+        
+        return pd.DataFrame(picks_list)
 
     def simulate_outcomes(self) -> np.ndarray:
         """Simulate game outcomes efficiently"""

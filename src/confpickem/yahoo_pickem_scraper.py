@@ -12,10 +12,11 @@
 import requests
 import http.cookiejar
 import pandas as pd
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 import json
 from datetime import datetime
 from pathlib import Path
+from datetime import timedelta
 
 class PageCache:
     def __init__(self, cache_dir: str = ".cache"):
@@ -122,6 +123,12 @@ class YahooPickEm:
         content = self.get_page_content(url, "pick_distribution")
         soup = BeautifulSoup(content, 'html.parser')
         
+        # Pull season from commented timestamp
+        comments = soup.find_all(string=lambda text: isinstance(text, Comment))
+        last_comment = comments[-1]
+        date_pulled = pd.to_datetime(" ".join(last_comment.strip().split()[-6:]),format="%a %b %d %H:%M:%S %Z %Y")
+        season = (date_pulled - timedelta(days=90)).year # Accounting for week 18 being in January of the following year...
+
         # Find all game containers 
         games = soup.find_all('div', class_='ysf-matchup-dist')
         
@@ -143,7 +150,14 @@ class YahooPickEm:
             confidence_row = ft.find('tr', class_="odd first").find_all('td')
             game_dict['favorite_confidence'] = float(confidence_row[0].text.strip())
             game_dict['underdog_confidence'] = float(confidence_row[2].text.strip())
-            
+
+            # Parse kickoff time
+            time_element = game.find('div', class_='hd')
+            if time_element:
+                kickoff_time = pd.to_datetime(time_element.text.strip().replace(" EDT"," EST"), format="%A, %b %d, %I:%M %p %Z")
+                kickoff_time = kickoff_time.replace(year=season)
+                game_dict['kickoff_time'] = kickoff_time
+
             games_data.append(game_dict)
             
         self.games = pd.DataFrame(games_data)
