@@ -149,7 +149,7 @@ class ConfidencePickEmSimulator:
         return pd.DataFrame(results)
 
     def analyze_results(self, picks_df: pd.DataFrame, outcomes: np.ndarray) -> Dict:
-        """Analyze simulation results and compute statistics"""
+        """Analyze simulation results and compute statistics with tiebreaker handling"""
         # Calculate points for each simulation
         picks_df['correct'] = picks_df.apply(
             lambda x: outcomes[x.simulation, 
@@ -158,15 +158,31 @@ class ConfidencePickEmSimulator:
         )
         picks_df['points'] = picks_df.correct * picks_df.confidence
         
-        # Aggregate results
+        # Aggregate results by simulation and player
         by_sim = picks_df.groupby(['simulation', 'player'])['points'].sum().reset_index()
         
-        # Calculate win percentages more safely
+        # Calculate win percentages with tiebreaker
         win_pcts = []
         for player in by_sim['player'].unique():
-            player_points = by_sim[by_sim['player'] == player]['points'].values
-            max_points_per_sim = by_sim.groupby('simulation')['points'].max().values
-            win_pct = np.mean(player_points == max_points_per_sim)
+            wins = 0
+            for sim in by_sim['simulation'].unique():
+                sim_results = by_sim[by_sim['simulation'] == sim]
+                max_points = sim_results['points'].max()
+                
+                # Find players tied for first
+                tied_players = sim_results[sim_results['points'] == max_points]['player'].values
+                
+                if len(tied_players) == 1:
+                    # Clear winner
+                    wins += 1 if tied_players[0] == player else 0
+                else:
+                    # Tie - randomly select winner using consistent seed for reproducibility
+                    np.random.seed(sim)  # Use simulation number as seed
+                    winner = np.random.choice(tied_players)
+                    wins += 1 if winner == player else 0
+                    np.random.seed(None)  # Reset seed
+            
+            win_pct = wins / self.num_sims
             win_pcts.append({'player': player, 'win_pct': win_pct})
         
         win_pct_series = pd.Series(
