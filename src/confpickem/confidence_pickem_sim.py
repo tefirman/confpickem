@@ -304,7 +304,9 @@ class ConfidencePickEmSimulator:
         for game in remaining_games:
             if not available_points:  # Safety check
                 break
-                
+            
+            print(game)
+
             # Get highest available point value
             current_points = max(available_points)
             
@@ -312,31 +314,150 @@ class ConfidencePickEmSimulator:
             home_results = self._simulate_with_pick(game.home_team, current_points)
             away_results = self._simulate_with_pick(game.away_team, current_points)
             
+            print(home_results)
+            print(away_results)
+
             # Choose better option
             if home_results['expected_value'] > away_results['expected_value']:
                 optimal[game.home_team] = current_points
             else:
                 optimal[game.away_team] = current_points
-                
+            
+            print(optimal)
+            
             # Remove used points value
             available_points.remove(current_points)
         
         return optimal
 
-    def _simulate_with_pick(self, team: str, points: int) -> Dict:
-        """Helper method to simulate outcomes with a specific pick"""
+    def optimize_picks_comprehensive(self, fixed_picks: Dict[str, int] = None, point_buckets: int = 4) -> Dict[str, int]:
+        """
+        Optimize picks by simulating possibilities with bucketed point values for efficiency.
+        
+        Args:
+            fixed_picks: Dictionary mapping team names to point values for picks that should not be changed
+            point_buckets: Number of buckets to divide point values into (excluding fixed picks)
+            
+        Returns:
+            Dictionary mapping team names to optimal point values
+        """
+        # Initialize variables
+        optimal = {}
+        if fixed_picks is None:
+            fixed_picks = {}
+        
+        # Start with fixed picks
+        optimal.update(fixed_picks)
+        
+        # Track available points
+        used_points = set(fixed_picks.values())
+        available_points = set(range(1, len(self.games) + 1)) - used_points
+        
+        # Create point value buckets for remaining points
+        sorted_points = sorted(list(available_points))
+        points_per_bucket = max(1, len(sorted_points) // point_buckets)
+        point_groups = [sorted_points[i:i + points_per_bucket] 
+                    for i in range(0, len(sorted_points), points_per_bucket)]
+        
+        # Get remaining games that need picks
+        remaining_games = [g for g in self.games 
+                        if g.home_team not in fixed_picks 
+                        and g.away_team not in fixed_picks]
+        
+        # For each remaining pick slot
+        while remaining_games and available_points:
+            best_ev = float('-inf')
+            best_pick = None
+            best_points = None
+            
+            # Try each remaining game
+            for game in remaining_games:
+                # Try representative points from each bucket
+                for point_group in point_groups:
+                    # Use median value from bucket as representative
+                    points = point_group[len(point_group)//2]
+                    if points not in available_points:
+                        continue
+                    
+                    # Try home team
+                    home_results = self._simulate_with_pick(game.home_team, points, optimal)
+                    if home_results['win_pct'] > best_ev:
+                        best_ev = home_results['win_pct']
+                        best_pick = game.home_team
+                        best_points = points
+                    
+                    # Try away team
+                    away_results = self._simulate_with_pick(game.away_team, points, optimal)
+                    if away_results['win_pct'] > best_ev:
+                        best_ev = away_results['win_pct']
+                        best_pick = game.away_team 
+                        best_points = points
+                    
+                    print(f"Selected {best_pick} with {best_points} points (EV: {best_ev:.3f}), {datetime.now()}")
+            
+            # Fine-tune point value around best bucket
+            if best_points is not None:
+                current_bucket = next(group for group in point_groups if best_points in group)
+                nearby_points = [p for p in available_points 
+                            if abs(p - best_points) <= max(2, points_per_bucket//2)]
+                
+                for points in nearby_points:
+                    results = self._simulate_with_pick(best_pick, points, optimal)
+                    if results['win_pct'] > best_ev:
+                        best_ev = results['win_pct']
+                        best_points = points
+                    
+                    print(f"Selected {best_pick} with {best_points} points (EV: {best_ev:.3f}), {datetime.now()}")
+            
+            # Update optimal picks with best option found
+            optimal[best_pick] = best_points
+            available_points.remove(best_points)
+            remaining_games = [g for g in remaining_games 
+                            if g.home_team != best_pick
+                            and g.away_team != best_pick]
+            
+            print(f"Finally selected {best_pick} with {best_points} points (EV: {best_ev:.3f}), {datetime.now()}")
+            print(optimal)
+        
+        return optimal
+
+    def _simulate_with_pick(self, team: str, points: int, current_picks: Dict[str, int]) -> Dict:
+        """
+        Helper method to simulate outcomes with a specific pick added to current picks
+        
+        Args:
+            team: Team to simulate picking
+            points: Point value to assign
+            current_picks: Dictionary of picks already made
+            
+        Returns:
+            Dictionary containing expected value and win percentage
+        """
+        # Create temporary picks dict with new pick added
+        test_picks = current_picks.copy()
+        test_picks[team] = points
+        
         # Run focused simulation
         picks_df = self.simulate_picks()
+        
+        # Update picks for first player (the one we're optimizing for)
+        mask = (picks_df.player == self.players[0].name)
+        
+        # Find the game containing our team and update the pick
+        game_mask = picks_df[mask].game.str.contains(team)
+        is_home = (picks_df.loc[mask & game_mask, 'game'].str.split('@').str[1] == team).astype(float)
+        picks_df.loc[mask & game_mask, 'picked_home'] = is_home
+        picks_df.loc[mask & game_mask, 'confidence'] = float(points)
+        
+        # Update other picks based on current_picks
+        for team, pts in current_picks.items():
+            game_mask = picks_df[mask].game.str.contains(team)
+            is_home = (picks_df.loc[mask & game_mask, 'game'].str.split('@').str[1] == team).astype(float)
+            picks_df.loc[mask & game_mask, 'picked_home'] = is_home
+            picks_df.loc[mask & game_mask, 'confidence'] = float(pts)
+        
+        # Simulate outcomes and analyze results
         outcomes = self.simulate_outcomes()
-        
-        # Find rows to update
-        mask = (picks_df.player == self.players[0].name) & picks_df.game.str.contains(team)
-        
-        # Calculate if team is home team and convert to float
-        is_home = picks_df.loc[mask, 'game'].apply(lambda x: team in x.split('@')[1])
-        picks_df.loc[mask, 'picked_home'] = is_home.astype(float)
-        picks_df.loc[mask, 'confidence'] = float(points)
-        
         stats = self.analyze_results(picks_df, outcomes)
         
         return {
