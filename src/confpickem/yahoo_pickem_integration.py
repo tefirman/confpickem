@@ -10,8 +10,6 @@ from yahoo_pickem_scraper import YahooPickEm
 from confidence_pickem_sim import ConfidencePickEmSimulator
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
-from pytz import timezone
 
 def convert_yahoo_to_simulator_format(yahoo_data: YahooPickEm, ignore_results: bool = False) -> pd.DataFrame:
     """
@@ -24,26 +22,24 @@ def convert_yahoo_to_simulator_format(yahoo_data: YahooPickEm, ignore_results: b
     Returns:
         DataFrame containing game data in simulator format
     """
-    is_favorite_home = ~yahoo_data.games['favorite'].str.contains('@')
-    
     # Vectorized team assignment
-    home_teams = np.where(is_favorite_home, 
+    home_teams = np.where(yahoo_data.games['home_favorite'], 
                          yahoo_data.games['favorite'], 
                          yahoo_data.games['underdog'])
-    away_teams = np.where(is_favorite_home,
+    away_teams = np.where(yahoo_data.games['home_favorite'],
                          yahoo_data.games['underdog'],
                          yahoo_data.games['favorite'])
     
-    # Vectorized probability calculations  
-    vegas_win_probs = yahoo_data.games['favorite_pick_pct'] / 100
-    crowd_home_pick_pcts = np.where(is_favorite_home,
+    # Vectorized probability calculations
+    vegas_win_probs = yahoo_data.games['win_prob']
+    crowd_home_pick_pcts = np.where(yahoo_data.games['home_favorite'],
                                    yahoo_data.games['favorite_pick_pct'],
                                    yahoo_data.games['underdog_pick_pct']) / 100
     
-    crowd_home_confidences = np.where(is_favorite_home,
+    crowd_home_confidences = np.where(yahoo_data.games['home_favorite'],
                                      yahoo_data.games['favorite_confidence'],
                                      yahoo_data.games['underdog_confidence'])
-    crowd_away_confidences = np.where(is_favorite_home,
+    crowd_away_confidences = np.where(yahoo_data.games['home_favorite'],
                                      yahoo_data.games['underdog_confidence'],
                                      yahoo_data.games['favorite_confidence'])
     
@@ -79,44 +75,6 @@ def convert_yahoo_to_simulator_format(yahoo_data: YahooPickEm, ignore_results: b
         games_df['actual_outcome'] = actual_outcomes
         
     return games_df
-
-def convert_picks_to_simulator_format(game_picks: pd.DataFrame, game: pd.Series, num_sims: int) -> pd.DataFrame:
-    """
-    Convert Yahoo picks data for a single game into simulator format
-    
-    Args:
-        game_picks: DataFrame containing player picks and confidence for this game
-        game: Series containing game information (home_team, away_team, etc)
-        num_sims: Number of simulations being run
-    """
-    # Create game identifier
-    game_id = f"{game.away_team}@{game.home_team}"
-    
-    picks_list = []
-    
-    # Process each player's pick
-    for _, row in game_picks.iterrows():
-        player_name = row['player_name']
-        pick_col = f'game_{game.game_index}_pick'
-        conf_col = f'game_{game.game_index}_confidence'
-        
-        if pd.notna(row[pick_col]):
-            picked_team = row[pick_col]
-            confidence = row[conf_col]
-            picked_home = (picked_team == game.home_team)
-            
-            # Replicate for each simulation
-            for sim in range(num_sims):
-                picks_list.append({
-                    'simulation': sim,
-                    'player': player_name,
-                    'week': game.week,
-                    'game': game_id,
-                    'picked_home': picked_home,
-                    'confidence': confidence
-                })
-    
-    return pd.DataFrame(picks_list)
 
 def convert_yahoo_picks_to_dataframe(yahoo_data: YahooPickEm, num_sims: int, alternative_picks: dict = None) -> pd.DataFrame:
     """
@@ -214,94 +172,6 @@ def run_simulation(yahoo_data: YahooPickEm, num_sims: int = 10000, ignore_result
     
     return simulator, stats
 
-def run_partial_simulation(yahoo_data: YahooPickEm, current_time: datetime, 
-                         num_sims: int = 10000):
-    """
-    Run simulation using actual Yahoo picks and results where known, simulating the rest.
-    """
-    # Initialize simulator
-    simulator = ConfidencePickEmSimulator(num_sims=num_sims)
-    
-    # Convert and load games data
-    games_df = convert_yahoo_to_simulator_format(yahoo_data)
-    
-    # Mark which games should use actual results vs simulation
-    games_df['use_actual_result'] = games_df.apply(
-        lambda x: x['kickoff_time'] < current_time and pd.notna(x['actual_outcome']),
-        axis=1
-    )
-    
-    # Add games to simulator
-    simulator.add_games_from_dataframe(games_df)
-    
-    # Create picks DataFrame starting with known picks
-    picks_df = pd.DataFrame()
-    
-    for _, game in games_df.iterrows():
-        game_picks = yahoo_data.players[[
-            'player_name', 
-            f'game_{game.game_index}_pick',
-            f'game_{game.game_index}_confidence'
-        ]].copy()
-        
-        # Only use actual picks for games where picks are locked
-        if game.kickoff_time <= current_time:
-            # Use actual picks
-            picks_df = pd.concat([picks_df, 
-                convert_picks_to_simulator_format(game_picks, game, num_sims)
-            ])
-        else:
-            # Simulate picks for future games
-            simulated_picks = simulator.simulate_picks_for_game(
-                game, 
-                yahoo_data.players['player_name'].unique()
-            )
-            picks_df = pd.concat([picks_df, simulated_picks])
-    
-    # Simulate outcomes
-    outcomes = simulator.simulate_outcomes()
-    
-    # Where we have actual results, override simulated ones
-    for idx, game in games_df.iterrows():
-        if game.use_actual_result:
-            outcomes[:, idx] = game.actual_outcome
-    
-    # Analyze results
-    stats = simulator.analyze_results(picks_df, outcomes)
-    
-    return simulator, stats
-
-def run_simulation_with_alternative_picks(yahoo_data: YahooPickEm, 
-                                       alternative_picks: dict,
-                                       num_sims: int = 10000, 
-                                       ignore_results: bool = False):
-    """
-    Run simulation using actual Yahoo picks but with alternative picks for specified player.
-    
-    Args:
-        yahoo_data: YahooPickEm instance containing scraped data
-        alternative_picks: Dictionary mapping team names to confidence points
-        num_sims: Number of simulations to run
-        ignore_results: If True, will simulate all game outcomes regardless of known results
-    """
-    # Initialize simulator
-    simulator = ConfidencePickEmSimulator(num_sims=num_sims)
-    
-    # Convert and load games data
-    games_df = convert_yahoo_to_simulator_format(yahoo_data, ignore_results=ignore_results)
-    simulator.add_games_from_dataframe(games_df)
-    
-    # Create picks DataFrame using actual picks but with alternatives
-    picks_df = convert_yahoo_picks_to_dataframe(yahoo_data, num_sims, alternative_picks)
-    
-    # Simulate outcomes
-    outcomes = simulator.simulate_outcomes()
-    
-    # Analyze results using actual picks
-    stats = simulator.analyze_results(picks_df, outcomes)
-    
-    return simulator, stats
-
 # Example usage:
 if __name__ == "__main__":
     # Initialize Yahoo scraper
@@ -324,29 +194,4 @@ if __name__ == "__main__":
     print(stats['expected_points'])
     print("\nWin Percentages:")
     print(stats['win_pct'].sort_values(ascending=False))
-    print(f"Sum of win percentages: {stats['win_pct'].sum():.3f}")
-
-    # Run simulation at different points in time
-    print("\nSimulation only Sunday outcomes simulated:")
-    current_time = datetime(2024, 9, 1, 7, 0, tzinfo=timezone('EST')) + timedelta(days=7*week)  # Sunday at 7am ET
-    simulator, stats = run_partial_simulation(yahoo, current_time)
-    
-    print("\nSimulation incorporating known results and picks:")
-    print("\nExpected Points by Player:")
-    print(stats['expected_points'])
-    print("\nWin Percentages:")
-    print(stats['win_pct'].sort_values(ascending=False))
-    print(f"Sum of win percentages: {stats['win_pct'].sum():.3f}")
-
-    # Example alternative picks - just map team names to confidence points
-    # alternative_picks = {'NE': 16, 'Buf': 15, 'Mia': 13, 'NO': 12, 'Pit': 11, 'SF': 9, 'Sea': 8, 'Hou': 7, 'Dal': 3, 'TB': 14, 'KC': 10, 'Min': 6, 'Phi': 4, 'LAC': 5, 'Chi': 2, 'Det': 1}
-    alternative_picks = {'Cin': 16, 'Buf': 15, 'Det': 11, 'NO': 8, 'Sea': 9, 'Mia': 7, 'NYJ': 3, 'Chi': 14, 'Hou': 13, 'LAC': 12, 'Atl': 10, 'KC': 6, 'TB': 5, 'Min': 4, 'Dal': 1, 'GB': 2}
-
-    # Run simulation with alternative picks
-    print("\nSimulation using alternative picks:")
-    simulator, stats = run_simulation_with_alternative_picks(yahoo, alternative_picks, ignore_results=True)
-    print("\nExpected Points by Player:")
-    print(stats['expected_points'])
-    print("\nWin Percentages:")
-    print(stats['win_pct'])
     print(f"Sum of win percentages: {stats['win_pct'].sum():.3f}")

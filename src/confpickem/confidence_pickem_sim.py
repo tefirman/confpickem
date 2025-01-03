@@ -10,7 +10,7 @@
 '''
 
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 import numpy as np
 import pandas as pd
 import scipy
@@ -57,7 +57,7 @@ class ConfidencePickEmSimulator:
                 actual_outcome=row.get('actual_outcome', None)
             ))
 
-    def simulate_picks(self) -> pd.DataFrame:
+    def simulate_picks(self, fixed_picks: Dict[str, int] = {}) -> pd.DataFrame:
         """Vectorized simulation of all picks and confidence points"""
         num_games = len(self.games)
         num_players = len(self.players)
@@ -117,82 +117,31 @@ class ConfidencePickEmSimulator:
                 # Convert to ranks
                 confidence[sim, p] = num_games + 1 - scipy.stats.rankdata(final_conf)
         
-        return self._create_results_dataframe(picks, confidence)
+        # Convert to pandas dataframe
+        results = []
+        for sim in range(self.num_sims):
+            for p_idx, player in enumerate(self.players):
+                for g_idx, game in enumerate(self.games):
+                    results.append({
+                        'simulation': sim,
+                        'player': player.name,
+                        'week': game.week,
+                        'game': f"{game.away_team}@{game.home_team}",
+                        'picked_home': picks[sim, p_idx, g_idx],
+                        'confidence': confidence[sim, p_idx, g_idx]
+                    })
+        picks_df = pd.DataFrame(results)
 
-    def simulate_picks_for_game(self, game: pd.Series, player_names: list) -> pd.DataFrame:
-        """
-        Simulate picks for a single future game for specified players
+        # Update picks for the first player with provided fixed picks
+        # Might further generalize this later, but not now...
+        mask = (picks_df.player == self.players[0].name)
+        for team, pts in fixed_picks.items():
+            game_mask = picks_df[mask].game.str.contains(team)
+            is_home = (picks_df.loc[mask & game_mask, 'game'].str.split('@').str[1] == team).astype(float)
+            picks_df.loc[mask & game_mask, 'picked_home'] = is_home
+            picks_df.loc[mask & game_mask, 'confidence'] = float(pts)
         
-        Args:
-            game: Series containing game information (home_team, away_team, etc)
-            player_names: List of player names to simulate picks for
-            
-        Returns:
-            DataFrame containing simulated picks in standard format
-        """
-        # Create game identifier
-        game_id = f"{game.away_team}@{game.home_team}"
-        
-        picks_list = []
-        
-        # Get player characteristics
-        player_dict = {p.name: p for p in self.players}
-        
-        for player_name in player_names:
-            player = player_dict.get(player_name)
-            if not player:
-                # If player not found in characteristics, use average values
-                skill_level = 0.5
-                crowd_following = 0.5
-                conf_following = 0.5
-            else:
-                skill_level = player.skill_level
-                crowd_following = player.crowd_following
-                conf_following = player.confidence_following
-                
-            # Calculate pick probability
-            base_prob = game.vegas_win_prob * (1 - crowd_following) + \
-                    game.crowd_home_pick_pct * crowd_following
-            
-            # Add skill-based noise
-            noise = np.random.normal(0, 0.1) * (1 - skill_level)
-            pick_prob = np.clip(base_prob + noise, 0.1, 0.9)
-            
-            # Generate picks for each simulation
-            for sim in range(self.num_sims):
-                # Determine if home team picked
-                picked_home = np.random.random() < pick_prob
-                
-                # Calculate confidence
-                if picked_home:
-                    chosen_conf = game.crowd_home_confidence
-                    opposing_conf = game.crowd_away_confidence
-                else:
-                    chosen_conf = game.crowd_away_confidence
-                    opposing_conf = game.crowd_home_confidence
-                    
-                # Calculate confidence score
-                conf_diff = (chosen_conf - opposing_conf) / (chosen_conf + opposing_conf)
-                vegas_conf = abs(game.vegas_win_prob - 0.5) * 2 * len(self.games)
-                
-                # Blend signals
-                blended_conf = chosen_conf * (1 + conf_diff) * conf_following + \
-                            vegas_conf * (1 - conf_following)
-                
-                # Add skill-based noise
-                noise = np.random.normal(0, 2) * (1 - skill_level)
-                final_conf = int(np.clip(blended_conf + noise, 1, len(self.games)))
-                
-                picks_list.append({
-                    'simulation': sim,
-                    'player': player_name,
-                    'week': game.week,
-                    'game': game_id,
-                    'picked_home': picked_home,
-                    'confidence': final_conf
-                })
-        
-        return pd.DataFrame(picks_list)
+        return picks_df
 
     def simulate_outcomes(self) -> np.ndarray:
         """Simulate game outcomes efficiently"""
@@ -208,24 +157,6 @@ class ConfidencePickEmSimulator:
                 outcomes[:, i] = np.random.random(self.num_sims) < vegas_probs[i]
                 
         return outcomes
-
-    def _create_results_dataframe(self, picks: np.ndarray, confidence: np.ndarray) -> pd.DataFrame:
-        """Convert simulation results to DataFrame for analysis"""
-        results = []
-        
-        for sim in range(self.num_sims):
-            for p_idx, player in enumerate(self.players):
-                for g_idx, game in enumerate(self.games):
-                    results.append({
-                        'simulation': sim,
-                        'player': player.name,
-                        'week': game.week,
-                        'game': f"{game.away_team}@{game.home_team}",
-                        'picked_home': picks[sim, p_idx, g_idx],
-                        'confidence': confidence[sim, p_idx, g_idx]
-                    })
-                    
-        return pd.DataFrame(results)
 
     def analyze_results(self, picks_df: pd.DataFrame, outcomes: np.ndarray) -> Dict:
         """Analyze simulation results and compute statistics with tiebreaker handling"""
@@ -279,6 +210,19 @@ class ConfidencePickEmSimulator:
         
         return stats
 
+    def simulate_all(self, fixed_picks: Dict[str, int] = {}):
+        # Run focused simulation
+        picks_df = self.simulate_picks(fixed_picks)
+        
+        # Simulate outcomes and analyze results
+        outcomes = self.simulate_outcomes()
+        stats = self.analyze_results(picks_df, outcomes)
+        
+        return {
+            'expected_value': stats['expected_points'][self.players[0].name],
+            'win_pct': stats['win_pct'][self.players[0].name]
+        }
+
     def optimize_picks(self, fixed_picks: Dict[str, int] = None) -> Dict[str, int]:
         """Optimize picks using simulation results"""
         # Initialize variables
@@ -311,8 +255,12 @@ class ConfidencePickEmSimulator:
             current_points = max(available_points)
             
             # Simulate both options
-            home_results = self._simulate_with_pick(game.home_team, current_points)
-            away_results = self._simulate_with_pick(game.away_team, current_points)
+            home_picks = optimal.copy()
+            home_picks[game.home_team] = current_points
+            home_results = self.simulate_all(home_picks)
+            away_picks = optimal.copy()
+            away_picks[game.away_team] = current_points
+            away_results = self.simulate_all(away_picks)
             
             print(home_results)
             print(away_results)
@@ -329,138 +277,3 @@ class ConfidencePickEmSimulator:
             available_points.remove(current_points)
         
         return optimal
-
-    def optimize_picks_comprehensive(self, fixed_picks: Dict[str, int] = None, point_buckets: int = 4) -> Dict[str, int]:
-        """
-        Optimize picks by simulating possibilities with bucketed point values for efficiency.
-        
-        Args:
-            fixed_picks: Dictionary mapping team names to point values for picks that should not be changed
-            point_buckets: Number of buckets to divide point values into (excluding fixed picks)
-            
-        Returns:
-            Dictionary mapping team names to optimal point values
-        """
-        # Initialize variables
-        optimal = {}
-        if fixed_picks is None:
-            fixed_picks = {}
-        
-        # Start with fixed picks
-        optimal.update(fixed_picks)
-        
-        # Track available points
-        used_points = set(fixed_picks.values())
-        available_points = set(range(1, len(self.games) + 1)) - used_points
-        
-        # Create point value buckets for remaining points
-        sorted_points = sorted(list(available_points))
-        points_per_bucket = max(1, len(sorted_points) // point_buckets)
-        point_groups = [sorted_points[i:i + points_per_bucket] 
-                    for i in range(0, len(sorted_points), points_per_bucket)]
-        
-        # Get remaining games that need picks
-        remaining_games = [g for g in self.games 
-                        if g.home_team not in fixed_picks 
-                        and g.away_team not in fixed_picks]
-        
-        # For each remaining pick slot
-        while remaining_games and available_points:
-            best_ev = float('-inf')
-            best_pick = None
-            best_points = None
-            
-            # Try each remaining game
-            for game in remaining_games:
-                # Try representative points from each bucket
-                for point_group in point_groups:
-                    # Use median value from bucket as representative
-                    points = point_group[len(point_group)//2]
-                    if points not in available_points:
-                        continue
-                    
-                    # Try home team
-                    home_results = self._simulate_with_pick(game.home_team, points, optimal)
-                    if home_results['win_pct'] > best_ev:
-                        best_ev = home_results['win_pct']
-                        best_pick = game.home_team
-                        best_points = points
-                    
-                    # Try away team
-                    away_results = self._simulate_with_pick(game.away_team, points, optimal)
-                    if away_results['win_pct'] > best_ev:
-                        best_ev = away_results['win_pct']
-                        best_pick = game.away_team 
-                        best_points = points
-                    
-                    print(f"Selected {best_pick} with {best_points} points (EV: {best_ev:.3f}), {datetime.now()}")
-            
-            # Fine-tune point value around best bucket
-            if best_points is not None:
-                current_bucket = next(group for group in point_groups if best_points in group)
-                nearby_points = [p for p in available_points 
-                            if abs(p - best_points) <= max(2, points_per_bucket//2)]
-                
-                for points in nearby_points:
-                    results = self._simulate_with_pick(best_pick, points, optimal)
-                    if results['win_pct'] > best_ev:
-                        best_ev = results['win_pct']
-                        best_points = points
-                    
-                    print(f"Selected {best_pick} with {best_points} points (EV: {best_ev:.3f}), {datetime.now()}")
-            
-            # Update optimal picks with best option found
-            optimal[best_pick] = best_points
-            available_points.remove(best_points)
-            remaining_games = [g for g in remaining_games 
-                            if g.home_team != best_pick
-                            and g.away_team != best_pick]
-            
-            print(f"Finally selected {best_pick} with {best_points} points (EV: {best_ev:.3f}), {datetime.now()}")
-            print(optimal)
-        
-        return optimal
-
-    def _simulate_with_pick(self, team: str, points: int, current_picks: Dict[str, int]) -> Dict:
-        """
-        Helper method to simulate outcomes with a specific pick added to current picks
-        
-        Args:
-            team: Team to simulate picking
-            points: Point value to assign
-            current_picks: Dictionary of picks already made
-            
-        Returns:
-            Dictionary containing expected value and win percentage
-        """
-        # Create temporary picks dict with new pick added
-        test_picks = current_picks.copy()
-        test_picks[team] = points
-        
-        # Run focused simulation
-        picks_df = self.simulate_picks()
-        
-        # Update picks for first player (the one we're optimizing for)
-        mask = (picks_df.player == self.players[0].name)
-        
-        # Find the game containing our team and update the pick
-        game_mask = picks_df[mask].game.str.contains(team)
-        is_home = (picks_df.loc[mask & game_mask, 'game'].str.split('@').str[1] == team).astype(float)
-        picks_df.loc[mask & game_mask, 'picked_home'] = is_home
-        picks_df.loc[mask & game_mask, 'confidence'] = float(points)
-        
-        # Update other picks based on current_picks
-        for team, pts in current_picks.items():
-            game_mask = picks_df[mask].game.str.contains(team)
-            is_home = (picks_df.loc[mask & game_mask, 'game'].str.split('@').str[1] == team).astype(float)
-            picks_df.loc[mask & game_mask, 'picked_home'] = is_home
-            picks_df.loc[mask & game_mask, 'confidence'] = float(pts)
-        
-        # Simulate outcomes and analyze results
-        outcomes = self.simulate_outcomes()
-        stats = self.analyze_results(picks_df, outcomes)
-        
-        return {
-            'expected_value': stats['expected_points'][self.players[0].name],
-            'win_pct': stats['win_pct'][self.players[0].name]
-        }

@@ -32,7 +32,7 @@ class PageCache:
         """Generate metadata file path for given page type and week"""
         return self.cache_dir / f"{page_type}_week{week}_meta.json"
     
-    def get_cached_content(self, page_type: str, week: int) -> str:
+    def get_cached_content(self, page_type: str, week: int, expiration: int = 86400) -> str:
         """Retrieve cached content if it exists and is not expired"""
         cache_path = self.get_cache_path(page_type, week)
         meta_path = self.get_metadata_path(page_type, week)
@@ -43,9 +43,9 @@ class PageCache:
         with open(meta_path) as f:
             metadata = json.load(f)
             
-        # Cache expires after 1 hour
+        # Cache expires after 1 day
         cache_age = datetime.now() - datetime.fromisoformat(metadata['timestamp'])
-        if cache_age.total_seconds() > 3600:
+        if cache_age.total_seconds() > expiration:
             return None
             
         with open(cache_path) as f:
@@ -138,18 +138,26 @@ class YahooPickEm:
             
             # Get team names and pick percentages
             teams = game.find_all('th')
+            teams_full = game.find_all('dd', class_='team')
             percentages = game.find_all('dd', class_='percent')
             
             game_dict['favorite'] = teams[0].text.strip()
             game_dict['favorite_pick_pct'] = float(percentages[0].text.strip().replace('%', ''))
             game_dict['underdog'] = teams[-1].text.strip()
             game_dict['underdog_pick_pct'] = float(percentages[1].text.strip().replace('%', ''))
+            game_dict['home_favorite'] = teams_full[-1].text.strip().startswith("@ ")
             
             # Get confidence values
             ft = game.find('div', class_='ft')
             confidence_row = ft.find('tr', class_="odd first").find_all('td')
             game_dict['favorite_confidence'] = float(confidence_row[0].text.strip())
             game_dict['underdog_confidence'] = float(confidence_row[2].text.strip())
+
+            # Get confidence values
+            ft = game.find('div', class_='ft')
+            spread_row = ft.find('tr', class_="odd").find_all('td')
+            game_dict['spread'] = float(spread_row[0].text.strip().split()[0])
+            game_dict['win_prob'] = min(max(game_dict['spread'] * 0.031 + 0.5,0.0),1.0)
 
             # Parse kickoff time
             time_element = game.find('div', class_='hd')
@@ -179,7 +187,11 @@ class YahooPickEm:
         for game in range(len(games_meta[0])):
             favorite = games_meta[0][game].text.strip()
             underdog = games_meta[2][game].text.strip()
-            spread = float(games_meta[1][game].text.strip())
+            spread = games_meta[1][game].text.strip()
+            if "Off" in spread: # Need to figure out what to do here...
+                spread = 0.0
+            else:
+                spread = float(spread)
             
             winner = None
             if "yspNflPickWin" in games_meta[0][game].get("class",[]):
@@ -208,7 +220,7 @@ class YahooPickEm:
             
             # Parse each pick
             for i, col in enumerate(cols[1:-1]):
-                if col.text.strip():
+                if col.text.strip() not in ["", "--"]:
                     pick_text = col.text.strip()
                     team = pick_text.split('(')[0].strip()
                     confidence = int(pick_text.split('(')[1].replace(')', ''))
@@ -229,8 +241,105 @@ class YahooPickEm:
         self.players = pd.DataFrame(players)
         self.results = games
 
-# Example usage:
-# league = YahooPickEm(week=13, league_id=6207, cookies_file='cookies.txt')
-# print(league.games)  # Shows pick distribution
-# print(league.players)  # Shows everyone's picks
-# print(league.results)  # Shows game results
+def calculate_player_stats(league_id: int, weeks: list, cookies_file: str):
+    """
+    Calculate player statistics based on historical performance.
+    
+    Args:
+        league_id: Yahoo Pick'em league ID
+        weeks: List of weeks to analyze
+        cookies_file: Path to cookies.txt file
+        
+    Returns:
+        DataFrame containing player statistics
+    """
+    all_picks = []
+    all_games = []
+    
+    # Gather historical data
+    for week in weeks:
+        yahoo = YahooPickEm(week=week, league_id=league_id, cookies_file=cookies_file)
+        
+        # Add week number to dataframes
+        yahoo.players['week'] = week
+        yahoo.games['week'] = week
+        
+        all_picks.append(yahoo.players)
+        all_games.append(yahoo.games)
+    
+    picks_df = pd.concat(all_picks, ignore_index=True)
+    games_df = pd.concat(all_games, ignore_index=True)
+    
+    player_stats = []
+    
+    for player in picks_df['player_name'].unique():
+        player_picks = picks_df[picks_df['player_name'] == player]
+        
+        # Calculate skill level based on correct pick percentage
+        total_picks = 0
+        correct_picks = 0
+        
+        # Calculate crowd following based on agreement with majority
+        crowd_agreement = 0
+        total_comparable = 0
+        
+        # Calculate confidence alignment
+        confidence_alignment = 0
+        total_confidence = 0
+        
+        for week in player_picks['week'].unique():
+            week_picks = player_picks[player_picks['week'] == week]
+            week_games = games_df[games_df['week'] == week]
+            
+            for game_num in range(len(week_games)):
+                pick_col = f'game_{game_num+1}_pick'
+                conf_col = f'game_{game_num+1}_confidence'
+                correct_col = f'game_{game_num+1}_correct'
+                
+                if pd.notna(week_picks[pick_col].iloc[0]):
+                    pick = week_picks[pick_col].iloc[0]
+                    confidence = week_picks[conf_col].iloc[0]
+                    
+                    # Skill level calculation
+                    total_picks += 1
+                    if week_picks[correct_col].iloc[0]:
+                        correct_picks += 1
+                    
+                    # Crowd following calculation
+                    game = week_games.iloc[game_num]
+                    picked_favorite = (pick == game['favorite'])
+                    majority_picked_favorite = (game['favorite_pick_pct'] > 50)
+                    
+                    total_comparable += 1
+                    if picked_favorite == majority_picked_favorite:
+                        crowd_agreement += 1
+                    
+                    # Confidence alignment calculation
+                    expected_conf = game['favorite_confidence'] if picked_favorite else game['underdog_confidence']
+                    total_confidence += 1
+                    confidence_alignment += 1 - abs(confidence - expected_conf) / max(confidence, expected_conf)
+        
+        skill_level = correct_picks / total_picks if total_picks > 0 else 0.5
+        crowd_following = crowd_agreement / total_comparable if total_comparable > 0 else 0.5
+        confidence_following = confidence_alignment / total_confidence if total_confidence > 0 else 0.5
+        
+        player_stats.append({
+            'player': player,
+            'skill_level': skill_level,
+            'crowd_following': crowd_following,
+            'confidence_following': confidence_following,
+            'total_picks': total_picks
+        })
+    
+    stats_df = pd.DataFrame(player_stats)
+    
+    # Normalize stats to 0-1 range
+    for col in ['skill_level', 'crowd_following', 'confidence_following']:
+        min_val = stats_df[col].min()
+        max_val = stats_df[col].max()
+        if max_val > min_val:
+            stats_df[col] = (stats_df[col] - min_val) / (max_val - min_val)
+        else:
+            stats_df[col] = 0.5  # Default to middle value if no variation
+    
+    return stats_df
