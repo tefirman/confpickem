@@ -8,8 +8,10 @@
 @Desc    :   Example usage of ConfidencePickEmSimulator
 '''
 
-import pandas as pd
+import sys
+sys.path.append("../src/confpickem/")
 from confidence_pickem_sim import ConfidencePickEmSimulator, Player, Game
+import pandas as pd
 
 def main():
     # Initialize simulator with 10,000 simulations
@@ -38,12 +40,13 @@ def main():
         Player("Contrarian", skill_level=0.7, crowd_following=0.1, confidence_following=0.4)
     ]
 
-    # Run simulations and get picks
+    # Run each of the individual pieces...
     picks_df = simulator.simulate_picks()
     outcomes = simulator.simulate_outcomes()
-
-    # Analyze results
     stats = simulator.analyze_results(picks_df, outcomes)
+
+    # ... or run them all in one function
+    stats = simulator.simulate_all()
 
     # Print summary statistics
     print("\nExpected Points by Player:")

@@ -217,11 +217,7 @@ class ConfidencePickEmSimulator:
         # Simulate outcomes and analyze results
         outcomes = self.simulate_outcomes()
         stats = self.analyze_results(picks_df, outcomes)
-        
-        return {
-            'expected_value': stats['expected_points'][self.players[0].name],
-            'win_pct': stats['win_pct'][self.players[0].name]
-        }
+        return stats
 
     def optimize_picks(self, fixed_picks: Dict[str, int] = None) -> Dict[str, int]:
         """Optimize picks using simulation results"""
@@ -266,7 +262,7 @@ class ConfidencePickEmSimulator:
             print(away_results)
 
             # Choose better option
-            if home_results['expected_value'] > away_results['expected_value']:
+            if home_results['expected_points'][self.players[0].name] > away_results['expected_points'][self.players[0].name]:
                 optimal[game.home_team] = current_points
             else:
                 optimal[game.away_team] = current_points
