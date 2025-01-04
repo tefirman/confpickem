@@ -85,7 +85,8 @@ class ConfidencePickEmSimulator:
             # Add skill-based noise
             noise = np.random.normal(0, 0.1, (num_players, num_games)) * \
                    (1 - skill_levels.reshape(-1, 1))
-            pick_probs = np.clip(base_probs + noise, 0.1, 0.9)
+            # pick_probs = np.clip(base_probs + noise, 0.1, 0.9)
+            pick_probs = np.clip(base_probs + noise, 0.0, 1.0)
             
             # Generate picks
             picks[sim] = np.random.random((num_players, num_games)) < pick_probs
@@ -253,16 +254,16 @@ class ConfidencePickEmSimulator:
             # Simulate both options
             home_picks = optimal.copy()
             home_picks[game.home_team] = current_points
-            home_results = self.simulate_all(home_picks)
+            home_results = self.simulate_all(home_picks)['expected_points'][self.players[0].name]
             away_picks = optimal.copy()
             away_picks[game.away_team] = current_points
-            away_results = self.simulate_all(away_picks)
+            away_results = self.simulate_all(away_picks)['expected_points'][self.players[0].name]
             
             print(home_results)
             print(away_results)
 
             # Choose better option
-            if home_results['expected_points'][self.players[0].name] > away_results['expected_points'][self.players[0].name]:
+            if home_results > away_results:
                 optimal[game.home_team] = current_points
             else:
                 optimal[game.away_team] = current_points
@@ -273,3 +274,65 @@ class ConfidencePickEmSimulator:
             available_points.remove(current_points)
         
         return optimal
+    
+    def assess_game_importance(self, picks_df: pd.DataFrame = None, fixed_picks: Dict[str, int] = None) -> pd.DataFrame:
+        """
+        Assess the relative importance of each game by calculating win probability
+        changes between winning and losing each matchup.
+        
+        Args:
+            picks_df: DataFrame containing picks (optional - will simulate if not provided)
+            fixed_picks: Dictionary mapping team names to confidence points (optional)
+            
+        Returns:
+            DataFrame containing impact metrics for each game
+        """
+        # Generate picks if not provided
+        if picks_df is None:
+            picks_df = self.simulate_picks(fixed_picks if fixed_picks else {})
+        
+        # Get base simulation results
+        outcomes = self.simulate_outcomes()
+        base_stats = self.analyze_results(picks_df, outcomes)
+        base_win_pct = base_stats['win_pct'][self.players[0].name]
+        
+        # Analyze each game
+        game_impacts = []
+        for game_idx, game in enumerate(self.games):
+            game_id = f"{game.away_team}@{game.home_team}"
+            
+            # Force win for first player's pick
+            player_pick = picks_df[
+                (picks_df.player == self.players[0].name) & 
+                (picks_df.game == game_id)
+            ].iloc[0]
+            
+            # Create forced outcome array
+            forced_win = outcomes.copy()
+            forced_win[:, game_idx] = player_pick.picked_home
+            forced_loss = outcomes.copy()
+            forced_loss[:, game_idx] = not player_pick.picked_home
+            
+            # Calculate win probabilities under each scenario
+            win_stats = self.analyze_results(picks_df, forced_win)
+            loss_stats = self.analyze_results(picks_df, forced_loss)
+            
+            win_prob = win_stats['win_pct'][self.players[0].name]
+            loss_prob = loss_stats['win_pct'][self.players[0].name]
+            
+            game_impacts.append({
+                'game': game_id,
+                'points_bid': player_pick.confidence,
+                'win_probability': win_prob,
+                'loss_probability': loss_prob,
+                'win_delta': win_prob - base_win_pct,
+                'loss_delta': loss_prob - base_win_pct,
+                'total_impact': win_prob - loss_prob
+            })
+        
+        results = pd.DataFrame(game_impacts)
+        
+        # Sort by absolute impact
+        results = results.sort_values('total_impact', ascending=False, key=abs)
+        
+        return results
