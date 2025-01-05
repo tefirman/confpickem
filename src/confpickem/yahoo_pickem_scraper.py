@@ -32,7 +32,7 @@ class PageCache:
         """Generate metadata file path for given page type and week"""
         return self.cache_dir / f"{page_type}_week{week}_meta.json"
     
-    def get_cached_content(self, page_type: str, week: int, expiration: int = 86400) -> str:
+    def get_cached_content(self, page_type: str, week: int, expiration: int = 3600) -> str:
         """Retrieve cached content if it exists and is not expired"""
         cache_path = self.get_cache_path(page_type, week)
         meta_path = self.get_metadata_path(page_type, week)

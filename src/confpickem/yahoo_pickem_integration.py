@@ -6,10 +6,11 @@
 @Desc    :   Integration script using actual Yahoo picks instead of simulating new ones
 '''
 
-from yahoo_pickem_scraper import YahooPickEm
-from confidence_pickem_sim import ConfidencePickEmSimulator
+from .yahoo_pickem_scraper import YahooPickEm
+from .confidence_pickem_sim import ConfidencePickEmSimulator
 import pandas as pd
 import numpy as np
+from typing import Dict
 
 def convert_yahoo_to_simulator_format(yahoo_data: YahooPickEm, ignore_results: bool = False) -> pd.DataFrame:
     """
@@ -76,18 +77,26 @@ def convert_yahoo_to_simulator_format(yahoo_data: YahooPickEm, ignore_results: b
         
     return games_df
 
-def convert_yahoo_picks_to_dataframe(yahoo_data: YahooPickEm, num_sims: int, alternative_picks: dict = None) -> pd.DataFrame:
+def convert_yahoo_picks_to_dataframe(yahoo_data: YahooPickEm, num_sims: int, 
+                                fixed_picks: Dict[str, Dict[str, int]] = None) -> pd.DataFrame:
     """
     Convert actual Yahoo picks into simulator DataFrame format, replicated for each simulation.
-    Can override picks for a specific player with alternative picks.
+    Supports overriding known picks for any player.
     
     Args:
         yahoo_data: YahooPickEm instance containing scraped data
         num_sims: Number of simulations to run
-        alternative_picks: Dictionary mapping team names to confidence points, e.g.:
-            {'SF': 16, 'KC': 15, ...}
+        fixed_picks: Dictionary mapping player names to their fixed picks.
+            Structure: {
+                'Player Name': {
+                    'SF': 16,  # Team abbreviation -> confidence points
+                    'KC': 15,
+                    # etc...
+                }
+            }
     """
     picks_list = []
+    fixed_picks = fixed_picks or {}
     
     # Get mapping of teams to games
     games_df = convert_yahoo_to_simulator_format(yahoo_data)
@@ -97,16 +106,26 @@ def convert_yahoo_picks_to_dataframe(yahoo_data: YahooPickEm, num_sims: int, alt
     for _, player_row in yahoo_data.players.iterrows():
         player_name = player_row['player_name']
         
-        # For your entry, convert alternative picks to game indices first
-        game_to_pick = {}
-        if player_name == "Firman's Educated Guesses" and alternative_picks:
+        # Create mapping of games to confidence points
+        game_to_confidence = {}
+        if player_name in fixed_picks:
+            player_fixed = fixed_picks[player_name]
+            
+            # Map fixed picks to games
             for game_idx, game in enumerate(games):
                 home = game.split('@')[1]
                 away = game.split('@')[0]
-                if home in alternative_picks:
-                    game_to_pick[game_idx + 1] = {'pick': home, 'confidence': alternative_picks[home]}
-                elif away in alternative_picks:
-                    game_to_pick[game_idx + 1] = {'pick': away, 'confidence': alternative_picks[away]}
+                
+                if home in player_fixed:
+                    game_to_confidence[game_idx + 1] = {
+                        'pick': home, 
+                        'confidence': player_fixed[home]
+                    }
+                elif away in player_fixed:
+                    game_to_confidence[game_idx + 1] = {
+                        'pick': away,
+                        'confidence': player_fixed[away]
+                    }
         
         # Process each game
         for game_idx, game in enumerate(games):
@@ -116,23 +135,23 @@ def convert_yahoo_picks_to_dataframe(yahoo_data: YahooPickEm, num_sims: int, alt
             pick_col = f'game_{game_idx+1}_pick'
             conf_col = f'game_{game_idx+1}_confidence'
             
-            # Use alternative pick if specified for this player and game
-            if (player_name == "Firman's Educated Guesses" and 
-                game_to_pick and 
-                game_idx + 1 in game_to_pick):
-                
-                alt_pick = game_to_pick[game_idx + 1]['pick']
-                confidence = game_to_pick[game_idx + 1]['confidence']
-                picked_home = (alt_pick == home_team)
-                
+            # Use fixed pick if available for this game
+            if game_idx + 1 in game_to_confidence:
+                fixed_pick = game_to_confidence[game_idx + 1]
+                picked_home = (fixed_pick['pick'] == home_team)
+                confidence = fixed_pick['confidence']
+            
+            # Otherwise use actual pick if one exists
             elif pd.notna(player_row[pick_col]):
                 picked_team = player_row[pick_col]
                 confidence = player_row[conf_col]
                 picked_home = (picked_team == home_team)
+            
+            # Skip if no pick available
             else:
                 continue
                 
-            # Replicate for each simulation
+            # Add pick to list for each simulation
             for sim in range(num_sims):
                 picks_list.append({
                     'simulation': sim,
@@ -145,14 +164,17 @@ def convert_yahoo_picks_to_dataframe(yahoo_data: YahooPickEm, num_sims: int, alt
     
     return pd.DataFrame(picks_list)
 
-def run_simulation(yahoo_data: YahooPickEm, num_sims: int = 10000, ignore_results: bool = False):
+def run_simulation(yahoo_data: YahooPickEm, num_sims: int = 10000, ignore_results: bool = False,
+                  fixed_picks: Dict[str, Dict[str, int]] = None):
     """
-    Run simulation using actual Yahoo picks. Can optionally ignore known game results.
+    Run simulation using actual Yahoo picks. Can optionally ignore known game results
+    and override picks for any player.
     
     Args:
         yahoo_data: YahooPickEm instance containing scraped data
         num_sims: Number of simulations to run
         ignore_results: If True, will simulate all game outcomes regardless of known results
+        fixed_picks: Dictionary mapping player names to their fixed picks
     """
     # Initialize simulator
     simulator = ConfidencePickEmSimulator(num_sims=num_sims)
@@ -161,13 +183,13 @@ def run_simulation(yahoo_data: YahooPickEm, num_sims: int = 10000, ignore_result
     games_df = convert_yahoo_to_simulator_format(yahoo_data, ignore_results=ignore_results)
     simulator.add_games_from_dataframe(games_df)
     
-    # Create picks DataFrame using actual picks
-    picks_df = convert_yahoo_picks_to_dataframe(yahoo_data, num_sims)
+    # Create picks DataFrame using actual picks and any fixed picks
+    picks_df = convert_yahoo_picks_to_dataframe(yahoo_data, num_sims, fixed_picks)
     
     # Simulate outcomes
     outcomes = simulator.simulate_outcomes()
     
-    # Analyze results using actual picks
+    # Analyze results using actual/fixed picks
     stats = simulator.analyze_results(picks_df, outcomes)
     
     return simulator, stats

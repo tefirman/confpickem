@@ -57,10 +57,24 @@ class ConfidencePickEmSimulator:
                 actual_outcome=row.get('actual_outcome', None)
             ))
 
-    def simulate_picks(self, fixed_picks: Dict[str, int] = {}) -> pd.DataFrame:
-        """Vectorized simulation of all picks and confidence points"""
+    def simulate_picks(self, fixed_picks: Dict[str, Dict[str, int]] = None) -> pd.DataFrame:
+        """Vectorized simulation of all picks and confidence points
+        
+        Args:
+            fixed_picks: Dictionary mapping player names to their fixed picks.
+                Structure: {
+                    'Player Name': {
+                        'SF': 16,  # Team abbreviation -> confidence points
+                        'KC': 15,
+                        # etc...
+                    }
+                }
+                If player name is not in fixed_picks, all their picks will be simulated.
+                For players in fixed_picks, any teams not specified will be simulated.
+        """
         num_games = len(self.games)
         num_players = len(self.players)
+        fixed_picks = fixed_picks or {}
         
         # Create matrices for efficient computation
         vegas_probs = np.array([g.vegas_win_prob for g in self.games])
@@ -92,7 +106,7 @@ class ConfidencePickEmSimulator:
             picks[sim] = np.random.random((num_players, num_games)) < pick_probs
             
             # Calculate confidence points
-            for p in range(num_players):
+            for p, player in enumerate(self.players):
                 player_picks = picks[sim, p]
                 
                 # Get relevant confidence values based on picks
@@ -122,27 +136,59 @@ class ConfidencePickEmSimulator:
         results = []
         for sim in range(self.num_sims):
             for p_idx, player in enumerate(self.players):
+                # Handle fixed picks for this player if they exist
+                if player.name in fixed_picks:
+                    player_fixed = fixed_picks[player.name]
+                    
+                    # Track available points to maintain valid confidence distribution
+                    used_points = set()
+                    
+                    # Apply fixed picks
+                    for g_idx, game in enumerate(self.games):
+                        game_id = f"{game.away_team}@{game.home_team}"
+                        
+                        # Check if either team in this game has fixed picks
+                        fixed_home = game.home_team in player_fixed
+                        fixed_away = game.away_team in player_fixed
+                        
+                        if fixed_home or fixed_away:
+                            if fixed_home:
+                                team = game.home_team
+                                picks[sim, p_idx, g_idx] = True
+                            else:
+                                team = game.away_team
+                                picks[sim, p_idx, g_idx] = False
+                                
+                            pts = player_fixed[team]
+                            confidence[sim, p_idx, g_idx] = pts
+                            used_points.add(pts)
+                    
+                    # Adjust remaining confidence points to be valid
+                    available_points = set(range(1, num_games + 1)) - used_points
+                    remaining_indices = [i for i in range(num_games) 
+                                    if confidence[sim, p_idx, i] not in used_points]
+                    
+                    if remaining_indices:
+                        remaining_points = sorted(list(available_points), reverse=True)
+                        remaining_confidence = confidence[sim, p_idx, remaining_indices]
+                        rank_order = np.argsort(-remaining_confidence)
+                        
+                        for rank, idx in enumerate(rank_order):
+                            confidence[sim, p_idx, remaining_indices[idx]] = remaining_points[rank]
+                
+                # Add results for this player
                 for g_idx, game in enumerate(self.games):
+                    game_id = f"{game.away_team}@{game.home_team}"
                     results.append({
                         'simulation': sim,
                         'player': player.name,
                         'week': game.week,
-                        'game': f"{game.away_team}@{game.home_team}",
+                        'game': game_id,
                         'picked_home': picks[sim, p_idx, g_idx],
                         'confidence': confidence[sim, p_idx, g_idx]
                     })
-        picks_df = pd.DataFrame(results)
-
-        # Update picks for the first player with provided fixed picks
-        # Might further generalize this later, but not now...
-        mask = (picks_df.player == self.players[0].name)
-        for team, pts in fixed_picks.items():
-            game_mask = picks_df[mask].game.str.contains(team)
-            is_home = (picks_df.loc[mask & game_mask, 'game'].str.split('@').str[1] == team).astype(float)
-            picks_df.loc[mask & game_mask, 'picked_home'] = is_home
-            picks_df.loc[mask & game_mask, 'confidence'] = float(pts)
         
-        return picks_df
+        return pd.DataFrame(results)
 
     def simulate_outcomes(self) -> np.ndarray:
         """Simulate game outcomes efficiently"""
@@ -220,27 +266,45 @@ class ConfidencePickEmSimulator:
         stats = self.analyze_results(picks_df, outcomes)
         return stats
 
-    def optimize_picks(self, fixed_picks: Dict[str, int] = None) -> Dict[str, int]:
-        """Optimize picks using simulation results"""
+    def optimize_picks(self, player_name: str, fixed_picks: Dict[str, Dict[str, int]] = None) -> Dict[str, int]:
+        """Optimize picks using simulation results for a specific player.
+
+        Args:
+            player_name: Name of the player to optimize picks for
+            fixed_picks: Dictionary mapping player names to their fixed picks.
+                Structure: {
+                    'Player Name': {
+                        'SF': 16,  # Team abbreviation -> confidence points
+                        'KC': 15,
+                        # etc...
+                    }
+                }
+                If player name is not in fixed_picks, all their picks will be simulated.
+                For players in fixed_picks, any teams not specified will be simulated.
+
+        Returns:
+            Dict mapping team abbreviations to optimal confidence points for specified player
+        """
         # Initialize variables
         optimal = {}
         if fixed_picks is None:
             fixed_picks = {}
         
+        # Get current player's fixed picks if they exist
+        player_fixed = fixed_picks.get(player_name, {})
+        optimal.update(player_fixed)
+
         # Track which points have been used
-        used_points = set(fixed_picks.values())
+        used_points = set(player_fixed.values())
         available_points = set(range(1, len(self.games) + 1)) - used_points
-        
-        # Start with fixed picks
-        optimal.update(fixed_picks)
-        
-        # Sort games by confidence (most certain to least certain)
-        remaining_games = [g for g in sorted(self.games, 
+
+        # Sort games by certainty (most certain to least certain)
+        remaining_games = [g for g in sorted(self.games,
                                         key=lambda g: abs(g.vegas_win_prob - 0.5),
                                         reverse=True)
-                        if g.home_team not in fixed_picks 
-                        and g.away_team not in fixed_picks]
-        
+                        if g.home_team not in player_fixed
+                        and g.away_team not in player_fixed]
+
         # Assign picks for remaining games
         for game in remaining_games:
             if not available_points:  # Safety check
@@ -251,19 +315,30 @@ class ConfidencePickEmSimulator:
             # Get highest available point value
             current_points = max(available_points)
             
-            # Simulate both options
-            home_picks = optimal.copy()
-            home_picks[game.home_team] = current_points
-            home_results = self.simulate_all(home_picks)['expected_points'][self.players[0].name]
-            away_picks = optimal.copy()
-            away_picks[game.away_team] = current_points
-            away_results = self.simulate_all(away_picks)['expected_points'][self.players[0].name]
-            
-            print(home_results)
-            print(away_results)
+            # Create temporary fixed picks for simulation
+            home_picks = fixed_picks.copy()
+            away_picks = fixed_picks.copy()
 
-            # Choose better option
-            if home_results > away_results:
+            # Update player's picks for each scenario
+            if player_name not in home_picks:
+                home_picks[player_name] = {}
+            if player_name not in away_picks:
+                away_picks[player_name] = {}
+
+            home_picks[player_name] = optimal.copy()
+            away_picks[player_name] = optimal.copy()
+            home_picks[player_name][game.home_team] = current_points
+            away_picks[player_name][game.away_team] = current_points
+
+            # Simulate both options
+            home_results = self.simulate_all(home_picks)
+            away_results = self.simulate_all(away_picks)
+
+            # Choose better option based on expected points for this player
+            home_prob = home_results['win_pct'][player_name]
+            away_prob = away_results['win_pct'][player_name]
+
+            if home_prob > away_prob:
                 optimal[game.home_team] = current_points
             else:
                 optimal[game.away_team] = current_points
@@ -275,15 +350,26 @@ class ConfidencePickEmSimulator:
         
         return optimal
     
-    def assess_game_importance(self, picks_df: pd.DataFrame = None, fixed_picks: Dict[str, int] = None) -> pd.DataFrame:
+    def assess_game_importance(self, player_name: str, picks_df: pd.DataFrame = None, 
+                            fixed_picks: Dict[str, Dict[str, int]] = None) -> pd.DataFrame:
         """
         Assess the relative importance of each game by calculating win probability
         changes between winning and losing each matchup.
         
         Args:
+            player_name: Name of the player to analyze game importance for
             picks_df: DataFrame containing picks (optional - will simulate if not provided)
-            fixed_picks: Dictionary mapping team names to confidence points (optional)
-            
+            fixed_picks: Dictionary mapping player names to their fixed picks.
+                Structure: {
+                    'Player Name': {
+                        'SF': 16,  # Team abbreviation -> confidence points
+                        'KC': 15,
+                        # etc...
+                    }
+                }
+                If player name is not in fixed_picks, all their picks will be simulated.
+                For players in fixed_picks, any teams not specified will be simulated.
+        
         Returns:
             DataFrame containing impact metrics for each game
         """
@@ -294,16 +380,16 @@ class ConfidencePickEmSimulator:
         # Get base simulation results
         outcomes = self.simulate_outcomes()
         base_stats = self.analyze_results(picks_df, outcomes)
-        base_win_pct = base_stats['win_pct'][self.players[0].name]
+        base_win_pct = base_stats['win_pct'][player_name]
         
         # Analyze each game
         game_impacts = []
         for game_idx, game in enumerate(self.games):
             game_id = f"{game.away_team}@{game.home_team}"
             
-            # Force win for first player's pick
+            # Get this player's pick for this game
             player_pick = picks_df[
-                (picks_df.player == self.players[0].name) & 
+                (picks_df.player == player_name) & 
                 (picks_df.game == game_id)
             ].iloc[0]
             
@@ -317,17 +403,26 @@ class ConfidencePickEmSimulator:
             win_stats = self.analyze_results(picks_df, forced_win)
             loss_stats = self.analyze_results(picks_df, forced_loss)
             
-            win_prob = win_stats['win_pct'][self.players[0].name]
-            loss_prob = loss_stats['win_pct'][self.players[0].name]
+            win_prob = win_stats['win_pct'][player_name]
+            loss_prob = loss_stats['win_pct'][player_name]
+
+            # Check if this game has fixed picks
+            is_fixed = False
+            if fixed_picks and player_name in fixed_picks:
+                player_fixed = fixed_picks[player_name]
+                if game.home_team in player_fixed or game.away_team in player_fixed:
+                    is_fixed = True
             
             game_impacts.append({
                 'game': game_id,
                 'points_bid': player_pick.confidence,
+                'pick': game.home_team if player_pick.picked_home else game.away_team,
                 'win_probability': win_prob,
                 'loss_probability': loss_prob,
                 'win_delta': win_prob - base_win_pct,
                 'loss_delta': loss_prob - base_win_pct,
-                'total_impact': win_prob - loss_prob
+                'total_impact': win_prob - loss_prob,
+                'is_fixed': is_fixed
             })
         
         results = pd.DataFrame(game_impacts)
