@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 import pandas as pd
 from datetime import datetime
-from confidence_pickem_sim import ConfidencePickEmSimulator, Game, Player
+from confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Game, Player
 
 @pytest.fixture
 def sample_games():

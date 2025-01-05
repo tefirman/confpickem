@@ -155,8 +155,12 @@ class YahooPickEm:
 
             # Get confidence values
             ft = game.find('div', class_='ft')
-            spread_row = ft.find('tr', class_="odd").find_all('td')
-            game_dict['spread'] = float(spread_row[0].text.strip().split()[0])
+            spread_row = ft.find_all('tr', class_="odd")[-1].find_all('td')
+            spread = spread_row[0].text.strip().split()[0]
+            if "Off" in spread: # Need to figure out what to do here...
+                game_dict['spread'] = 0.0
+            else:
+                game_dict['spread'] = float(spread)
             game_dict['win_prob'] = min(max(game_dict['spread'] * 0.031 + 0.5,0.0),1.0)
 
             # Parse kickoff time

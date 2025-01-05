@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*-coding:utf-8 -*-
 '''
-@File    :   pickem_integration.py 
+@File    :   yahoo_pickem_integration.py 
 @Time    :   2024/12/12
 @Desc    :   Integration script using actual Yahoo picks instead of simulating new ones
 '''

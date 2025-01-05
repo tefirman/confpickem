@@ -6,63 +6,246 @@ from pathlib import Path
 import json
 from bs4 import BeautifulSoup
 
-from yahoo_pickem_scraper import YahooPickEm, PageCache
+from confpickem.yahoo_pickem_scraper import YahooPickEm, PageCache, calculate_player_stats
 
 # Sample HTML content for testing
 SAMPLE_PICK_DIST_HTML = """
-<div class="ysf-matchup-dist yspmainmodule">
-    <div class="hd">Thursday, Sep 7, 8:20 PM EDT</div>
-    <table>
-        <tr><th>KC</th></tr>
-        <tr><td>-6.5</td></tr>
-        <tr><th>DET</th></tr>
-    </table>
-    <dd class="team">KC</dd>
-    <dd class="percent">75%</dd>
-    <dd class="team">@ DET</dd>
-    <dd class="percent">25%</dd>
-    <div class="ft">
+    <div class="ysf-matchup-dist yspmainmodule">
+        <div class="hd"><h4><span>Thursday, Sep 5, 8:20 pm EDT</span></h4></div>
+        <div class="bd">
+                        <dl class="favorite pick-preferred">
+                <dt class="team">Favorite</dt>
+                <dd class="team">@ <a href="https://sports.yahoo.com/nfl/teams/kansas-city/" target="sports">Kansas City</a> </dd>
+                <dt class="percent"><span style="width:75%">Favorite Pick Percentage</span></dt>
+                <dd class="percent">75%</dd>
+            </dl>
+            <dl class="underdog pick-loser">
+                <dt class="team">Underdog</dt>
+                <dd class="team"><a href="https://sports.yahoo.com/nfl/teams/baltimore/" target="sports">Baltimore</a> </dd>
+                <dt class="percent"><span style="width:25%">Underdog Pick Percentage</span></dt>
+                <dd class="percent">25%</dd>
+            </dl>
+        </div>
+        <div class="ft">
         <table>
-            <tr class="odd first">
-                <td>12.5</td>
-                <td></td>
-                <td>4.5</td>
-            </tr>
-            <tr class="odd">
-                <td>-6.5 </td>
-            </tr>
+            <thead>
+                <tr>
+                    <th>KC</th>
+                    <th></th>
+                    <th>Bal</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="odd first">
+                    <td>6.8</td>
+                    <td class="label">Avg. Confidence</td>
+                    <td>3.7</td>
+                </tr>
+                <tr class="even">
+                    <td>15-1 (8-0)</td>
+                    <td class="label">Record</td>
+                    <td>11-5 (6-3)</td>
+                </tr>
+                <tr class="odd">
+                    <td>3.0 pts</td>
+                    <td class="label">Favorite</td>
+                    <td>&nbsp;</td>
+                </tr>
+            </tbody>
         </table>
+        </div>
+    </div>    <div class="ysf-matchup-dist yspmainmodule">
+        <div class="hd"><h4><span>Friday, Sep 6, 8:15 pm EDT</span></h4></div>
+        <div class="bd">
+                        <dl class="favorite pick-preferred">
+                <dt class="team">Favorite</dt>
+                <dd class="team">@ <a href="https://sports.yahoo.com/nfl/teams/philadelphia/" target="sports">Philadelphia</a> </dd>
+                <dt class="percent"><span style="width:71%">Favorite Pick Percentage</span></dt>
+                <dd class="percent">71%</dd>
+            </dl>
+            <dl class="underdog pick-loser">
+                <dt class="team">Underdog</dt>
+                <dd class="team"><a href="https://sports.yahoo.com/nfl/teams/green-bay/" target="sports">Green Bay</a> </dd>
+                <dt class="percent"><span style="width:29%">Underdog Pick Percentage</span></dt>
+                <dd class="percent">29%</dd>
+            </dl>
+        </div>
+        <div class="ft">
+        <table>
+            <thead>
+                <tr>
+                    <th>Phi</th>
+                    <th></th>
+                    <th>GB</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="odd first">
+                    <td>6.4</td>
+                    <td class="label">Avg. Confidence</td>
+                    <td>4.5</td>
+                </tr>
+                <tr class="even">
+                    <td>13-3 (7-1)</td>
+                    <td class="label">Record</td>
+                    <td>11-5 (5-3)</td>
+                </tr>
+                <tr class="odd">
+                    <td>2.5 pts</td>
+                    <td class="label">Favorite</td>
+                    <td>&nbsp;</td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
+    </div>    <div class="ysf-matchup-dist yspmainmodule">
+        <div class="hd"><h4><span>Sunday, Sep 8, 1:00 pm EDT</span></h4></div>
+        <div class="bd">
+                        <dl class="favorite pick-preferred">
+                <dt class="team">Favorite</dt>
+                <dd class="team">@ <a href="https://sports.yahoo.com/nfl/teams/atlanta/" target="sports">Atlanta</a> </dd>
+                <dt class="percent"><span style="width:77%">Favorite Pick Percentage</span></dt>
+                <dd class="percent">77%</dd>
+            </dl>
+            <dl class="underdog pick-loser">
+                <dt class="team">Underdog</dt>
+                <dd class="team"><a href="https://sports.yahoo.com/nfl/teams/pittsburgh/" target="sports">Pittsburgh</a> </dd>
+                <dt class="percent"><span style="width:23%">Underdog Pick Percentage</span></dt>
+                <dd class="percent">23%</dd>
+            </dl>
+        </div>
+        <div class="ft">
+        <table>
+            <thead>
+                <tr>
+                    <th>Atl</th>
+                    <th></th>
+                    <th>Pit</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="odd first">
+                    <td>6.5</td>
+                    <td class="label">Avg. Confidence</td>
+                    <td>4.6</td>
+                </tr>
+                <tr class="even">
+                    <td>8-8 (4-4)</td>
+                    <td class="label">Record</td>
+                    <td>10-6 (5-4)</td>
+                </tr>
+                <tr class="odd">
+                    <td>3.0 pts</td>
+                    <td class="label">Favorite</td>
+                    <td>&nbsp;</td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
+    </div>    <div class="ysf-matchup-dist yspmainmodule">
+        <div class="hd"><h4><span>Sunday, Sep 8, 1:00 pm EDT</span></h4></div>
+        <div class="bd">
+                        <dl class="favorite pick-preferred">
+                <dt class="team">Favorite</dt>
+                <dd class="team">@ <a href="https://sports.yahoo.com/nfl/teams/buffalo/" target="sports">Buffalo</a> </dd>
+                <dt class="percent"><span style="width:96%">Favorite Pick Percentage</span></dt>
+                <dd class="percent">96%</dd>
+            </dl>
+            <dl class="underdog pick-loser">
+                <dt class="team">Underdog</dt>
+                <dd class="team"><a href="https://sports.yahoo.com/nfl/teams/arizona/" target="sports">Arizona</a> </dd>
+                <dt class="percent"><span style="width:4%">Underdog Pick Percentage</span></dt>
+                <dd class="percent">4%</dd>
+            </dl>
+        </div>
+        <div class="ft">
+        <table>
+            <thead>
+                <tr>
+                    <th>Buf</th>
+                    <th></th>
+                    <th>Ari</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="odd first">
+                    <td>12.7</td>
+                    <td class="label">Avg. Confidence</td>
+                    <td>4.7</td>
+                </tr>
+                <tr class="even">
+                    <td>13-3 (8-0)</td>
+                    <td class="label">Record</td>
+                    <td>7-9 (2-6)</td>
+                </tr>
+                <tr class="odd">
+                    <td>6.5 pts</td>
+                    <td class="label">Favorite</td>
+                    <td>&nbsp;</td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
     </div>
-</div>
+
+<!-- fantasy-sports-fe- -rhel7-production-bf1-89c65d566-gl6cn Thu Dec 25 07:34:25 UTC 2024 -->
 """
 
 SAMPLE_CONFIDENCE_PICKS_HTML = """
-<div id="ysf-group-picks">
-    <tr>
-        <td>KC</td>
-        <td>SF</td>
-    </tr>
-    <tr>
-        <td>-6.5</td>
-        <td>-7</td>
-    </tr>
-    <tr>
-        <td>DET</td>
-        <td>LAR</td>
-    </tr>
-    <tr>
-        <td><a>Player 1</a></td>
-        <td>KC (16)</td>
-        <td>SF (15)</td>
-        <td>31</td>
-    </tr>
-    <tr>
-        <td><a>Player 2</a></td>
-        <td>DET (14)</td>
-        <td>SF (13)</td>
-        <td>13</td>
-    </tr>
+<div id="ysf-group-picks" class="data-table">
+    <table border="0" cellpadding="0" cellspacing="0" class="yspNflPickGroupPickTable yspNflPickGroupPickTablePadded">
+        <tbody class="ysptblcontent1">
+            <tr class="data-row even">
+                <td class="l" scope="row">Favored</td>
+                <td width="33" class="yspNflPickWin">KC</td>
+                <td width="33" class="yspNflPickWin">Phi</td>
+                <td width="33">Atl</td>
+                <td width="33" class="yspNflPickWin">Buf</td>
+                <td>&nbsp;</td>
+            </tr>
+            <tr class="data-row">
+                <td class="l" scope="row">Spread</td>
+                <td>3.0</td>
+                <td>2.5</td>
+                <td>3.0</td>
+                <td>6.5</td>
+                <td>&nbsp;</td>
+            </tr>
+            <tr class="data-row even">
+                <td class="l" scope="row">Underdog</td>
+                <td>Bal</td>
+                <td>GB</td>
+                <td class="yspNflPickWin">Pit</td>
+                <td>Ari</td>
+                <td>&nbsp;</td>
+            </tr>
+
+
+            <tr class="ysptblhead">
+                <th colspan="17">Team Name</th>
+                <th class="c" colspan="2" id="sum-header">Points</th>
+            </tr>
+            <tr class="data-row odd">
+                <td scope="row" class="l"><a href="/pickem/12345/40">Player 1</a></td>
+                <td class="ysf-pick-opponent incorrect">Bal<br>(2)</td>
+                <td class="ysf-pick-opponent correct">Phi<br>(10)</td>
+                <td class="correct">Pit<br>(3)</td>
+                <td class="correct">Buf<br>(12)</td>
+                <td class="sum"><strong>25</strong></td>
+            </tr>
+            <tr class="data-row even">
+                <td scope="row" class="l"><a href="/pickem/12345/11">Player 2</a></td>
+                <td class="correct">KC<br>(3)</td>
+                <td class="ysf-pick-opponent correct">Phi<br>(4)</td>
+                <td class="ysf-pick-opponent incorrect">Atl<br>(1)</td>
+                <td class="correct">Buf<br>(16)</td>
+                <td class="sum"><strong>23</strong></td>
+            </tr>
+        </tbody>
+    </table>
 </div>
+
+<!-- fantasy-sports-fe- -rhel7-production-bf1-89c65d566-9jfkf Thu Jan  2 07:34:38 UTC 2025 -->
 """
 
 @pytest.fixture
@@ -93,7 +276,7 @@ def mock_session():
 @pytest.fixture
 def mock_cache():
     """Create a mock page cache"""
-    with patch('yahoo_pickem_scraper.PageCache') as mock:
+    with patch('confpickem.yahoo_pickem_scraper.PageCache') as mock:
         instance = mock.return_value
         instance.get_cached_content.return_value = None
         yield instance
@@ -167,14 +350,14 @@ def test_parse_pick_distribution(yahoo_pickem):
     ]
     assert all(col in games_df.columns for col in expected_cols)
     
-    # Check sample data parsing
+    # Check sample data parsing from our realistic example
     assert games_df.iloc[0]['favorite'] == 'KC'
     assert games_df.iloc[0]['favorite_pick_pct'] == 75.0
-    assert games_df.iloc[0]['underdog'] == 'DET'
+    assert games_df.iloc[0]['underdog'] == 'Bal'
     assert games_df.iloc[0]['underdog_pick_pct'] == 25.0
-    assert games_df.iloc[0]['favorite_confidence'] == 12.5
-    assert games_df.iloc[0]['underdog_confidence'] == 4.5
-    assert games_df.iloc[0]['spread'] == -6.5
+    assert games_df.iloc[0]['favorite_confidence'] == 6.8
+    assert games_df.iloc[0]['underdog_confidence'] == 3.7
+    assert games_df.iloc[0]['spread'] == 3.0
 
 def test_parse_confidence_picks(yahoo_pickem):
     """Test parsing of confidence picks page"""
@@ -184,30 +367,37 @@ def test_parse_confidence_picks(yahoo_pickem):
     assert 'player_name' in players_df.columns
     assert 'total_points' in players_df.columns
     
-    # Check sample data parsing
+    # Check sample data parsing from our realistic example
     assert len(players_df) == 2
     assert players_df.iloc[0]['player_name'] == 'Player 1'
-    assert players_df.iloc[0]['total_points'] == 31
-    assert players_df.iloc[0]['game_1_pick'] == 'KC'
-    assert players_df.iloc[0]['game_1_confidence'] == 16
+    assert players_df.iloc[0]['total_points'] == 25
+
+    # Check specific game picks
+    assert players_df.iloc[0]['game_1_pick'] == 'Bal'
+    assert players_df.iloc[0]['game_1_confidence'] == 2
+    assert players_df.iloc[0]['game_1_correct'] == False
+    
+    assert players_df.iloc[1]['game_2_pick'] == 'Phi'
+    assert players_df.iloc[1]['game_2_confidence'] == 4
+    assert players_df.iloc[1]['game_2_correct'] == True
 
 def test_calculate_player_stats():
     """Test player statistics calculation"""
-    with patch('yahoo_pickem_scraper.YahooPickEm') as mock_yahoo:
+    with patch('confpickem.yahoo_pickem_scraper.YahooPickEm') as mock_yahoo:
         # Configure mock YahooPickEm instances
         instance = MagicMock()
         instance.players = pd.DataFrame({
             'player_name': ['Player 1', 'Player 2'],
-            'game_1_pick': ['KC', 'DET'],
-            'game_1_confidence': [16, 14],
-            'game_1_correct': [True, False],
+            'game_1_pick': ['KC', 'KC'],
+            'game_1_confidence': [5, 10],
+            'game_1_correct': [True, True],
             'week': [1, 1]
         })
         instance.games = pd.DataFrame({
             'favorite': ['KC'],
             'favorite_pick_pct': [75.0],
-            'favorite_confidence': [12.5],
-            'underdog_confidence': [4.5],
+            'favorite_confidence': [6.8],
+            'underdog_confidence': [3.7],
             'week': [1]
         })
         mock_yahoo.return_value = instance
@@ -223,7 +413,11 @@ def test_calculate_player_stats():
         assert all(col in stats.columns for col in expected_cols)
         
         # Check stat ranges
-        assert all(0 <= stats[col] <= 1 for col in ['skill_level', 'crowd_following', 'confidence_following'])
+        for col in ['skill_level', 'crowd_following', 'confidence_following']:
+            # Check lower bound
+            assert (stats[col] >= 0).all(), f"{col} contains values below 0"
+            # Check upper bound
+            assert (stats[col] <= 1).all(), f"{col} contains values above 1"
 
 def test_error_handling(yahoo_pickem, mock_session):
     """Test error handling for failed requests"""
