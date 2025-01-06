@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 import pandas as pd
 from datetime import datetime
-from confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Game, Player
+from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Game, Player
 
 @pytest.fixture
 def sample_games():
@@ -128,11 +128,11 @@ def test_analyze_results(simulator):
 
 def test_fixed_picks(simulator):
     """Test handling of fixed picks"""
-    fixed_picks = {"SF": 2, "KC": 1}
+    fixed_picks = {"Player 1": {"SF": 2, "KC": 1}}
     picks_df = simulator.simulate_picks(fixed_picks)
     
     # Filter for player with fixed picks (first player)
-    player_picks = picks_df[picks_df['player'] == simulator.players[0].name]
+    player_picks = picks_df[picks_df['player'] == "Player 1"]
     
     # Check SF pick
     sf_picks = player_picks[player_picks['game'].str.contains("SF")]
@@ -147,7 +147,7 @@ def test_fixed_picks(simulator):
 def test_game_importance(simulator):
     """Test game importance calculation"""
     picks_df = simulator.simulate_picks()
-    results = simulator.assess_game_importance(picks_df)
+    results = simulator.assess_game_importance("Player 1")
     
     # Check DataFrame structure
     expected_cols = ['game', 'points_bid', 'win_probability', 'loss_probability', 
@@ -163,8 +163,8 @@ def test_game_importance(simulator):
 
 def test_optimize_picks(simulator):
     """Test pick optimization"""
-    fixed_picks = {"SF": 2}  # Fix one pick to test partial optimization
-    optimal_picks = simulator.optimize_picks(fixed_picks)
+    fixed_picks = {"Player 1": {"SF": 2}}  # Fix one pick to test partial optimization
+    optimal_picks = simulator.optimize_picks("Player 1", fixed_picks)
     
     # Check that fixed pick is preserved
     assert optimal_picks.get("SF") == 2

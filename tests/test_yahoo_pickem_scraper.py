@@ -6,7 +6,7 @@ from pathlib import Path
 import json
 from bs4 import BeautifulSoup
 
-from confpickem.yahoo_pickem_scraper import YahooPickEm, PageCache, calculate_player_stats
+from src.confpickem.yahoo_pickem_scraper import YahooPickEm, PageCache, calculate_player_stats
 
 # Sample HTML content for testing
 SAMPLE_PICK_DIST_HTML = """
@@ -431,10 +431,52 @@ def test_cached_content(mock_cache):
     cached_html = "<html>Cached content</html>"
     mock_cache.get_cached_content.return_value = cached_html
     
-    with patch('requests.Session'):
+    # Create a JSON string for metadata
+    mock_metadata = {
+        'timestamp': '2024-01-05T12:00:00',
+        'page_type': 'test_page',
+        'week': 1
+    }
+
+    # Mock file operations dictionary to handle both HTML and JSON files
+    mock_file_data = {
+        'test_page_week1.html': cached_html,
+        'test_page_week1_meta.json': json.dumps(mock_metadata)
+    }
+
+    def mock_file_open(filename, mode='r', *args, **kwargs):
+        mock_file = mock_open(read_data=mock_file_data.get(filename.split('/')[-1], '')).return_value
+        if 'w' in mode:  # For write operations
+            mock_file.write = MagicMock()
+        return mock_file
+
+    # Mock both Session and CookieJar and file operations
+    with patch('requests.Session') as mock_session, \
+         patch('http.cookiejar.MozillaCookieJar') as mock_cookiejar, \
+         patch('builtins.open', mock_file_open):
+        
+        # Configure mock cookie jar
+        mock_jar = MagicMock()
+        mock_jar.load = MagicMock()
+        mock_cookiejar.return_value = mock_jar
+        
+        # Configure mock session
+        mock_response = MagicMock()
+        mock_response.text = cached_html
+        mock_session.return_value.get.return_value = mock_response
+        
+        # Create YahooPickEm instance with mocked dependencies
         yahoo = YahooPickEm(week=1, league_id=12345, cookies_file='cookies.txt')
+        
+        # Test cached content retrieval
         content = yahoo.get_page_content("http://test.com", "test_page")
+        
+        # Verify correct content returned
         assert content == cached_html
+        
+        # Verify cookie jar was properly initialized
+        mock_cookiejar.assert_called_once_with('cookies.txt')
+        mock_jar.load.assert_called_once_with(ignore_discard=True, ignore_expires=True)
 
 def test_cookie_handling(mock_cookiejar):
     """Test cookie handling"""
