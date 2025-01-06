@@ -266,26 +266,18 @@ class ConfidencePickEmSimulator:
         stats = self.analyze_results(picks_df, outcomes)
         return stats
 
-    def optimize_picks(self, player_name: str, fixed_picks: Dict[str, Dict[str, int]] = None) -> Dict[str, int]:
+    def optimize_picks(self, player_name: str, fixed_picks: Dict[str, Dict[str, int]] = None, 
+                    confidence_range: int = 3) -> Dict[str, int]:
         """Optimize picks using simulation results for a specific player.
 
         Args:
             player_name: Name of the player to optimize picks for
-            fixed_picks: Dictionary mapping player names to their fixed picks.
-                Structure: {
-                    'Player Name': {
-                        'SF': 16,  # Team abbreviation -> confidence points
-                        'KC': 15,
-                        # etc...
-                    }
-                }
-                If player name is not in fixed_picks, all their picks will be simulated.
-                For players in fixed_picks, any teams not specified will be simulated.
+            fixed_picks: Dictionary mapping player names to their fixed picks
+            confidence_range: Number of confidence values to explore for each game
 
         Returns:
-            Dict mapping team abbreviations to optimal confidence points for specified player
+            Dict mapping team abbreviations to optimal confidence points
         """
-        # Initialize variables
         optimal = {}
         if fixed_picks is None:
             fixed_picks = {}
@@ -312,41 +304,56 @@ class ConfidencePickEmSimulator:
             
             print(game)
 
-            # Get highest available point value
-            current_points = max(available_points)
+            # Track best result for this game
+            best_pick = None
+            best_points = None
+            best_win_prob = 0
+
+            # Get range of points to try
+            # Start with highest available points and try several values
+            points_to_try = sorted(available_points, reverse=True)[:confidence_range]
             
-            # Create temporary fixed picks for simulation
-            home_picks = fixed_picks.copy()
-            away_picks = fixed_picks.copy()
+            # Try each team with different confidence points
+            for current_points in points_to_try:
+                # Try home team pick
+                home_picks = fixed_picks.copy()
+                if player_name not in home_picks:
+                    home_picks[player_name] = {}
+                home_picks[player_name] = optimal.copy()
+                home_picks[player_name][game.home_team] = current_points
+                
+                # Simulate home team pick
+                home_results = self.simulate_all(home_picks)
+                home_prob = home_results['win_pct'][player_name]
+                
+                # Update best result if better
+                if home_prob > best_win_prob:
+                    best_win_prob = home_prob
+                    best_pick = game.home_team
+                    best_points = current_points
 
-            # Update player's picks for each scenario
-            if player_name not in home_picks:
-                home_picks[player_name] = {}
-            if player_name not in away_picks:
-                away_picks[player_name] = {}
+                # Try away team pick
+                away_picks = fixed_picks.copy()
+                if player_name not in away_picks:
+                    away_picks[player_name] = {}
+                away_picks[player_name] = optimal.copy()
+                away_picks[player_name][game.away_team] = current_points
+                
+                # Simulate away team pick
+                away_results = self.simulate_all(away_picks)
+                away_prob = away_results['win_pct'][player_name]
+                
+                # Update best result if better
+                if away_prob > best_win_prob:
+                    best_win_prob = away_prob
+                    best_pick = game.away_team
+                    best_points = current_points
 
-            home_picks[player_name] = optimal.copy()
-            away_picks[player_name] = optimal.copy()
-            home_picks[player_name][game.home_team] = current_points
-            away_picks[player_name][game.away_team] = current_points
+            # Add best pick/points combination to optimal picks
+            optimal[best_pick] = best_points
+            available_points.remove(best_points)
 
-            # Simulate both options
-            home_results = self.simulate_all(home_picks)
-            away_results = self.simulate_all(away_picks)
-
-            # Choose better option based on expected points for this player
-            home_prob = home_results['win_pct'][player_name]
-            away_prob = away_results['win_pct'][player_name]
-
-            if home_prob > away_prob:
-                optimal[game.home_team] = current_points
-            else:
-                optimal[game.away_team] = current_points
-            
             print(optimal)
-            
-            # Remove used points value
-            available_points.remove(current_points)
         
         return optimal
     
