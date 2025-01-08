@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=45", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "confpickem"
@@ -29,10 +29,12 @@ dependencies = [
     "beautifulsoup4>=4.9.0",
     "scipy>=1.6.0"
 ]
+keywords = ["football", "nfl", "fantasy-sports", "confidence-pool", "pick-em"]
 
 [project.urls]
 Repository = "https://github.com/tefirman/confpickem"  # Replace with your actual repo URL
 Documentation = "https://github.com/tefirman/confpickem#readme"
+"Bug Tracker" = "https://github.com/tefirman/confpickem/issues"
 
 [project.optional-dependencies]
 dev = [
