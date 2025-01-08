@@ -9,10 +9,10 @@ A Python package for analyzing and optimizing picks for Yahoo NFL Confidence Pic
 
 ## Installation
 
-You can install the package directly from GitHub:
+You can install the package using pip:
 
 ```bash
-pip install git+https://github.com/tefirman/confpickem.git
+pip install confpickem
 ```
 
 ## Quick Start
