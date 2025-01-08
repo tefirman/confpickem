@@ -109,9 +109,13 @@ class YahooPickEm:
             return cached_content
             
         response = self.session.get(url)
-        response.raise_for_status()
+        response.raise_for_status()  # Raises HTTPError for bad responses
         content = response.text
         
+        # Validate we got meaningful content
+        if not content or 'error' in content.lower():
+            raise requests.exceptions.RequestException("Received empty or error page")
+            
         self.cache.save_content(content, page_type, self.week)
         return content
 
@@ -166,8 +170,10 @@ class YahooPickEm:
             # Parse kickoff time
             time_element = game.find('div', class_='hd')
             if time_element:
-                kickoff_time = pd.to_datetime(time_element.text.strip().replace(" EDT"," EST"), format="%A, %b %d, %I:%M %p %Z")
-                kickoff_time = kickoff_time.replace(year=season)
+                kickoff_time = pd.to_datetime(
+                    time_element.text.strip().replace(" EDT"," EST") + f", {season}", 
+                    format="%A, %b %d, %I:%M %p %Z, %Y"
+                )
                 game_dict['kickoff_time'] = kickoff_time
 
             games_data.append(game_dict)

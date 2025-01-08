@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 from pathlib import Path
 import json
-from bs4 import BeautifulSoup
+import requests
 
 from src.confpickem.yahoo_pickem_scraper import YahooPickEm, PageCache, calculate_player_stats
 
@@ -383,8 +383,15 @@ def test_parse_confidence_picks(yahoo_pickem):
 
 def test_calculate_player_stats():
     """Test player statistics calculation"""
-    with patch('confpickem.yahoo_pickem_scraper.YahooPickEm') as mock_yahoo:
-        # Configure mock YahooPickEm instances
+    with patch('confpickem.yahoo_pickem_scraper.YahooPickEm') as mock_yahoo, \
+         patch('http.cookiejar.MozillaCookieJar') as mock_cookiejar:
+        
+        # Configure mock cookie jar
+        mock_jar = MagicMock()
+        mock_jar.load = MagicMock()
+        mock_cookiejar.return_value = mock_jar
+        
+        # Configure mock YahooPickEm instance
         instance = MagicMock()
         instance.players = pd.DataFrame({
             'player_name': ['Player 1', 'Player 2'],
@@ -405,7 +412,7 @@ def test_calculate_player_stats():
         stats = calculate_player_stats(
             league_id=12345,
             weeks=[1],
-            cookies_file='cookies.txt'
+            cookies_file='mock_cookies.txt'
         )
         
         # Check DataFrame structure
@@ -414,46 +421,44 @@ def test_calculate_player_stats():
         
         # Check stat ranges
         for col in ['skill_level', 'crowd_following', 'confidence_following']:
-            # Check lower bound
-            assert (stats[col] >= 0).all(), f"{col} contains values below 0"
-            # Check upper bound
-            assert (stats[col] <= 1).all(), f"{col} contains values above 1"
+            assert (stats[col] >= 0).all()
+            assert (stats[col] <= 1).all()
 
 def test_error_handling(yahoo_pickem, mock_session):
     """Test error handling for failed requests"""
-    mock_session.get.side_effect = Exception("Connection failed")
-    
-    with pytest.raises(Exception):
-        yahoo_pickem.get_pick_distribution()
+    # Mock at the lower get_page_content level directly
+    with patch.object(yahoo_pickem, 'get_page_content') as mock_get_content:
+        mock_get_content.side_effect = requests.exceptions.RequestException("Connection failed")
+        
+        with pytest.raises(requests.exceptions.RequestException):
+            yahoo_pickem.get_pick_distribution()
 
 def test_cached_content(mock_cache):
     """Test cached content retrieval"""
-    cached_html = "<html>Cached content</html>"
-    mock_cache.get_cached_content.return_value = cached_html
+    cached_html = SAMPLE_PICK_DIST_HTML
+    confidence_html = SAMPLE_CONFIDENCE_PICKS_HTML
+    mock_cache.get_cached_content.side_effect = [cached_html, confidence_html]
     
-    # Create a JSON string for metadata
-    mock_metadata = {
-        'timestamp': '2024-01-05T12:00:00',
+    # Create file content
+    metadata = {
+        'timestamp': datetime.now().isoformat(),
         'page_type': 'test_page',
         'week': 1
     }
-
-    # Mock file operations dictionary to handle both HTML and JSON files
-    mock_file_data = {
-        'test_page_week1.html': cached_html,
-        'test_page_week1_meta.json': json.dumps(mock_metadata)
-    }
-
-    def mock_file_open(filename, mode='r', *args, **kwargs):
-        mock_file = mock_open(read_data=mock_file_data.get(filename.split('/')[-1], '')).return_value
-        if 'w' in mode:  # For write operations
-            mock_file.write = MagicMock()
-        return mock_file
-
-    # Mock both Session and CookieJar and file operations
+    metadata_json = json.dumps(metadata)
+    
+    # Create a context manager mock that returns a file-like object
+    file_mock = MagicMock()
+    file_mock.__enter__ = MagicMock(return_value=file_mock)
+    file_mock.__exit__ = MagicMock(return_value=None)
+    # Include both HTML responses in the read sequence
+    file_mock.read = MagicMock(side_effect=[metadata_json, cached_html, metadata_json, confidence_html])
+    
+    mock_open = MagicMock(return_value=file_mock)
+    
     with patch('requests.Session') as mock_session, \
          patch('http.cookiejar.MozillaCookieJar') as mock_cookiejar, \
-         patch('builtins.open', mock_file_open):
+         patch('builtins.open', mock_open):
         
         # Configure mock cookie jar
         mock_jar = MagicMock()
@@ -463,16 +468,16 @@ def test_cached_content(mock_cache):
         # Configure mock session
         mock_response = MagicMock()
         mock_response.text = cached_html
-        mock_session.return_value.get.return_value = mock_response
+        mock_session.return_value.get.side_effect = [
+            MagicMock(text=cached_html),
+            MagicMock(text=confidence_html)
+        ]
         
-        # Create YahooPickEm instance with mocked dependencies
         yahoo = YahooPickEm(week=1, league_id=12345, cookies_file='cookies.txt')
         
-        # Test cached content retrieval
-        content = yahoo.get_page_content("http://test.com", "test_page")
-        
-        # Verify correct content returned
-        assert content == cached_html
+        # Test page content retrieval
+        test_content = yahoo.get_page_content("http://test.com", "test_page")
+        assert test_content == cached_html
         
         # Verify cookie jar was properly initialized
         mock_cookiejar.assert_called_once_with('cookies.txt')

@@ -38,6 +38,8 @@ class Player:
 
 class ConfidencePickEmSimulator:
     def __init__(self, num_sims: int = 10000):
+        if num_sims <= 0:
+            raise ValueError("Number of simulations must be positive")
         self.num_sims = num_sims
         self.games: List[Game] = []
         self.players: List[Player] = []
@@ -73,9 +75,34 @@ class ConfidencePickEmSimulator:
                 For players in fixed_picks, any teams not specified will be simulated.
         """
         num_games = len(self.games)
+        if num_games == 0:
+            raise ValueError("No games loaded for simulation")
         num_players = len(self.players)
+        if num_players == 0:
+            raise ValueError("No players loaded for simulation")
         fixed_picks = fixed_picks or {}
         
+        # Validate fixed picks
+        for player_name, picks in fixed_picks.items():
+            # Validate player exists
+            if player_name not in [p.name for p in self.players]:
+                raise ValueError(f"Fixed picks specified for unknown player: {player_name}")
+            
+            # Validate teams exist
+            game_teams = set()
+            for game in self.games:
+                game_teams.add(game.home_team)
+                game_teams.add(game.away_team)
+                
+            for team in picks.keys():
+                if team not in game_teams:
+                    raise ValueError(f"Fixed pick specified for unknown team: {team}")
+                    
+            # Validate confidence points
+            for points in picks.values():
+                if not isinstance(points, int) or points < 1 or points > num_games:
+                    raise ValueError(f"Invalid confidence points: {points}. Must be between 1 and {num_games}")
+
         # Create matrices for efficient computation
         vegas_probs = np.array([g.vegas_win_prob for g in self.games])
         crowd_pcts = np.array([g.crowd_home_pick_pct for g in self.games])

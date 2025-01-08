@@ -58,6 +58,19 @@ extend-ignore = ["E203", "W503"]
 exclude = [".git", "__pycache__", "build", "dist"]
 
 [tool.pytest.ini_options]
-minversion = "6.0"
-addopts = "--cov=confpickem -v"
+addopts = "--cov=src/confpickem --cov-report=term-missing"
 testpaths = ["tests"]
+python_files = "test_*.py"
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+]
