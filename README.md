@@ -1,11 +1,16 @@
-# confpickem - Yahoo NFL Confidence Pick'em Analyzer
-
-A Python package for analyzing and optimizing picks for Yahoo NFL Confidence Pick'em pools. This package provides tools for:
-
-- Scraping Yahoo Pick'em league data
-- Analyzing pick distributions and trends
-- Simulating outcomes and optimizing picks
-- Evaluating different picking strategies
+<table>
+<tr>
+  <td><img src="assets/ConfPickEmLogo.png" width="400" alt="confpickem logo"></td>
+  <td>
+    <h1>confpickem - NFL Confidence Pick'em Analyzer</h1>
+    A Python package for analyzing and optimizing picks for NFL Confidence Pick'em pools. This package provides tools for:
+    - Scraping Yahoo Pick'em league data
+    - Analyzing pick distributions and trends
+    - Simulating outcomes and optimizing picks
+    - Evaluating different picking strategies
+  </td>
+</tr>
+</table>
 
 ## Installation
 
