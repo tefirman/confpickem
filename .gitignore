@@ -26,3 +26,4 @@ htmlcov/
 cookies.txt
 .DS_Store
 **/.DS_Store
+.venv/
