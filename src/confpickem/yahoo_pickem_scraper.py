@@ -4,7 +4,7 @@
 @File    :   yahoo_pickem_scraper.py
 @Time    :   2024/12/07 13:38:47
 @Author  :   Taylor Firman
-@Version :   v0.1
+@Version :   0.1.0
 @Contact :   tefirman@gmail.com
 @Desc    :   Scraper for Yahoo NFL Confidence Pick 'Em Groups
 '''

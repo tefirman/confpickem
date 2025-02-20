@@ -3,6 +3,9 @@
 '''
 @File    :   yahoo_pickem_integration.py 
 @Time    :   2024/12/12
+@Author  :   Taylor Firman
+@Version :   0.1.0
+@Contact :   tefirman@gmail.com
 @Desc    :   Integration script using actual Yahoo picks instead of simulating new ones
 '''
 
