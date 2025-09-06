@@ -1,9 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock, mock_open
 import pandas as pd
-from datetime import datetime
 from pathlib import Path
-import json
 import requests
 
 from src.confpickem.yahoo_pickem_scraper import YahooPickEm, PageCache, calculate_player_stats
@@ -276,7 +274,7 @@ def mock_session():
 @pytest.fixture
 def mock_cache():
     """Create a mock page cache"""
-    with patch('confpickem.yahoo_pickem_scraper.PageCache') as mock:
+    with patch('src.confpickem.yahoo_pickem_scraper.PageCache') as mock:
         instance = mock.return_value
         instance.get_cached_content.return_value = None
         yield instance
@@ -383,7 +381,7 @@ def test_parse_confidence_picks(yahoo_pickem):
 
 def test_calculate_player_stats():
     """Test player statistics calculation"""
-    with patch('confpickem.yahoo_pickem_scraper.YahooPickEm') as mock_yahoo, \
+    with patch('src.confpickem.yahoo_pickem_scraper.YahooPickEm') as mock_yahoo, \
          patch('http.cookiejar.MozillaCookieJar') as mock_cookiejar:
         
         # Configure mock cookie jar
@@ -433,49 +431,39 @@ def test_error_handling(yahoo_pickem, mock_session):
         with pytest.raises(requests.exceptions.RequestException):
             yahoo_pickem.get_pick_distribution()
 
-def test_cached_content(mock_cache):
+def test_cached_content():
     """Test cached content retrieval"""
     cached_html = SAMPLE_PICK_DIST_HTML
-    confidence_html = SAMPLE_CONFIDENCE_PICKS_HTML
-    mock_cache.get_cached_content.side_effect = [cached_html, confidence_html]
-    
-    # Create file content
-    metadata = {
-        'timestamp': datetime.now().isoformat(),
-        'page_type': 'test_page',
-        'week': 1
-    }
-    metadata_json = json.dumps(metadata)
-    
-    # Create a context manager mock that returns a file-like object
-    file_mock = MagicMock()
-    file_mock.__enter__ = MagicMock(return_value=file_mock)
-    file_mock.__exit__ = MagicMock(return_value=None)
-    # Include both HTML responses in the read sequence
-    file_mock.read = MagicMock(side_effect=[metadata_json, cached_html, metadata_json, confidence_html])
-    
-    mock_open = MagicMock(return_value=file_mock)
     
     with patch('requests.Session') as mock_session, \
          patch('http.cookiejar.MozillaCookieJar') as mock_cookiejar, \
-         patch('builtins.open', mock_open):
+         patch('src.confpickem.yahoo_pickem_scraper.PageCache') as mock_cache_class:
         
         # Configure mock cookie jar
         mock_jar = MagicMock()
         mock_jar.load = MagicMock()
         mock_cookiejar.return_value = mock_jar
         
-        # Configure mock session
-        mock_response = MagicMock()
-        mock_response.text = cached_html
-        mock_session.return_value.get.side_effect = [
-            MagicMock(text=cached_html),
-            MagicMock(text=confidence_html)
-        ]
+        # Configure mock cache instance
+        mock_cache = MagicMock()
+        mock_cache.get_cached_content.side_effect = [None, None, cached_html]  # First two for init, third for test
+        mock_cache_class.return_value = mock_cache
         
+        # Configure mock session
+        mock_response1 = MagicMock()
+        mock_response1.text = cached_html
+        mock_response1.raise_for_status.return_value = None
+        
+        mock_response2 = MagicMock()
+        mock_response2.text = SAMPLE_CONFIDENCE_PICKS_HTML
+        mock_response2.raise_for_status.return_value = None
+        
+        mock_session.return_value.get.side_effect = [mock_response1, mock_response2]
+        
+        # Initialize YahooPickEm
         yahoo = YahooPickEm(week=1, league_id=12345, cookies_file='cookies.txt')
         
-        # Test page content retrieval
+        # Test page content retrieval from cache
         test_content = yahoo.get_page_content("http://test.com", "test_page")
         assert test_content == cached_html
         
