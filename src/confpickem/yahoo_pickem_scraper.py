@@ -113,8 +113,8 @@ class YahooPickEm:
         content = response.text
         
         # Validate we got meaningful content
-        if not content or 'error' in content.lower():
-            raise requests.exceptions.RequestException("Received empty or error page")
+        if not content: # or 'error' in content.lower():
+            raise requests.exceptions.RequestException("Received empty page")
             
         self.cache.save_content(content, page_type, self.week)
         return content
@@ -149,7 +149,7 @@ class YahooPickEm:
             game_dict['favorite_pick_pct'] = float(percentages[0].text.strip().replace('%', ''))
             game_dict['underdog'] = teams[-1].text.strip()
             game_dict['underdog_pick_pct'] = float(percentages[1].text.strip().replace('%', ''))
-            game_dict['home_favorite'] = teams_full[-1].text.strip().startswith("@ ")
+            game_dict['home_favorite'] = teams_full[0].text.strip().startswith("@ ")
             
             # Get confidence values
             ft = game.find('div', class_='ft')

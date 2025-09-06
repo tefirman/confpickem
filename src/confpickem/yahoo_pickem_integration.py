@@ -35,7 +35,9 @@ def convert_yahoo_to_simulator_format(yahoo_data: YahooPickEm, ignore_results: b
                          yahoo_data.games['favorite'])
     
     # Vectorized probability calculations
-    vegas_win_probs = yahoo_data.games['win_prob']
+    vegas_win_probs = np.where(yahoo_data.games['home_favorite'],
+                          yahoo_data.games['win_prob'],
+                          1 - yahoo_data.games['win_prob'])
     crowd_home_pick_pcts = np.where(yahoo_data.games['home_favorite'],
                                    yahoo_data.games['favorite_pick_pct'],
                                    yahoo_data.games['underdog_pick_pct']) / 100
@@ -52,6 +54,10 @@ def convert_yahoo_to_simulator_format(yahoo_data: YahooPickEm, ignore_results: b
     if not ignore_results:
         # Create results lookup dictionary
         results_dict = {r['favorite']: r['winner'] for r in yahoo_data.results if r['winner']}
+
+        print(f"Known results for {len(results_dict)} out of {len(yahoo_data.games)} games.")
+        print(f"Results dict: {results_dict}")
+
         actual_outcomes = [results_dict.get(game['favorite']) == home_team 
                           if game['favorite'] in results_dict else None
                           for home_team, game in zip(home_teams, yahoo_data.games.to_dict('records'))]

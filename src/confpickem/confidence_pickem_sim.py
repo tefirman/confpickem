@@ -319,8 +319,7 @@ class ConfidencePickEmSimulator:
 
         # Sort games by certainty (most certain to least certain)
         remaining_games = [g for g in sorted(self.games,
-                                        key=lambda g: abs(g.vegas_win_prob - 0.5),
-                                        reverse=True)
+                                        key=lambda g: abs(g.vegas_win_prob - 0.5))
                         if g.home_team not in player_fixed
                         and g.away_team not in player_fixed]
 
@@ -329,7 +328,7 @@ class ConfidencePickEmSimulator:
             if not available_points:  # Safety check
                 break
             
-            print(game)
+            print(f"\nOptimizing: {game.away_team}@{game.home_team}")
 
             # Track best result for this game
             best_pick = None
@@ -337,8 +336,10 @@ class ConfidencePickEmSimulator:
             best_win_prob = 0
 
             # Get range of points to try
-            # Start with highest available points and try several values
-            points_to_try = sorted(available_points, reverse=True)[:confidence_range]
+            increment = max(1, (len(available_points) - 1) // (confidence_range - 1))
+            points_to_try = sorted(available_points, reverse=True)[::increment]
+            print(f"  Points to try: {points_to_try}")
+            # points_to_try = sorted(available_points, reverse=True)[:confidence_range]
             
             # Try each team with different confidence points
             for current_points in points_to_try:
@@ -380,6 +381,7 @@ class ConfidencePickEmSimulator:
             optimal[best_pick] = best_points
             available_points.remove(best_points)
 
+            print(f"  Chose {best_pick} with {best_points} points for win probability {best_win_prob:.4f}")
             print(optimal)
         
         return optimal
