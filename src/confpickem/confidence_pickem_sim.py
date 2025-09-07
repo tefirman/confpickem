@@ -305,6 +305,10 @@ class ConfidencePickEmSimulator:
         Returns:
             Dict mapping team abbreviations to optimal confidence points
         """
+        # Validate player exists
+        if player_name not in [p.name for p in self.players]:
+            raise ValueError(f"Unknown player: {player_name}")
+            
         optimal = {}
         if fixed_picks is None:
             fixed_picks = {}
@@ -318,8 +322,9 @@ class ConfidencePickEmSimulator:
         available_points = set(range(1, len(self.games) + 1)) - used_points
 
         # Sort games by certainty (most certain to least certain)
+        # Process most certain games first so they get highest confidence
         remaining_games = [g for g in sorted(self.games,
-                                        key=lambda g: abs(g.vegas_win_prob - 0.5))
+                                        key=lambda g: abs(g.vegas_win_prob - 0.5), reverse=True)
                         if g.home_team not in player_fixed
                         and g.away_team not in player_fixed]
 
@@ -328,6 +333,7 @@ class ConfidencePickEmSimulator:
             if not available_points:  # Safety check
                 break
             
+            # Optional debug output (can be controlled via parameter)
             print(f"\nOptimizing: {game.away_team}@{game.home_team}")
 
             # Track best result for this game
@@ -382,7 +388,6 @@ class ConfidencePickEmSimulator:
             available_points.remove(best_points)
 
             print(f"  Chose {best_pick} with {best_points} points for win probability {best_win_prob:.4f}")
-            print(optimal)
         
         return optimal
     

@@ -63,13 +63,13 @@ def main():
 
     # Optimize picks for Expert Player
     print("\nOptimal Picks for Expert Player:")
-    optimal_picks = simulator.optimize_picks()
+    optimal_picks = simulator.optimize_picks("Expert Player")
     print(optimal_picks)
 
     # Example with some fixed picks
-    fixed_picks = {'PHI': 5, 'BUF': 4}  # Force PHI with 5 points and BUF with 4 points
+    fixed_picks = {'Expert Player': {'PHI': 5, 'BUF': 4}}  # Force PHI with 5 points and BUF with 4 points
     print("\nOptimal Picks with Fixed Selections:")
-    optimal_picks_fixed = simulator.optimize_picks(fixed_picks)
+    optimal_picks_fixed = simulator.optimize_picks("Expert Player", fixed_picks)
     print(optimal_picks_fixed)
 
 if __name__ == "__main__":

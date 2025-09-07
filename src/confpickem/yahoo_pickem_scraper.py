@@ -191,22 +191,43 @@ class YahooPickEm:
         # Find the main picks table
         table = soup.find('div', {'id': 'ysf-group-picks'})
 
-        # Parse game results from header
-        games_meta = [row.find_all('td')[1:-1] for row in table.find_all('tr')[:3]]
+        # Parse game results from header rows
+        all_rows = table.find_all('tr')
+        header_rows = []
+        
+        # Find the actual header rows (skip empty rows)
+        for row in all_rows:
+            cols = row.find_all('td')
+            if len(cols) > 5:  # Should have many columns for games
+                header_rows.append(cols[1:-1])  # Skip first (label) and last (total) columns
+            if len(header_rows) >= 3:  # We need favored, spread, underdog rows
+                break
+        
+        if len(header_rows) < 3:
+            raise ValueError("Could not find header rows with game information")
+            
+        games_meta = header_rows
         games = []
-        for game in range(len(games_meta[0])):
+        
+        # Parse each game from the header columns
+        num_games = len(games_meta[0])  # Should be 16 for NFL
+        for game in range(num_games):
             favorite = games_meta[0][game].text.strip()
             underdog = games_meta[2][game].text.strip()
-            spread = games_meta[1][game].text.strip()
-            if "Off" in spread: # Need to figure out what to do here...
+            spread_text = games_meta[1][game].text.strip()
+            
+            if "Off" in spread_text or spread_text == "--":
                 spread = 0.0
             else:
-                spread = float(spread)
+                try:
+                    spread = float(spread_text)
+                except ValueError:
+                    spread = 0.0
             
             winner = None
-            if "yspNflPickWin" in games_meta[0][game].get("class",[]):
+            if "yspNflPickWin" in games_meta[0][game].get("class", []):
                 winner = favorite
-            elif "yspNflPickWin" in games_meta[2][game].get("class",[]):
+            elif "yspNflPickWin" in games_meta[2][game].get("class", []):
                 winner = underdog
 
             games.append({
@@ -216,37 +237,94 @@ class YahooPickEm:
                 'winner': winner
             })
         
-        # Parse each player's picks
+        # Parse each player's picks - skip header rows and empty rows
         players = []
-        for row in table.find_all('tr')[3:]:  # Skip header rows
+        player_rows = []
+        
+        # Find rows with player data (skip headers and empty rows)
+        for row in all_rows:
+            cols = row.find_all('td')
+            if len(cols) > 5:  # Should have many columns
+                first_col = cols[0]
+                # Check if this looks like a player row (has link or non-header text)
+                if first_col.find('a') or (first_col.text.strip() not in ['Favored', 'Spread', 'Underdog', '']):
+                    player_rows.append(row)
+        
+        for row in player_rows:
             cols = row.find_all('td')
             if not cols or len(cols) <= 1:
                 continue
-                
-            player_data = {
-                'player_name': cols[0].find('a').text.strip() if cols[0].find('a') else cols[0].text.strip(),
-                'total_points': int(cols[-1].text.strip()) if cols[-1].text.strip() != '' else 0
-            }
             
-            # Parse each pick
-            for i, col in enumerate(cols[1:-1]):
-                if col.text.strip() not in ["", "--"]:
-                    pick_text = col.text.strip()
-                    team = pick_text.split('(')[0].strip()
-                    confidence = int(pick_text.split('(')[1].replace(')', ''))
-                    is_correct = team.strip() == games[i]['winner'].strip() if games[i]['winner'] else None
-                    
-                    player_data[f'game_{i+1}_pick'] = team
-                    player_data[f'game_{i+1}_confidence'] = confidence
-                    player_data[f'game_{i+1}_correct'] = is_correct
-                    player_data[f'game_{i+1}_points'] = confidence if is_correct else 0
+            try:
+                # Extract player name
+                name_elem = cols[0]
+                if name_elem.find('a'):
+                    player_name = name_elem.find('a').text.strip()
                 else:
-                    player_data[f'game_{i+1}_pick'] = None
-                    player_data[f'game_{i+1}_confidence'] = None
-                    player_data[f'game_{i+1}_correct'] = None
-                    player_data[f'game_{i+1}_points'] = 0
+                    player_name = name_elem.text.strip()
+                
+                # Skip if this is still a header row
+                if player_name in ['Favored', 'Spread', 'Underdog', '']:
+                    continue
+                
+                # Extract total points
+                total_text = cols[-1].text.strip()
+                try:
+                    total_points = int(total_text) if total_text and total_text != '' else 0
+                except ValueError:
+                    total_points = 0
+                
+                player_data = {
+                    'player_name': player_name,
+                    'total_points': total_points
+                }
+                
+                # Parse each game pick
+                game_cols = cols[1:-1]  # Skip name and total columns
+                for i, col in enumerate(game_cols):
+                    pick_text = col.text.strip()
                     
-            players.append(player_data)
+                    if pick_text and pick_text not in ["", "--"]:
+                        try:
+                            # Parse "Team(confidence)" format
+                            if '(' in pick_text and ')' in pick_text:
+                                team = pick_text.split('(')[0].strip()
+                                confidence = int(pick_text.split('(')[1].replace(')', ''))
+                                
+                                # Determine if pick was correct
+                                is_correct = None
+                                if i < len(games) and games[i]['winner']:
+                                    is_correct = team.strip() == games[i]['winner'].strip()
+                                
+                                player_data[f'game_{i+1}_pick'] = team
+                                player_data[f'game_{i+1}_confidence'] = confidence
+                                player_data[f'game_{i+1}_correct'] = is_correct
+                                player_data[f'game_{i+1}_points'] = confidence if is_correct else 0
+                            else:
+                                # Handle other formats if needed
+                                player_data[f'game_{i+1}_pick'] = pick_text
+                                player_data[f'game_{i+1}_confidence'] = 0
+                                player_data[f'game_{i+1}_correct'] = None
+                                player_data[f'game_{i+1}_points'] = 0
+                        except Exception as e:
+                            # Handle parsing errors gracefully
+                            player_data[f'game_{i+1}_pick'] = None
+                            player_data[f'game_{i+1}_confidence'] = None
+                            player_data[f'game_{i+1}_correct'] = None
+                            player_data[f'game_{i+1}_points'] = 0
+                    else:
+                        # Empty or "--" pick
+                        player_data[f'game_{i+1}_pick'] = None
+                        player_data[f'game_{i+1}_confidence'] = None
+                        player_data[f'game_{i+1}_correct'] = None
+                        player_data[f'game_{i+1}_points'] = 0
+                
+                players.append(player_data)
+                
+            except Exception as e:
+                # Skip problematic rows but continue processing
+                print(f"Warning: Failed to parse player row: {str(e)}")
+                continue
         
         self.players = pd.DataFrame(players)
         self.results = games
