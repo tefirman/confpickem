@@ -294,13 +294,14 @@ class ConfidencePickEmSimulator:
         return stats
 
     def optimize_picks(self, player_name: str, fixed_picks: Dict[str, Dict[str, int]] = None, 
-                    confidence_range: int = 3) -> Dict[str, int]:
+                    confidence_range: int = 3, available_points: set = None) -> Dict[str, int]:
         """Optimize picks using simulation results for a specific player.
 
         Args:
             player_name: Name of the player to optimize picks for
             fixed_picks: Dictionary mapping player names to their fixed picks
             confidence_range: Number of confidence values to explore for each game
+            available_points: Set of confidence points available to use (if None, auto-calculate)
 
         Returns:
             Dict mapping team abbreviations to optimal confidence points
@@ -319,13 +320,23 @@ class ConfidencePickEmSimulator:
 
         # Track which points have been used
         used_points = set(player_fixed.values())
-        available_points = set(range(1, len(self.games) + 1)) - used_points
+        
+        # Use provided available_points or auto-calculate
+        if available_points is None:
+            # Only count games that need optimization (not completed games)
+            games_to_pick = len([g for g in self.games if g.actual_outcome is None])
+            available_points = set(range(1, games_to_pick + 1)) - used_points
+        else:
+            # Use the provided set, but remove any already used in fixed picks
+            available_points = available_points - used_points
 
         # Sort games by certainty (most certain to least certain)
         # Process most certain games first so they get highest confidence
+        # Skip games that are already completed (have actual_outcome) or have fixed picks
         remaining_games = [g for g in sorted(self.games,
                                         key=lambda g: abs(g.vegas_win_prob - 0.5), reverse=True)
-                        if g.home_team not in player_fixed
+                        if g.actual_outcome is None  # Skip completed games
+                        and g.home_team not in player_fixed
                         and g.away_team not in player_fixed]
 
         # Assign picks for remaining games

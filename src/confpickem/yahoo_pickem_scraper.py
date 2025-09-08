@@ -127,56 +127,108 @@ class YahooPickEm:
         content = self.get_page_content(url, "pick_distribution")
         soup = BeautifulSoup(content, 'html.parser')
         
-        # Pull season from commented timestamp
-        comments = soup.find_all(string=lambda text: isinstance(text, Comment))
-        last_comment = comments[-1]
-        date_pulled = pd.to_datetime(" ".join(last_comment.strip().split()[-6:]),format="%a %b %d %H:%M:%S %Z %Y")
+        # Pull season from commented timestamp - simplified approach
+        try:
+            comments = soup.find_all(string=lambda text: isinstance(text, Comment))
+            last_comment = comments[-1] if comments else ""
+            date_pulled = pd.to_datetime(" ".join(last_comment.strip().split()[-6:]), format="%a %b %d %H:%M:%S %Z %Y")
+        except Exception:
+            # Simple fallback - assume current NFL season  
+            current_date = datetime.now()
+            # If it's January-March, assume previous year's season
+            if current_date.month <= 3:
+                date_pulled = pd.Timestamp(year=current_date.year-1, month=9, day=1)
+            else:
+                date_pulled = pd.Timestamp(year=current_date.year, month=9, day=1)
+        
         season = (date_pulled - timedelta(days=90)).year # Accounting for week 18 being in January of the following year...
 
         # Find all game containers 
         games = soup.find_all('div', class_='ysf-matchup-dist')
         
         games_data = []
-        for game in games:
-            game_dict = {}
-            
-            # Get team names and pick percentages
-            teams = game.find_all('th')
-            teams_full = game.find_all('dd', class_='team')
-            percentages = game.find_all('dd', class_='percent')
-            
-            game_dict['favorite'] = teams[0].text.strip()
-            game_dict['favorite_pick_pct'] = float(percentages[0].text.strip().replace('%', ''))
-            game_dict['underdog'] = teams[-1].text.strip()
-            game_dict['underdog_pick_pct'] = float(percentages[1].text.strip().replace('%', ''))
-            game_dict['home_favorite'] = teams_full[0].text.strip().startswith("@ ")
-            
-            # Get confidence values
-            ft = game.find('div', class_='ft')
-            confidence_row = ft.find('tr', class_="odd first").find_all('td')
-            game_dict['favorite_confidence'] = float(confidence_row[0].text.strip())
-            game_dict['underdog_confidence'] = float(confidence_row[2].text.strip())
+        for i, game in enumerate(games):
+            try:
+                game_dict = {}
+                
+                # Get team names and pick percentages
+                teams = game.find_all('th')
+                teams_full = game.find_all('dd', class_='team')
+                percentages = game.find_all('dd', class_='percent')
+                
+                if len(teams) < 2 or len(percentages) < 2:
+                    print(f"⚠️ Game {i+1}: Missing team/percentage data")
+                    continue
+                
+                game_dict['favorite'] = teams[0].text.strip()
+                game_dict['favorite_pick_pct'] = float(percentages[0].text.strip().replace('%', ''))
+                game_dict['underdog'] = teams[-1].text.strip()
+                game_dict['underdog_pick_pct'] = float(percentages[1].text.strip().replace('%', ''))
+                
+                if teams_full:
+                    game_dict['home_favorite'] = teams_full[0].text.strip().startswith("@ ")
+                else:
+                    game_dict['home_favorite'] = True  # Default assumption
+                
+                # Get confidence values
+                ft = game.find('div', class_='ft')
+                if ft:
+                    confidence_row = ft.find('tr', class_="odd first")
+                    if confidence_row:
+                        confidence_cells = confidence_row.find_all('td')
+                        if len(confidence_cells) >= 3:
+                            game_dict['favorite_confidence'] = float(confidence_cells[0].text.strip())
+                            game_dict['underdog_confidence'] = float(confidence_cells[2].text.strip())
+                        else:
+                            game_dict['favorite_confidence'] = 8.0
+                            game_dict['underdog_confidence'] = 8.0
+                    else:
+                        game_dict['favorite_confidence'] = 8.0
+                        game_dict['underdog_confidence'] = 8.0
+                        
+                    # Get spread
+                    spread_rows = ft.find_all('tr', class_="odd")
+                    if spread_rows:
+                        spread_row = spread_rows[-1].find_all('td')
+                        if spread_row:
+                            spread = spread_row[0].text.strip().split()[0]
+                            if "Off" in spread:
+                                game_dict['spread'] = 0.0
+                            else:
+                                try:
+                                    game_dict['spread'] = float(spread)
+                                except ValueError:
+                                    game_dict['spread'] = 0.0
+                        else:
+                            game_dict['spread'] = 0.0
+                    else:
+                        game_dict['spread'] = 0.0
+                else:
+                    game_dict['favorite_confidence'] = 8.0
+                    game_dict['underdog_confidence'] = 8.0
+                    game_dict['spread'] = 0.0
+                
+                game_dict['win_prob'] = min(max(game_dict['spread'] * 0.031 + 0.5, 0.0), 1.0)
 
-            # Get confidence values
-            ft = game.find('div', class_='ft')
-            spread_row = ft.find_all('tr', class_="odd")[-1].find_all('td')
-            spread = spread_row[0].text.strip().split()[0]
-            if "Off" in spread: # Need to figure out what to do here...
-                game_dict['spread'] = 0.0
-            else:
-                game_dict['spread'] = float(spread)
-            game_dict['win_prob'] = min(max(game_dict['spread'] * 0.031 + 0.5,0.0),1.0)
+                # Parse kickoff time
+                time_element = game.find('div', class_='hd')
+                if time_element:
+                    try:
+                        kickoff_time = pd.to_datetime(
+                            time_element.text.strip().replace(" EDT", " EST") + f", {season}", 
+                            format="%A, %b %d, %I:%M %p %Z, %Y"
+                        )
+                        game_dict['kickoff_time'] = kickoff_time
+                    except Exception:
+                        game_dict['kickoff_time'] = pd.Timestamp.now()
+                else:
+                    game_dict['kickoff_time'] = pd.Timestamp.now()
 
-            # Parse kickoff time
-            time_element = game.find('div', class_='hd')
-            if time_element:
-                kickoff_time = pd.to_datetime(
-                    time_element.text.strip().replace(" EDT"," EST") + f", {season}", 
-                    format="%A, %b %d, %I:%M %p %Z, %Y"
-                )
-                game_dict['kickoff_time'] = kickoff_time
-
-            games_data.append(game_dict)
+                games_data.append(game_dict)
+                
+            except Exception as e:
+                print(f"⚠️ Failed to parse game {i+1}: {e}")
+                continue
             
         self.games = pd.DataFrame(games_data)
 
