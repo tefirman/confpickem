@@ -319,7 +319,13 @@ class ConfidencePickEmSimulator:
         optimal.update(player_fixed)
 
         # Track which points have been used
-        used_points = set(player_fixed.values())
+        used_points = list(player_fixed.values())
+        
+        # Validate no duplicate confidence points in fixed picks
+        if len(used_points) != len(set(used_points)):
+            raise ValueError("Fixed picks cannot have duplicate confidence points")
+        
+        used_points = set(used_points)
         
         # Use provided available_points or auto-calculate
         if available_points is None:
@@ -353,8 +359,12 @@ class ConfidencePickEmSimulator:
             best_win_prob = 0
 
             # Get range of points to try
-            increment = max(1, (len(available_points) - 1) // (confidence_range - 1))
-            points_to_try = sorted(available_points, reverse=True)[::increment]
+            if confidence_range == 1:
+                # Special case: only try the highest available point
+                points_to_try = [max(available_points)]
+            else:
+                increment = max(1, (len(available_points) - 1) // (confidence_range - 1))
+                points_to_try = sorted(available_points, reverse=True)[::increment]
             print(f"  Points to try: {points_to_try}")
             # points_to_try = sorted(available_points, reverse=True)[:confidence_range]
             
