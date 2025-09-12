@@ -4,6 +4,7 @@
 import sys
 from pathlib import Path
 import pandas as pd
+import json
 from datetime import datetime
 
 # Add src to path
@@ -14,7 +15,7 @@ from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Play
 
 def main():
     """Mid-week optimization accounting for completed games"""
-    print("📅 NFL WEEK 1 MID-WEEK OPTIMIZER")
+    print("📅 NFL WEEK 2 MID-WEEK OPTIMIZER")
     print("🏈 Accounts for Thursday/Friday results!")
     print("=" * 45)
     
@@ -30,8 +31,21 @@ def main():
             import shutil
             shutil.rmtree(cache_dir)
         
-        yahoo = YahooPickEm(week=1, league_id=15435, cookies_file="cookies.txt")
+        yahoo = YahooPickEm(week=2, league_id=15435, cookies_file="cookies.txt")
         print(f"✅ Loaded {len(yahoo.games)} games, {len(yahoo.players)} players")
+        
+        # Check for valid data extraction
+        if len(yahoo.games) == 0:
+            print("❌ No games found! This usually means:")
+            print("   🍪 Your cookies.txt file may be expired")
+            print("   🔗 League ID might be incorrect")
+            print("   📅 Week number might be wrong")
+            print("")
+            print("💡 Try updating your cookies.txt file:")
+            print("   1. Log into Yahoo Fantasy Sports")
+            print("   2. Export cookies to cookies.txt")
+            print("   3. Run this script again")
+            return 1
         
         # Check for completed games
         completed_games = [r for r in yahoo.results if r['winner']]
@@ -80,21 +94,40 @@ def main():
                 'crowd_home_pick_pct': crowd_home_pct,
                 'crowd_home_confidence': home_conf,
                 'crowd_away_confidence': away_conf,
-                'week': 1,
+                'week': 2,
                 'kickoff_time': game['kickoff_time'],
                 'actual_outcome': actual_outcome  # This is the key difference!
             })
         
         simulator.add_games_from_dataframe(pd.DataFrame(games_data))
         
-        # Convert players
+        # Load realistic player skills
+        try:
+            with open('current_player_skills.json', 'r') as f:
+                player_skills = json.load(f)
+            print("✅ Using realistic 2024-derived player skills")
+        except FileNotFoundError:
+            print("⚠️ current_player_skills.json not found, using defaults")
+            player_skills = {}
+        
+        # Convert players with realistic skills
         players = []
         for _, player in yahoo.players.iterrows():
+            name = player['player_name']
+            if name in player_skills:
+                skill_data = player_skills[name]
+                skill = skill_data['skill_level']
+                crowd = skill_data['crowd_following']
+                confidence = skill_data['confidence_following']
+            else:
+                # Fallback to defaults
+                skill, crowd, confidence = 0.6, 0.5, 0.5
+            
             players.append(Player(
-                name=player['player_name'],
-                skill_level=0.6,
-                crowd_following=0.5,
-                confidence_following=0.5
+                name=name,
+                skill_level=skill,
+                crowd_following=crowd,
+                confidence_following=confidence
             ))
         
         simulator.players = players
@@ -292,7 +325,7 @@ def main():
             optimal_picks = simulator.optimize_picks(
                 player_name=selected,
                 fixed_picks=fixed_formatted,
-                confidence_range=3,  # Test 3 confidence levels for speed
+                confidence_range=4,  # Test 3 confidence levels for speed
                 available_points=remaining_confidence
             )
             
@@ -337,10 +370,10 @@ def main():
                 # Save results
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
                 safe_name = selected.replace(' ', '_').replace('/', '_')
-                filename = f"NFL_Week1_MidWeek_{safe_name}_{timestamp}.txt"
+                filename = f"NFL_Week2_MidWeek_{safe_name}_{timestamp}.txt"
                 
                 with open(filename, 'w') as f:
-                    f.write(f"NFL Week 1 Mid-Week Optimized Picks\n")
+                    f.write(f"NFL Week 2 Mid-Week Optimized Picks\n")
                     f.write(f"Player: {selected}\n")
                     f.write(f"Generated: {datetime.now()}\n")
                     f.write(f"Method: Mid-week (2,000 sims, accounts for actual results)\n")

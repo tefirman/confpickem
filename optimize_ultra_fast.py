@@ -1,9 +1,10 @@
 #!/usr/bin/env python
-"""Ultra-fast optimization for NFL Week 1 - maximum speed"""
+"""Ultra-fast optimization for NFL Week 2 - maximum speed"""
 
 import sys
 from pathlib import Path
 import pandas as pd
+import json
 from datetime import datetime
 
 # Add src to path
@@ -14,7 +15,7 @@ from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Play
 
 def main():
     """Ultra-fast optimization - minimal simulations"""
-    print("⚡ NFL WEEK 1 ULTRA-FAST OPTIMIZER")
+    print("⚡ NFL WEEK 2 ULTRA-FAST OPTIMIZER")
     print("🚀 Maximum speed mode (2,000 sims)")
     print("=" * 42)
     
@@ -30,8 +31,21 @@ def main():
             import shutil
             shutil.rmtree(cache_dir)
         
-        yahoo = YahooPickEm(week=1, league_id=15435, cookies_file="cookies.txt")
+        yahoo = YahooPickEm(week=2, league_id=15435, cookies_file="cookies.txt")
         print(f"✅ Loaded {len(yahoo.games)} games, {len(yahoo.players)} players")
+        
+        # Check for valid data extraction
+        if len(yahoo.games) == 0:
+            print("❌ No games found! This usually means:")
+            print("   🍪 Your cookies.txt file may be expired")
+            print("   🔗 League ID might be incorrect")
+            print("   📅 Week number might be wrong")
+            print("")
+            print("💡 Try updating your cookies.txt file:")
+            print("   1. Log into Yahoo Fantasy Sports")
+            print("   2. Export cookies to cookies.txt")
+            print("   3. Run this script again")
+            return 1
         
         # Ultra-fast simulator setup
         simulator = ConfidencePickEmSimulator(num_sims=2000)  # Very fast!
@@ -59,27 +73,46 @@ def main():
                 'crowd_home_pick_pct': crowd_home_pct,
                 'crowd_home_confidence': home_conf,
                 'crowd_away_confidence': away_conf,
-                'week': 1,
+                'week': 2,
                 'kickoff_time': game['kickoff_time'],
                 'actual_outcome': None
             })
         
         simulator.add_games_from_dataframe(pd.DataFrame(games_data))
         
-        # Convert players
+        # Load realistic player skills
+        try:
+            with open('current_player_skills.json', 'r') as f:
+                player_skills = json.load(f)
+            print("✅ Using realistic 2024-derived player skills")
+        except FileNotFoundError:
+            print("⚠️ current_player_skills.json not found, using defaults")
+            player_skills = {}
+        
+        # Convert players with realistic skills
         players = []
         for _, player in yahoo.players.iterrows():
+            name = player['player_name']
+            if name in player_skills:
+                skill_data = player_skills[name]
+                skill = skill_data['skill_level']
+                crowd = skill_data['crowd_following']
+                confidence = skill_data['confidence_following']
+            else:
+                # Fallback to defaults
+                skill, crowd, confidence = 0.6, 0.5, 0.5
+            
             players.append(Player(
-                name=player['player_name'],
-                skill_level=0.6,
-                crowd_following=0.5,
-                confidence_following=0.5
+                name=name,
+                skill_level=skill,
+                crowd_following=crowd,
+                confidence_following=confidence
             ))
         
         simulator.players = players
         
         # Show games
-        print(f"\n🏈 {len(simulator.games)} NFL Week 1 Games")
+        print(f"\n🏈 {len(simulator.games)} NFL Week 2 Games")
         
         # Player selection
         player_names = [p.name for p in simulator.players]
@@ -178,7 +211,7 @@ def main():
             optimal_picks = simulator.optimize_picks(
                 player_name=selected,
                 fixed_picks=fixed_formatted,
-                confidence_range=2  # Only test highest and lowest confidence
+                confidence_range=4  # Only test highest and lowest confidence
             )
             
             if optimal_picks:
@@ -214,10 +247,10 @@ def main():
                 # Save results
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
                 safe_name = selected.replace(' ', '_').replace('/', '_')
-                filename = f"NFL_Week1_UltraFast_{safe_name}_{timestamp}.txt"
+                filename = f"NFL_Week2_UltraFast_{safe_name}_{timestamp}.txt"
                 
                 with open(filename, 'w') as f:
-                    f.write(f"NFL Week 1 Ultra-Fast Optimized Picks\n")
+                    f.write(f"NFL Week 2 Ultra-Fast Optimized Picks\n")
                     f.write(f"Player: {selected}\n")
                     f.write(f"Generated: {datetime.now()}\n")
                     f.write(f"Method: Ultra-Fast (2,000 sims, 2 confidence levels)\n\n")

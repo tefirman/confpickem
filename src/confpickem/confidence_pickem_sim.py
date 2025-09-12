@@ -329,9 +329,9 @@ class ConfidencePickEmSimulator:
         
         # Use provided available_points or auto-calculate
         if available_points is None:
-            # Only count games that need optimization (not completed games)
-            games_to_pick = len([g for g in self.games if g.actual_outcome is None])
-            available_points = set(range(1, games_to_pick + 1)) - used_points
+            # Use full confidence range (1 to total games) minus any used points
+            # This is correct because confidence points 1-16 are available regardless of completed games
+            available_points = set(range(1, len(self.games) + 1)) - used_points
         else:
             # Use the provided set, but remove any already used in fixed picks
             available_points = available_points - used_points
