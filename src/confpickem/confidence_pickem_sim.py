@@ -357,6 +357,9 @@ class ConfidencePickEmSimulator:
         Returns:
             Dict mapping team abbreviations to optimal confidence points
         """
+        # Set consistent random seed for deterministic optimization
+        np.random.seed(51)
+        
         # Validate player exists
         if player_name not in [p.name for p in self.players]:
             raise ValueError(f"Unknown player: {player_name}")
@@ -428,12 +431,14 @@ class ConfidencePickEmSimulator:
                 home_picks[player_name] = optimal.copy()
                 home_picks[player_name][game.home_team] = current_points
                 
-                # Simulate home team pick
+                # Simulate home team pick (with consistent seed)
+                np.random.seed(51 + hash(f"{game.home_team}_{current_points}") % 10000)
                 home_results = self.simulate_all(home_picks)
                 home_prob = home_results['win_pct'][player_name]
                 
-                # Update best result if better
-                if home_prob > best_win_prob:
+                # Update best result if better (use >= with deterministic tie-breaking)
+                if (home_prob > best_win_prob or 
+                    (home_prob == best_win_prob and (best_pick is None or game.home_team < best_pick))):
                     best_win_prob = home_prob
                     best_pick = game.home_team
                     best_points = current_points
@@ -445,12 +450,14 @@ class ConfidencePickEmSimulator:
                 away_picks[player_name] = optimal.copy()
                 away_picks[player_name][game.away_team] = current_points
                 
-                # Simulate away team pick
+                # Simulate away team pick (with consistent seed)
+                np.random.seed(51 + hash(f"{game.away_team}_{current_points}") % 10000)
                 away_results = self.simulate_all(away_picks)
                 away_prob = away_results['win_pct'][player_name]
                 
-                # Update best result if better
-                if away_prob > best_win_prob:
+                # Update best result if better (use >= with deterministic tie-breaking)
+                if (away_prob > best_win_prob or 
+                    (away_prob == best_win_prob and (best_pick is None or game.away_team < best_pick))):
                     best_win_prob = away_prob
                     best_pick = game.away_team
                     best_points = current_points
