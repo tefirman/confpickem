@@ -59,7 +59,8 @@ class ConfidencePickEmSimulator:
                 actual_outcome=row.get('actual_outcome', None)
             ))
 
-    def simulate_picks(self, fixed_picks: Dict[str, Dict[str, int]] = None) -> pd.DataFrame:
+    def simulate_picks(self, fixed_picks: Dict[str, Dict[str, int]] = None, 
+                      player_data: pd.DataFrame = None) -> pd.DataFrame:
         """Vectorized simulation of all picks and confidence points
         
         Args:
@@ -73,6 +74,8 @@ class ConfidencePickEmSimulator:
                 }
                 If player name is not in fixed_picks, all their picks will be simulated.
                 For players in fixed_picks, any teams not specified will be simulated.
+            player_data: DataFrame from yahoo.players with actual pick data for completed games.
+                Used to calculate each player's already-used confidence levels.
         """
         num_games = len(self.games)
         if num_games == 0:
@@ -80,6 +83,25 @@ class ConfidencePickEmSimulator:
         num_players = len(self.players)
         if num_players == 0:
             raise ValueError("No players loaded for simulation")
+        
+        # Calculate each player's used confidence levels from completed games
+        player_used_confidence = {}
+        if player_data is not None:
+            for _, player_row in player_data.iterrows():
+                player_name = player_row['player_name']
+                used_confidence = set()
+                
+                # Check each game to see if it's completed and get confidence used
+                for i, game in enumerate(self.games):
+                    if game.actual_outcome is not None:  # Completed game
+                        game_num = i + 1
+                        pick = player_row.get(f'game_{game_num}_pick')
+                        confidence = player_row.get(f'game_{game_num}_confidence')
+                        
+                        if pick and confidence:
+                            used_confidence.add(int(confidence))
+                
+                player_used_confidence[player_name] = used_confidence
         fixed_picks = fixed_picks or {}
         
         # Validate fixed picks
@@ -156,8 +178,37 @@ class ConfidencePickEmSimulator:
                 noise = np.random.normal(0, 2, num_games) * (1 - skill_levels[p])
                 final_conf = np.clip(blended_conf + noise, 1, num_games)
                 
-                # Convert to ranks
-                confidence[sim, p] = num_games + 1 - scipy.stats.rankdata(final_conf)
+                # Get available confidence levels for this player (accounting for completed games)
+                player_name = player.name
+                used_conf = player_used_confidence.get(player_name, set())
+                available_conf = set(range(1, num_games + 1)) - used_conf
+                
+                # Only rank games that haven't been completed (actual_outcome is None)
+                incomplete_game_indices = [i for i, game in enumerate(self.games) if game.actual_outcome is None]
+                
+                if len(incomplete_game_indices) > 0 and len(available_conf) >= len(incomplete_game_indices):
+                    # Get confidence scores only for incomplete games
+                    incomplete_conf_scores = final_conf[incomplete_game_indices]
+                    
+                    # Create stable ranking using both confidence scores and game indices for tie-breaking
+                    # This ensures deterministic behavior when confidence scores are tied
+                    score_index_pairs = list(zip(-incomplete_conf_scores, incomplete_game_indices))  # Negative for descending
+                    score_index_pairs.sort()  # Sort by confidence (desc), then by game index (asc) for ties
+                    
+                    available_conf_list = sorted(list(available_conf), reverse=True)  # Highest first
+                    
+                    # Initialize confidence array with zeros
+                    game_confidences = np.zeros(num_games)
+                    
+                    # Assign confidence levels to incomplete games only
+                    for rank, (_, game_idx) in enumerate(score_index_pairs):
+                        if rank < len(available_conf_list):
+                            game_confidences[game_idx] = available_conf_list[rank]
+                    
+                    confidence[sim, p] = game_confidences
+                else:
+                    # Fallback: use traditional ranking if no completed games or no available confidence
+                    confidence[sim, p] = num_games + 1 - scipy.stats.rankdata(final_conf)
         
         # Convert to pandas dataframe
         results = []
@@ -284,9 +335,9 @@ class ConfidencePickEmSimulator:
         
         return stats
 
-    def simulate_all(self, fixed_picks: Dict[str, int] = {}):
+    def simulate_all(self, fixed_picks: Dict[str, int] = {}, player_data: pd.DataFrame = None):
         # Run focused simulation
-        picks_df = self.simulate_picks(fixed_picks)
+        picks_df = self.simulate_picks(fixed_picks, player_data)
         
         # Simulate outcomes and analyze results
         outcomes = self.simulate_outcomes()
@@ -491,5 +542,140 @@ class ConfidencePickEmSimulator:
         
         # Sort by absolute impact
         results = results.sort_values('total_impact', ascending=False, key=abs)
+        
+        return results
+    
+    def assess_remaining_game_importance(self, player_name: str, current_standings: dict, 
+                                       player_picks: dict) -> pd.DataFrame:
+        """
+        Assess the importance of remaining games based on current standings and locked-in results.
+        This is designed for mid-week/Sunday analysis when some games are completed.
+        
+        Args:
+            player_name: Name of the player to analyze
+            current_standings: Dict mapping player names to current points
+            player_picks: Dict mapping players to their pick dictionaries
+                Example: {'Player1': {'GB': 16, 'Cin': 15, ...}, 'Player2': {...}}
+        
+        Returns:
+            DataFrame with remaining game importance analysis
+        """
+        if player_name not in current_standings:
+            raise ValueError(f"Player {player_name} not found in current standings")
+        
+        # Get remaining games (those without actual outcomes)
+        remaining_games = [g for g in self.games if g.actual_outcome is None]
+        
+        if not remaining_games:
+            # No games remaining
+            return pd.DataFrame()
+        
+        # Current player's position
+        your_current_points = current_standings[player_name]
+        sorted_standings = sorted(current_standings.items(), key=lambda x: x[1], reverse=True)
+        your_current_rank = next(i for i, (name, _) in enumerate(sorted_standings, 1) if name == player_name)
+        
+        # Calculate maximum possible points for each player from remaining games
+        max_remaining_points = {}
+        for p_name, picks in player_picks.items():
+            # Find confidence levels used in completed games
+            used_conf = set()
+            for game in self.games:
+                if game.actual_outcome is not None:  # Completed game
+                    for team in [game.home_team, game.away_team]:
+                        if team in picks:
+                            used_conf.add(picks[team])
+                            break
+            
+            # Available confidence levels for remaining games
+            all_conf = set(range(1, len(self.games) + 1))
+            available_conf = all_conf - used_conf
+            max_remaining = sum(sorted(list(available_conf), reverse=True)[:len(remaining_games)])
+            max_remaining_points[p_name] = max_remaining
+        
+        # Analyze each remaining game
+        game_impacts = []
+        
+        for game_idx, game in enumerate(remaining_games):
+            game_id = f"{game.away_team}@{game.home_team}"
+            
+            # Get your pick and confidence for this game
+            your_pick = None
+            your_confidence = 0
+            
+            if player_name in player_picks:
+                picks = player_picks[player_name]
+                if game.home_team in picks:
+                    your_pick = game.home_team
+                    your_confidence = picks[game.home_team]
+                elif game.away_team in picks:
+                    your_pick = game.away_team  
+                    your_confidence = picks[game.away_team]
+            
+            if your_pick is None:
+                continue  # Skip games where we don't have picks
+            
+            # Simulate scenarios: you win this game vs you lose this game
+            win_scenario_final = your_current_points + your_confidence
+            loss_scenario_final = your_current_points
+            
+            # Count how many players you could beat/lose to based on this game
+            players_you_could_pass = 0
+            players_who_could_pass_you = 0
+            
+            for other_name, other_current_points in current_standings.items():
+                if other_name == player_name:
+                    continue
+                    
+                other_max_possible = other_current_points + max_remaining_points.get(other_name, 0)
+                
+                # If you win this game, could you pass them?
+                if win_scenario_final > other_max_possible and your_current_points <= other_current_points:
+                    players_you_could_pass += 1
+                
+                # If you lose this game, could they pass you?
+                if other_max_possible > loss_scenario_final and other_current_points <= your_current_points:
+                    players_who_could_pass_you += 1
+            
+            # Calculate importance based on Vegas probability and positional impact
+            vegas_win_prob = game.vegas_win_prob if your_pick == game.home_team else (1.0 - game.vegas_win_prob)
+            
+            # Higher importance for:
+            # - Close games (uncertainty)
+            # - High confidence bids
+            # - Games that affect many position changes
+            # - Games late in remaining schedule (fewer chances left)
+            
+            uncertainty_factor = 1.0 - abs(vegas_win_prob - 0.5) * 2  # 0 to 1, higher for closer games
+            confidence_factor = your_confidence / 16.0  # Normalize confidence
+            position_factor = (players_you_could_pass + players_who_could_pass_you) / len(current_standings)
+            scarcity_factor = (len(remaining_games) - game_idx) / len(remaining_games)  # Later games more important
+            
+            # Combined importance score (0 to 1)
+            importance_score = (uncertainty_factor * 0.3 + 
+                              confidence_factor * 0.3 + 
+                              position_factor * 0.2 + 
+                              scarcity_factor * 0.2)
+            
+            game_impacts.append({
+                'game': game_id,
+                'pick': your_pick,
+                'points_bid': your_confidence,
+                'vegas_win_prob': vegas_win_prob,
+                'uncertainty_factor': uncertainty_factor,
+                'confidence_factor': confidence_factor, 
+                'position_factor': position_factor,
+                'scarcity_factor': scarcity_factor,
+                'importance_score': importance_score,
+                'players_could_pass': players_you_could_pass,
+                'players_could_pass_you': players_who_could_pass_you,
+                'current_rank': your_current_rank
+            })
+        
+        results = pd.DataFrame(game_impacts)
+        
+        if len(results) > 0:
+            # Sort by importance score
+            results = results.sort_values('importance_score', ascending=False)
         
         return results

@@ -10,6 +10,7 @@ import numpy as np
 sys.path.append(str(Path(__file__).parent / "src"))
 
 from src.confpickem.yahoo_pickem_scraper import YahooPickEm
+from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator
 
 def simulate_remaining_games(results, all_picks, num_sims=5000, simulate_from_game=None):
     """Simulate remaining games using Vegas probabilities and calculate final standings
@@ -229,6 +230,86 @@ def main():
                         print(f"   Currently Leading!")
                         
                     print(f"   Games Remaining: {pending}")
+                    
+                    # Add remaining game importance analysis for this player
+                    if pending > 0:
+                        try:
+                            print(f"\n🔥 REMAINING GAME IMPORTANCE for {name}:")
+                            print(f"   (Higher scores = more critical for your final position)")
+                            
+                            # Setup simulator for game importance analysis
+                            simulator = ConfidencePickEmSimulator(num_sims=100)  # Fast for this analysis
+                            
+                            # Convert games to simulator format
+                            games_data = []
+                            for result in yahoo.results:
+                                # Determine home/away teams and probabilities
+                                favorite, underdog = result['favorite'], result['underdog']
+                                
+                                if result.get('home_favorite', True):
+                                    home_team, away_team = favorite, underdog  
+                                    home_prob = result.get('win_prob', 0.5)
+                                else:
+                                    home_team, away_team = underdog, favorite
+                                    home_prob = 1.0 - result.get('win_prob', 0.5)
+                                
+                                # Check if game has actual outcome
+                                actual_outcome = None
+                                if result.get('winner'):
+                                    actual_outcome = (result['winner'] == home_team)
+                                
+                                games_data.append({
+                                    'home_team': home_team,
+                                    'away_team': away_team,
+                                    'vegas_win_prob': home_prob,
+                                    'crowd_home_pick_pct': 0.5,
+                                    'crowd_home_confidence': 8,
+                                    'crowd_away_confidence': 8,
+                                    'week': 2,
+                                    'kickoff_time': '1:00 PM ET',
+                                    'actual_outcome': actual_outcome
+                                })
+                            
+                            simulator.add_games_from_dataframe(pd.DataFrame(games_data))
+                            
+                            # Convert player picks to the format needed
+                            player_picks = {}
+                            for player_row in yahoo.players.itertuples(index=False):
+                                player_name = player_row.player_name
+                                picks_dict = {}
+                                
+                                for i in range(1, len(yahoo.games) + 1):
+                                    pick = getattr(player_row, f'game_{i}_pick', None)
+                                    conf = getattr(player_row, f'game_{i}_confidence', None)
+                                    if pick and conf:
+                                        picks_dict[pick] = int(conf)
+                                
+                                player_picks[player_name] = picks_dict
+                            
+                            # Run remaining game importance analysis
+                            importance_df = simulator.assess_remaining_game_importance(
+                                player_name=name,
+                                current_standings=current_standings,
+                                player_picks=player_picks
+                            )
+                            
+                            if len(importance_df) > 0:
+                                # Show top 5 most important remaining games
+                                for i, (_, row) in enumerate(importance_df.head(5).iterrows()):
+                                    game = row['game']
+                                    pick = row['pick']
+                                    conf = int(row['points_bid'])
+                                    score = row['importance_score']
+                                    vegas_prob = row['vegas_win_prob']
+                                    
+                                    print(f"     {i+1}. {game:<15} → {pick:3} ({conf:2d} pts) Score: {score:.2f} (Vegas: {vegas_prob:.1%})")
+                                    
+                                print(f"   💡 Score factors: Uncertainty + Confidence + Position Impact + Game Timing")
+                            else:
+                                print(f"     No remaining games to analyze")
+                                
+                        except Exception as e:
+                            print(f"     ⚠️ Could not analyze game importance: {e}")
             else:
                 print(f"❌ No matches found for '{search}'")
         

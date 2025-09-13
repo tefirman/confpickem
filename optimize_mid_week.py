@@ -57,7 +57,7 @@ def main():
                 print(f"     ✅ {game['winner']} beat opponent (spread: {game['spread']})")
         
         # Setup simulator with mid-range accuracy (balance speed/precision)
-        simulator = ConfidencePickEmSimulator(num_sims=1000)
+        simulator = ConfidencePickEmSimulator(num_sims=2000)  # Match ultra-fast for comparison
         
         # Convert games WITH actual outcomes
         games_data = []
@@ -325,7 +325,7 @@ def main():
             optimal_picks = simulator.optimize_picks(
                 player_name=selected,
                 fixed_picks=fixed_formatted,
-                confidence_range=4,  # Test 3 confidence levels for speed
+                confidence_range=4,
                 available_points=remaining_confidence
             )
             
@@ -335,8 +335,8 @@ def main():
                 
                 # Performance analysis accounting for actual results
                 optimal_fixed = {selected: optimal_picks}
-                optimal_stats = simulator.simulate_all(optimal_fixed)
-                random_stats = simulator.simulate_all({})
+                optimal_stats = simulator.simulate_all(optimal_fixed, yahoo.players)
+                random_stats = simulator.simulate_all({}, yahoo.players)
                 
                 opt_win = optimal_stats['win_pct'][selected]
                 rand_win = random_stats['win_pct'][selected]
@@ -367,6 +367,66 @@ def main():
                     status = "📅" if is_remaining else "✅"
                     print(f"   {conf:2d}. {team} vs {opponent} {status}")
                 
+                # Game importance analysis
+                print(f"\n🎯 GAME IMPORTANCE ANALYSIS:")
+                print("   (How much each game affects your win probability)")
+                try:
+                    optimal_fixed_for_analysis = {selected: optimal_picks}
+                    importance_df = simulator.assess_game_importance(
+                        player_name=selected,
+                        fixed_picks=optimal_fixed_for_analysis
+                    )
+                    
+                    # Sort by importance and show top games
+                    importance_sorted = importance_df.sort_values('total_impact', ascending=False)
+                    
+                    for i, (_, row) in enumerate(importance_sorted.head(8).iterrows()):
+                        game_desc = row['game']  # Already formatted as "Away@Home"
+                        pick = row['pick']
+                        conf = int(row['points_bid'])  # Convert to int for formatting
+                        importance = row['total_impact']
+                        
+                        # Check if this is a remaining game by parsing the game string
+                        away_team, home_team = game_desc.split('@')
+                        is_remaining = any(
+                            set([home_team, away_team]) == set([g['home'], g['away']])
+                            for g in remaining_games
+                        )
+                        status = "📅" if is_remaining else "✅"
+                        
+                        print(f"   {i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) +{importance*100:4.1f}% {status}")
+                        
+                except Exception as e:
+                    print(f"   ⚠️ Could not calculate game importance: {e}")
+                
+                # Projected standings based on win probabilities
+                print(f"\n📊 PROJECTED FINAL STANDINGS:")
+                print("   (Based on current win probabilities)")
+                try:
+                    # Get win probabilities for all players
+                    win_probs = optimal_stats['win_pct']
+                    
+                    # Sort players by win probability
+                    sorted_standings = sorted(win_probs.items(), key=lambda x: x[1], reverse=True)
+                    
+                    print("   Rank  Player                    Win%")
+                    print("   " + "="*42)
+                    
+                    for rank, (name, win_pct) in enumerate(sorted_standings[:15], 1):
+                        # Highlight your position
+                        marker = " 👤" if name == selected else ""
+                        print(f"   {rank:2d}.   {name:<20} {win_pct:6.1%}{marker}")
+                    
+                    if len(sorted_standings) > 15:
+                        print(f"        ... and {len(sorted_standings) - 15} more players")
+                        
+                    # Show your rank
+                    your_rank = next(i for i, (name, _) in enumerate(sorted_standings, 1) if name == selected)
+                    print(f"\n   🎯 Your projected rank: #{your_rank} out of {len(sorted_standings)}")
+                    
+                except Exception as e:
+                    print(f"   ⚠️ Could not calculate projected standings: {e}")
+                
                 # Save results
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
                 safe_name = selected.replace(' ', '_').replace('/', '_')
@@ -377,13 +437,54 @@ def main():
                     f.write(f"Player: {selected}\n")
                     f.write(f"Generated: {datetime.now()}\n")
                     f.write(f"Method: Mid-week (2,000 sims, accounts for actual results)\n")
+                    f.write(f"Projected win probability: {opt_win:.1%}\n")
                     f.write(f"Completed games: {completed_count}/{len(yahoo.games)}\n")
                     f.write(f"Current points: {your_points if completed_count > 0 else 'N/A'}\n")
-                    f.write(f"Current rank: #{your_rank if completed_count > 0 else 'N/A'}\n\n")
+                    f.write(f"Current rank: #{your_rank if completed_count > 0 else 'N/A'}\n")
                     
-                    f.write("OPTIMIZED PICKS:\n")
-                    for team, conf in sorted_picks:
-                        f.write(f"{conf:2d}. {team}\n")
+                    # Add projected final rank if available
+                    try:
+                        win_probs = optimal_stats['win_pct']
+                        sorted_standings = sorted(win_probs.items(), key=lambda x: x[1], reverse=True)
+                        your_projected_rank = next(i for i, (name, _) in enumerate(sorted_standings, 1) if name == selected)
+                        f.write(f"Projected final rank: #{your_projected_rank}/{len(sorted_standings)}\n")
+                    except:
+                        pass
+                    
+                    f.write("\n")
+                    
+                    # Add game importance analysis to file instead of basic picks list
+                    f.write("OPTIMIZED PICKS (by strategic importance):\n")
+                    try:
+                        optimal_fixed_for_file = {selected: optimal_picks}
+                        importance_df = simulator.assess_game_importance(
+                            player_name=selected,
+                            fixed_picks=optimal_fixed_for_file
+                        )
+                        
+                        importance_sorted = importance_df.sort_values('total_impact', ascending=False)
+                        
+                        for i, (_, row) in enumerate(importance_sorted.iterrows()):
+                            game_desc = row['game']
+                            pick = row['pick']
+                            conf = int(row['points_bid'])
+                            importance = row['total_impact']
+                            
+                            # Check if this is a remaining game
+                            away_team, home_team = game_desc.split('@')
+                            is_remaining = any(
+                                set([home_team, away_team]) == set([g['home'], g['away']])
+                                for g in remaining_games
+                            )
+                            status = "📅" if is_remaining else "✅"
+                            
+                            f.write(f"{i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) +{importance*100:4.1f}% {status}\n")
+                            
+                    except Exception as e:
+                        # Fallback to basic picks list if game importance fails
+                        f.write("OPTIMIZED PICKS:\n")
+                        for team, conf in sorted_picks:
+                            f.write(f"{conf:2d}. {team}\n")
                 
                 print(f"\n💾 Results saved: {filename}")
                 print("\n📅 Mid-week optimization complete!")
