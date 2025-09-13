@@ -473,7 +473,11 @@ def test_cached_content():
 
 def test_cookie_handling(mock_cookiejar):
     """Test cookie handling"""
-    with patch('requests.Session'):
+    with patch('requests.Session'), \
+         patch.object(YahooPickEm, 'get_pick_distribution'), \
+         patch.object(YahooPickEm, 'get_confidence_picks'):
+        
+        # Just test that cookie jar is loaded during initialization
         YahooPickEm(week=1, league_id=12345, cookies_file='cookies.txt')
         mock_cookiejar.load.assert_called_once_with(ignore_discard=True, ignore_expires=True)
 
