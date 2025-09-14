@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Test and verify optimized picks"""
+"""Test and verify optimized picks accounting for completed mid-week games"""
 
 import sys
 from pathlib import Path
@@ -13,8 +13,9 @@ from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Play
 
 def main():
     """Test your optimized picks"""
-    print("🧪 PICK VERIFICATION TOOL")
-    print("=" * 30)
+    print("🧪 MID-WEEK PICK VERIFICATION TOOL")
+    print("🎯 Accounts for completed Thu/Fri games")
+    print("=" * 40)
     
     if not Path("cookies.txt").exists():
         print("❌ Missing cookies.txt file")
@@ -34,7 +35,7 @@ def main():
         # Setup simulator (use high accuracy for verification)
         simulator = ConfidencePickEmSimulator(num_sims=15000)
         
-        # Convert games
+        # Convert games WITH actual outcomes for completed games
         games_data = []
         for _, game in yahoo.games.iterrows():
             favorite, underdog = game['favorite'], game['underdog']
@@ -50,6 +51,19 @@ def main():
                 crowd_home_pct = game['underdog_pick_pct'] / 100.0
                 home_conf, away_conf = game['underdog_confidence'], game['favorite_confidence']
             
+            # Check if we have actual outcome for this game
+            actual_outcome = None
+            for completed in yahoo.results:
+                if completed.get('winner'):
+                    # Match by team names from completed game data
+                    completed_teams = {completed.get('favorite', ''), completed.get('underdog', '')}
+                    our_teams = {home_team, away_team}
+                    if completed_teams == our_teams:  # Exact match of the two teams
+                        # Determine if home team won
+                        actual_outcome = (completed['winner'] == home_team)
+                        print(f"   ✅ Found completed game: {completed['favorite']} vs {completed['underdog']}, winner: {completed['winner']}")
+                        break
+            
             games_data.append({
                 'home_team': home_team,
                 'away_team': away_team,
@@ -57,12 +71,19 @@ def main():
                 'crowd_home_pick_pct': crowd_home_pct,
                 'crowd_home_confidence': home_conf,
                 'crowd_away_confidence': away_conf,
-                'week': 1,
+                'week': 2,
                 'kickoff_time': game['kickoff_time'],
-                'actual_outcome': None
+                'actual_outcome': actual_outcome  # Key difference from original test_picks.py!
             })
         
         simulator.add_games_from_dataframe(pd.DataFrame(games_data))
+        
+        # Show game status
+        completed_count = sum(1 for game in simulator.games if game.actual_outcome is not None)
+        remaining_count = len(simulator.games) - completed_count
+        print(f"\n🎮 MID-WEEK SIMULATION SETUP:")
+        print(f"   ✅ {completed_count} games with known outcomes")
+        print(f"   🎲 {remaining_count} games to simulate")
         
         # Convert players
         players = []
@@ -104,14 +125,48 @@ def main():
         
         print(f"✅ Testing picks for: {selected_player}")
         
-        # Get available teams
-        available_teams = set()
-        for _, game in yahoo.games.iterrows():
-            available_teams.add(game['favorite'])
-            available_teams.add(game['underdog'])
-        available_teams = sorted(list(available_teams))
+        # Get player's actual data from Yahoo
+        your_player_data = None
+        for _, player in yahoo.players.iterrows():
+            if player['player_name'] == selected_player:
+                your_player_data = player
+                break
         
-        print(f"\n📋 Available teams: {', '.join(available_teams)}")
+        if your_player_data is None:
+            print(f"❌ Could not find player data for {selected_player}")
+            return 1
+        
+        # Extract completed game picks automatically
+        completed_picks = {}
+        used_confidence = set()
+        
+        print(f"\n🎯 YOUR COMPLETED GAME PICKS (auto-detected):")
+        for i, game in enumerate(simulator.games):
+            if game.actual_outcome is not None:
+                game_num = i + 1
+                pick = your_player_data.get(f'game_{game_num}_pick')
+                confidence = your_player_data.get(f'game_{game_num}_confidence')
+                
+                if pick and confidence:
+                    completed_picks[pick] = int(confidence)  # Convert to int
+                    used_confidence.add(int(confidence))     # Convert to int
+                    was_correct = (pick == game.home_team and game.actual_outcome) or \
+                                (pick == game.away_team and not game.actual_outcome)
+                    status = "✅" if was_correct else "❌"
+                    print(f"     {status} {pick} ({confidence} pts) - {'WIN' if was_correct else 'LOSS'}")
+        
+        # Get remaining teams only
+        remaining_teams = set()
+        for game in simulator.games:
+            if game.actual_outcome is None:  # Only remaining games
+                remaining_teams.add(game.home_team)
+                remaining_teams.add(game.away_team)
+        
+        remaining_teams = sorted(list(remaining_teams))
+        remaining_confidence = sorted(list(set(range(1, 17)) - used_confidence), reverse=True)
+        
+        print(f"\n📋 Available teams (remaining games only): {', '.join(remaining_teams)}")
+        print(f"🎯 Available confidence points: {', '.join(map(str, remaining_confidence))}")
         
         # Get picks
         print(f"\n🎯 Enter your optimized picks:")
@@ -133,9 +188,9 @@ def main():
                     team_input = parts[0].strip()
                     confidence = int(parts[1])
                     
-                    # Find matching team
+                    # Find matching team (check remaining teams)
                     matched_team = None
-                    for team in available_teams:
+                    for team in remaining_teams:
                         if team.lower() == team_input.lower():
                             matched_team = team
                             break
@@ -154,18 +209,32 @@ def main():
             print("❌ No valid picks found")
             return 1
         
-        if len(user_picks) != 16:
-            print(f"⚠️  Warning: {len(user_picks)} picks entered, expected 16")
-            missing = 16 - len(user_picks)
+        # Combine completed picks with user's remaining picks
+        all_picks = {}
+        all_picks.update(completed_picks)  # Add completed game picks
+        all_picks.update(user_picks)       # Add remaining game picks
+        
+        remaining_games_count = len([g for g in simulator.games if g.actual_outcome is None])
+        total_games = len(simulator.games)
+        
+        if len(user_picks) != remaining_games_count:
+            print(f"⚠️  Warning: {len(user_picks)} remaining picks entered, expected {remaining_games_count}")
+            missing = remaining_games_count - len(user_picks)
             if missing > 0:
                 print(f"   Missing {missing} picks - they'll be assigned randomly")
+        
+        print(f"\n📊 Total picks: {len(all_picks)} ({len(completed_picks)} completed + {len(user_picks)} remaining)")
+        
+        if len(all_picks) != total_games:
+            print(f"⚠️  Total picks ({len(all_picks)}) doesn't match total games ({total_games})")
+            return 1
         
         print(f"\n🧪 RUNNING VERIFICATION SIMULATION...")
         print(f"   📊 Using 15,000 simulations for accuracy")
         print(f"   ⏱️  This will take 30-60 seconds...")
         
-        # Test picks
-        test_picks = {selected_player: user_picks}
+        # Test picks (combined completed + remaining)
+        test_picks = {selected_player: all_picks}
         results = simulator.simulate_all(test_picks)
         
         # Also test random picks for comparison
@@ -203,6 +272,47 @@ def main():
         
         print(f"   ⚖️  Medium confidence (7-12): {len(med_conf)} games") 
         print(f"   🤏 Low confidence (1-6): {len(low_conf)} games")
+        
+        # Add game importance analysis (win probability impact)
+        print(f"\n🎯 GAME IMPORTANCE ANALYSIS:")
+        print("   (Win probability change if you win vs lose each game)")
+        try:
+            # Create picks dataframe with all picks, then analyze importance
+            test_picks_for_importance = {selected_player: all_picks}
+            picks_df = simulator.simulate_picks(test_picks_for_importance)
+            
+            # Use the original assess_game_importance method
+            importance_df = simulator.assess_game_importance(
+                player_name=selected_player,
+                picks_df=picks_df,
+                fixed_picks={selected_player: completed_picks}  # Only completed games are truly "fixed"
+            )
+            
+            if len(importance_df) > 0:
+                # Filter to show only remaining games (non-fixed)
+                remaining_importance = importance_df[importance_df['is_fixed'] == False]
+                
+                if len(remaining_importance) > 0:
+                    # Sort by total impact and show ALL remaining games
+                    remaining_sorted = remaining_importance.sort_values('total_impact', key=abs, ascending=False)
+                    
+                    print(f"   📊 All {len(remaining_sorted)} remaining games by win probability impact:")
+                    for i, (_, row) in enumerate(remaining_sorted.iterrows()):
+                        game = row['game']
+                        pick = row['pick']
+                        conf = int(row['points_bid'])
+                        impact = row['total_impact']
+                        
+                        print(f"   {i+1:2d}. {game:<20} → {pick:3} ({conf:2d} pts) {impact:+5.1%}")
+                        
+                    print(f"   💡 Positive = helps if you win, Negative = hurts if you lose")
+                else:
+                    print(f"     All games are completed - no remaining games to analyze")
+            else:
+                print(f"     No games to analyze")
+                
+        except Exception as e:
+            print(f"   ⚠️ Could not analyze game importance: {e}")
         
         print(f"\n✅ Verification complete!")
         

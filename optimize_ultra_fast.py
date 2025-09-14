@@ -244,9 +244,10 @@ def main():
                     
                     print(f"   {conf:2d}. {team} vs {opponent}")
                 
-                # Game importance analysis
+                # Game importance analysis (compute once, use for both display and file)
                 print(f"\n🎯 GAME IMPORTANCE ANALYSIS:")
                 print("   (How much each game affects your win probability)")
+                importance_df = None
                 try:
                     optimal_fixed_for_analysis = {selected: optimal_picks}
                     importance_df = simulator.assess_game_importance(
@@ -267,6 +268,12 @@ def main():
                         
                 except Exception as e:
                     print(f"   ⚠️ Could not calculate game importance: {e}")
+                
+                # Show copy-paste friendly format for test_picks.py
+                print(f"\n📋 COPY-PASTE FORMAT FOR test_picks.py:")
+                sorted_picks = sorted(optimal_picks.items(), key=lambda x: x[1], reverse=True)
+                paste_format = ", ".join(f"{team} {conf}" for team, conf in sorted_picks)
+                print(f"   {paste_format}")
                 
                 # Projected standings based on win probabilities
                 print(f"\n📊 PROJECTED FINAL STANDINGS:")
@@ -319,30 +326,36 @@ def main():
                     
                     f.write("\n")
                     
-                    # Add game importance analysis to file instead of basic picks list
+                    # Add game importance analysis to file (reuse computed results)
                     f.write("OPTIMIZED PICKS (by strategic importance):\n")
-                    try:
-                        optimal_fixed_for_file = {selected: optimal_picks}
-                        importance_df = simulator.assess_game_importance(
-                            player_name=selected,
-                            fixed_picks=optimal_fixed_for_file
-                        )
-                        
-                        importance_sorted = importance_df.sort_values('total_impact', ascending=False)
-                        
-                        for i, (_, row) in enumerate(importance_sorted.iterrows()):
-                            game_desc = row['game']
-                            pick = row['pick']
-                            conf = int(row['points_bid'])
-                            importance = row['total_impact']
+                    if importance_df is not None:
+                        try:
+                            importance_sorted = importance_df.sort_values('total_impact', ascending=False)
                             
-                            f.write(f"{i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) +{importance*100:4.1f}%\n")
-                            
-                    except Exception as e:
-                        # Fallback to basic picks list if game importance fails
+                            for i, (_, row) in enumerate(importance_sorted.iterrows()):
+                                game_desc = row['game']
+                                pick = row['pick']
+                                conf = int(row['points_bid'])
+                                importance = row['total_impact']
+                                
+                                f.write(f"{i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) +{importance*100:4.1f}%\n")
+                                
+                        except Exception as e:
+                            # Fallback to basic picks list if sorting fails
+                            f.write("OPTIMIZED PICKS:\n")
+                            for team, conf in sorted_picks:
+                                f.write(f"{conf:2d}. {team}\n")
+                    else:
+                        # Fallback to basic picks list if game importance was not computed
                         f.write("OPTIMIZED PICKS:\n")
                         for team, conf in sorted_picks:
                             f.write(f"{conf:2d}. {team}\n")
+                    
+                    # Add copy-paste format for easy testing
+                    f.write(f"\nCOPY-PASTE FORMAT FOR test_picks.py:\n")
+                    sorted_picks = sorted(optimal_picks.items(), key=lambda x: x[1], reverse=True)
+                    paste_format = ", ".join(f"{team} {conf}" for team, conf in sorted_picks)
+                    f.write(f"{paste_format}\n")
                 
                 print(f"\n💾 Results saved: {filename}")
                 print("\n⚡ Ultra-fast optimization complete!")
