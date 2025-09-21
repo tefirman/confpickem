@@ -2,6 +2,7 @@
 """Win probability calculator using available data"""
 
 import sys
+import argparse
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -10,9 +11,9 @@ import numpy as np
 sys.path.append(str(Path(__file__).parent / "src"))
 
 from src.confpickem.yahoo_pickem_scraper import YahooPickEm
-from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator
+from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Player
 
-def simulate_remaining_games(results, all_picks, num_sims=5000, simulate_from_game=None):
+def simulate_remaining_games(results, all_picks, num_sims=5000, simulate_from_game=None, yahoo_games=None):
     """Simulate remaining games using Vegas probabilities and calculate final standings
     
     Args:
@@ -35,8 +36,32 @@ def simulate_remaining_games(results, all_picks, num_sims=5000, simulate_from_ga
     # Show Vegas probabilities for pending games
     for game_idx, result in pending_games:
         spread = result.get('spread', 0.0)
-        favorite_win_prob = min(max(spread * 0.031 + 0.5, 0.0), 1.0)
-        print(f"   {result['favorite']} vs {result['underdog']} (spread: {spread}) -> {result['favorite']} {favorite_win_prob:.1%}")
+        
+        # Find matching game in yahoo.games to get actual Vegas probability
+        vegas_prob = 0.5  # Default fallback
+        if yahoo_games is not None:
+            try:
+                # Find matching game by teams
+                result_teams = {result['favorite'], result['underdog']}
+                for _, game_row in yahoo_games.iterrows():
+                    game_teams = {game_row['favorite'], game_row['underdog']}
+                    if result_teams == game_teams:
+                        # Found matching game, get Vegas probability for favorite
+                        if game_row['favorite'] == result['favorite']:
+                            vegas_prob = game_row['win_prob']
+                        else:
+                            vegas_prob = 1.0 - game_row['win_prob']
+                        break
+            except:
+                # Fallback to spread calculation if lookup fails
+                if spread != 0:
+                    vegas_prob = min(max(spread * 0.031 + 0.5, 0.0), 1.0)
+        else:
+            # Fallback to spread calculation if no yahoo_games provided
+            if spread != 0:
+                vegas_prob = min(max(spread * 0.031 + 0.5, 0.0), 1.0)
+            
+        print(f"   {result['favorite']} vs {result['underdog']} (spread: {spread}) -> {result['favorite']} {vegas_prob:.1%}")
     
     # Calculate current points for each player
     current_standings = {}
@@ -61,9 +86,31 @@ def simulate_remaining_games(results, all_picks, num_sims=5000, simulate_from_ga
         
         # Simulate each pending game using Vegas probabilities
         for game_idx, result in pending_games:
-            # Convert spread to Vegas win probability (same formula as scraper)
-            spread = result.get('spread', 0.0)
-            favorite_win_prob = min(max(spread * 0.031 + 0.5, 0.0), 1.0)
+            # Get Vegas probability using same logic as display
+            favorite_win_prob = 0.5  # Default fallback
+            if yahoo_games is not None:
+                try:
+                    # Find matching game by teams
+                    result_teams = {result['favorite'], result['underdog']}
+                    for _, game_row in yahoo_games.iterrows():
+                        game_teams = {game_row['favorite'], game_row['underdog']}
+                        if result_teams == game_teams:
+                            # Found matching game, get Vegas probability for favorite
+                            if game_row['favorite'] == result['favorite']:
+                                favorite_win_prob = game_row['win_prob']
+                            else:
+                                favorite_win_prob = 1.0 - game_row['win_prob']
+                            break
+                except:
+                    # Fallback to spread calculation if lookup fails
+                    spread = result.get('spread', 0.0)
+                    if spread != 0:
+                        favorite_win_prob = min(max(spread * 0.031 + 0.5, 0.0), 1.0)
+            else:
+                # Fallback to spread calculation if no yahoo_games provided
+                spread = result.get('spread', 0.0)
+                if spread != 0:
+                    favorite_win_prob = min(max(spread * 0.031 + 0.5, 0.0), 1.0)
             
             # Simulate game outcome based on Vegas probability
             if np.random.random() < favorite_win_prob:
@@ -95,9 +142,19 @@ def simulate_remaining_games(results, all_picks, num_sims=5000, simulate_from_ga
 
 def main():
     """Calculate win probabilities"""
-    print("🎯 WIN PROBABILITY CALCULATOR")
+    parser = argparse.ArgumentParser(description='Calculate NFL win probabilities')
+    parser.add_argument('--week', '-w', type=int, default=3,
+                       help='NFL week number (default: 3)')
+    parser.add_argument('--league-id', '-l', type=int, default=15435,
+                       help='Yahoo league ID (default: 15435)')
+    args = parser.parse_args()
+
+    week = args.week
+    league_id = args.league_id
+
+    print(f"🎯 WIN PROBABILITY CALCULATOR - WEEK {week}")
     print("🎲 Based on remaining game simulations")
-    print("=" * 40)
+    print("=" * 45)
     
     if not Path("cookies.txt").exists():
         print("❌ Missing cookies.txt file")
@@ -110,7 +167,7 @@ def main():
             import shutil
             shutil.rmtree(cache_dir)
         
-        yahoo = YahooPickEm(week=1, league_id=15435, cookies_file="cookies.txt")
+        yahoo = YahooPickEm(week=week, league_id=league_id, cookies_file="cookies.txt")
         print(f"✅ Loaded {len(yahoo.players)} players, {len(yahoo.results)} results")
         
         # Extract all player picks
@@ -181,7 +238,7 @@ def main():
         
         # Run simulation
         win_probs, current_standings = simulate_remaining_games(
-            yahoo.results, all_picks, num_sims=5000, simulate_from_game=simulate_from_game
+            yahoo.results, all_picks, num_sims=5000, simulate_from_game=simulate_from_game, yahoo_games=yahoo.games
         )
         
         # Show results
@@ -237,74 +294,118 @@ def main():
                             print(f"\n🔥 REMAINING GAME IMPORTANCE for {name}:")
                             print(f"   (Higher scores = more critical for your final position)")
                             
-                            # Setup simulator for game importance analysis
-                            simulator = ConfidencePickEmSimulator(num_sims=100)  # Fast for this analysis
+                            # Setup simulator for game importance analysis (reuse yahoo data structure)
+                            importance_simulator = ConfidencePickEmSimulator(num_sims=100)  # Fast for this analysis
                             
-                            # Convert games to simulator format
+                            # Convert games to simulator format using existing yahoo.games data
                             games_data = []
-                            for result in yahoo.results:
-                                # Determine home/away teams and probabilities
-                                favorite, underdog = result['favorite'], result['underdog']
+                            for _, game_row in yahoo.games.iterrows():
+                                favorite, underdog = game_row['favorite'], game_row['underdog']
                                 
-                                if result.get('home_favorite', True):
-                                    home_team, away_team = favorite, underdog  
-                                    home_prob = result.get('win_prob', 0.5)
+                                if game_row['home_favorite']:
+                                    home_team, away_team = favorite, underdog
+                                    home_prob = game_row['win_prob']
+                                    crowd_home_pct = game_row['favorite_pick_pct'] / 100.0
+                                    home_conf, away_conf = game_row['favorite_confidence'], game_row['underdog_confidence']
                                 else:
                                     home_team, away_team = underdog, favorite
-                                    home_prob = 1.0 - result.get('win_prob', 0.5)
+                                    home_prob = 1.0 - game_row['win_prob']
+                                    crowd_home_pct = game_row['underdog_pick_pct'] / 100.0
+                                    home_conf, away_conf = game_row['underdog_confidence'], game_row['favorite_confidence']
                                 
-                                # Check if game has actual outcome
+                                # Check if game has actual outcome from results
                                 actual_outcome = None
-                                if result.get('winner'):
-                                    actual_outcome = (result['winner'] == home_team)
+                                for result in yahoo.results:
+                                    if result.get('winner'):
+                                        # Match by team names
+                                        result_teams = {result.get('favorite', ''), result.get('underdog', '')}
+                                        game_teams = {home_team, away_team}
+                                        if result_teams == game_teams:
+                                            actual_outcome = (result['winner'] == home_team)
+                                            break
                                 
                                 games_data.append({
                                     'home_team': home_team,
                                     'away_team': away_team,
                                     'vegas_win_prob': home_prob,
-                                    'crowd_home_pick_pct': 0.5,
-                                    'crowd_home_confidence': 8,
-                                    'crowd_away_confidence': 8,
-                                    'week': 2,
-                                    'kickoff_time': '1:00 PM ET',
+                                    'crowd_home_pick_pct': crowd_home_pct,
+                                    'crowd_home_confidence': home_conf,
+                                    'crowd_away_confidence': away_conf,
+                                    'week': week,
+                                    'kickoff_time': game_row['kickoff_time'],
                                     'actual_outcome': actual_outcome
                                 })
                             
-                            simulator.add_games_from_dataframe(pd.DataFrame(games_data))
+                            importance_simulator.add_games_from_dataframe(pd.DataFrame(games_data))
+                            
+                            # Add players to the simulator
+                            players = []
+                            for _, player in yahoo.players.iterrows():
+                                players.append(Player(
+                                    name=player['player_name'],
+                                    skill_level=0.6,
+                                    crowd_following=0.5,
+                                    confidence_following=0.5
+                                ))
+                            importance_simulator.players = players
                             
                             # Convert player picks to the format needed
                             player_picks = {}
-                            for player_row in yahoo.players.itertuples(index=False):
-                                player_name = player_row.player_name
+                            for _, player_row in yahoo.players.iterrows():
+                                player_name = player_row['player_name']
                                 picks_dict = {}
                                 
                                 for i in range(1, len(yahoo.games) + 1):
-                                    pick = getattr(player_row, f'game_{i}_pick', None)
-                                    conf = getattr(player_row, f'game_{i}_confidence', None)
+                                    pick = player_row.get(f'game_{i}_pick')
+                                    conf = player_row.get(f'game_{i}_confidence')
                                     if pick and conf:
                                         picks_dict[pick] = int(conf)
                                 
                                 player_picks[player_name] = picks_dict
                             
                             # Run remaining game importance analysis
-                            importance_df = simulator.assess_remaining_game_importance(
+                            # Create picks dataframe for the selected player
+                            test_picks_for_importance = {name: player_picks[name]}
+                            picks_df = importance_simulator.simulate_picks(test_picks_for_importance)
+                            
+                            # Create fixed_picks dict with completed games to exclude them from analysis
+                            completed_picks = {}
+                            for i, game in enumerate(importance_simulator.games):
+                                if game.actual_outcome is not None:
+                                    # This game is completed, mark player's pick as "fixed"
+                                    player_pick = None
+                                    for team_pick, conf in player_picks[name].items():
+                                        if team_pick in [game.home_team, game.away_team]:
+                                            player_pick = team_pick
+                                            break
+                                    if player_pick:
+                                        completed_picks[player_pick] = player_picks[name][player_pick]
+                            
+                            fixed_picks_for_analysis = {name: completed_picks} if completed_picks else None
+                            
+                            importance_df = importance_simulator.assess_game_importance(
                                 player_name=name,
-                                current_standings=current_standings,
-                                player_picks=player_picks
+                                picks_df=picks_df,
+                                fixed_picks=fixed_picks_for_analysis
                             )
                             
                             if len(importance_df) > 0:
-                                # Show top 5 most important remaining games
-                                for i, (_, row) in enumerate(importance_df.head(5).iterrows()):
-                                    game = row['game']
-                                    pick = row['pick']
-                                    conf = int(row['points_bid'])
-                                    score = row['importance_score']
-                                    vegas_prob = row['vegas_win_prob']
-                                    
-                                    print(f"     {i+1}. {game:<15} → {pick:3} ({conf:2d} pts) Score: {score:.2f} (Vegas: {vegas_prob:.1%})")
-                                    
-                                print(f"   💡 Score factors: Uncertainty + Confidence + Position Impact + Game Timing")
+                                # Filter to only remaining games (non-fixed)
+                                remaining_importance = importance_df[importance_df['is_fixed'] == False]
+                                
+                                if len(remaining_importance) > 0:
+                                    # Show all remaining games by importance
+                                    for i, (_, row) in enumerate(remaining_importance.iterrows()):
+                                        game = row['game']
+                                        pick = row['pick']
+                                        conf = int(row['points_bid'])
+                                        impact = row['total_impact']
+                                        
+                                        print(f"     {i+1}. {game:<15} → {pick:3} ({conf:2d} pts) {impact:+5.1%}")
+                                        
+                                    print(f"   💡 Shows win probability change if you win vs lose each game")
+                                else:
+                                    print(f"     All remaining games analyzed")
                             else:
                                 print(f"     No remaining games to analyze")
                                 

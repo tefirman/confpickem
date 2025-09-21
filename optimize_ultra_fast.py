@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-"""Ultra-fast optimization for NFL Week 2 - maximum speed"""
+"""Ultra-fast optimization for NFL games - maximum speed"""
 
 import sys
+import argparse
 from pathlib import Path
 import pandas as pd
 import json
@@ -15,7 +16,17 @@ from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Play
 
 def main():
     """Ultra-fast optimization - minimal simulations"""
-    print("⚡ NFL WEEK 2 ULTRA-FAST OPTIMIZER")
+    parser = argparse.ArgumentParser(description='Ultra-fast NFL pick optimization')
+    parser.add_argument('--week', '-w', type=int, default=3,
+                       help='NFL week number (default: 3)')
+    parser.add_argument('--league-id', '-l', type=int, default=15435,
+                       help='Yahoo league ID (default: 15435)')
+    args = parser.parse_args()
+
+    week = args.week
+    league_id = args.league_id
+
+    print(f"⚡ NFL WEEK {week} ULTRA-FAST OPTIMIZER")
     print("🚀 Maximum speed mode (2,000 sims)")
     print("=" * 42)
     
@@ -31,7 +42,7 @@ def main():
             import shutil
             shutil.rmtree(cache_dir)
         
-        yahoo = YahooPickEm(week=2, league_id=15435, cookies_file="cookies.txt")
+        yahoo = YahooPickEm(week=week, league_id=league_id, cookies_file="cookies.txt")
         print(f"✅ Loaded {len(yahoo.games)} games, {len(yahoo.players)} players")
         
         # Check for valid data extraction
@@ -73,7 +84,7 @@ def main():
                 'crowd_home_pick_pct': crowd_home_pct,
                 'crowd_home_confidence': home_conf,
                 'crowd_away_confidence': away_conf,
-                'week': 2,
+                'week': week,
                 'kickoff_time': game['kickoff_time'],
                 'actual_outcome': None
             })
@@ -112,7 +123,7 @@ def main():
         simulator.players = players
         
         # Show games
-        print(f"\n🏈 {len(simulator.games)} NFL Week 2 Games")
+        print(f"\n🏈 {len(simulator.games)} NFL Week {week} Games")
         
         # Player selection
         player_names = [p.name for p in simulator.players]
@@ -306,10 +317,10 @@ def main():
                 # Save results
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
                 safe_name = selected.replace(' ', '_').replace('/', '_')
-                filename = f"NFL_Week2_UltraFast_{safe_name}_{timestamp}.txt"
+                filename = f"NFL_Week{week}_UltraFast_{safe_name}_{timestamp}.txt"
                 
                 with open(filename, 'w') as f:
-                    f.write(f"NFL Week 2 Ultra-Fast Optimized Picks\n")
+                    f.write(f"NFL Week {week} Ultra-Fast Optimized Picks\n")
                     f.write(f"Player: {selected}\n")
                     f.write(f"Generated: {datetime.now()}\n")
                     f.write(f"Method: Ultra-Fast (2,000 sims, 4 confidence levels)\n")

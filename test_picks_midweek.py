@@ -2,6 +2,7 @@
 """Test and verify optimized picks accounting for completed mid-week games"""
 
 import sys
+import argparse
 from pathlib import Path
 import pandas as pd
 
@@ -13,9 +14,19 @@ from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Play
 
 def main():
     """Test your optimized picks"""
-    print("🧪 MID-WEEK PICK VERIFICATION TOOL")
+    parser = argparse.ArgumentParser(description='Test and verify mid-week optimized NFL picks')
+    parser.add_argument('--week', '-w', type=int, default=3,
+                       help='NFL week number (default: 3)')
+    parser.add_argument('--league-id', '-l', type=int, default=15435,
+                       help='Yahoo league ID (default: 15435)')
+    args = parser.parse_args()
+
+    week = args.week
+    league_id = args.league_id
+
+    print(f"🧪 MID-WEEK PICK VERIFICATION TOOL - WEEK {week}")
     print("🎯 Accounts for completed Thu/Fri games")
-    print("=" * 40)
+    print("=" * 45)
     
     if not Path("cookies.txt").exists():
         print("❌ Missing cookies.txt file")
@@ -29,7 +40,7 @@ def main():
             import shutil
             shutil.rmtree(cache_dir)
         
-        yahoo = YahooPickEm(week=2, league_id=15435, cookies_file="cookies.txt")
+        yahoo = YahooPickEm(week=week, league_id=league_id, cookies_file="cookies.txt")
         print(f"✅ Loaded {len(yahoo.games)} games, {len(yahoo.players)} players")
         
         # Setup simulator (use high accuracy for verification)
@@ -71,7 +82,7 @@ def main():
                 'crowd_home_pick_pct': crowd_home_pct,
                 'crowd_home_confidence': home_conf,
                 'crowd_away_confidence': away_conf,
-                'week': 2,
+                'week': week,
                 'kickoff_time': game['kickoff_time'],
                 'actual_outcome': actual_outcome  # Key difference from original test_picks.py!
             })
