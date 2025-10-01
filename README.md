@@ -20,10 +20,61 @@ You can install the package using pip:
 pip install confpickem
 ```
 
-## Quick Start
+Or install from source:
+
+```bash
+git clone https://github.com/tefirman/confpickem.git
+cd confpickem
+pip install -e .
+```
+
+## Quick Start - Command Line Interface
+
+The easiest way to use confpickem is through the unified CLI:
+
+```bash
+# Optimize picks for a specific week
+confpickem optimize --week 3 --league-id 15435
+
+# Mid-week optimization with live Vegas odds
+confpickem optimize --week 4 --mid-week --live-odds --odds-api-key YOUR_API_KEY
+
+# Calculate win probabilities for all players
+confpickem winprob --week 3 --league-id 15435
+
+# Test and verify your optimized picks
+confpickem test-picks --week 3 --league-id 15435
+
+# Analyze player skills from historical data
+confpickem analyze-skills
+```
+
+### Available Commands
+
+- **`optimize`** - Optimize picks with optional live odds and mid-week support
+  - `--week, -w` - NFL week number (default: 3)
+  - `--league-id, -l` - Yahoo league ID (default: 15435)
+  - `--num-sims, -n` - Number of simulations (default: 1000)
+  - `--mid-week, -m` - Mid-week mode (accounts for completed games)
+  - `--live-odds` - Use live Vegas odds
+  - `--odds-api-key, -k` - The Odds API key for live odds
+
+- **`winprob`** - Calculate win probabilities for all players
+  - `--week, -w` - NFL week number
+  - `--league-id, -l` - Yahoo league ID
+
+- **`test-picks`** - Test and verify optimized picks
+  - `--week, -w` - NFL week number
+  - `--league-id, -l` - Yahoo league ID
+
+- **`analyze-skills`** - Analyze player skills from historical data
+
+## Python API
+
+You can also use confpickem as a Python library:
 
 ```python
-from confpickem import YahooPickEm, ConfidencePickEmSimulator, run_simulation
+from confpickem import YahooPickEm, ConfidencePickEmSimulator
 
 # Initialize scraper with your league info
 yahoo = YahooPickEm(
@@ -32,14 +83,17 @@ yahoo = YahooPickEm(
     cookies_file='cookies.txt'
 )
 
-# Run simulation with actual picks
-simulator, stats = run_simulation(yahoo)
+# Setup simulator
+simulator = ConfidencePickEmSimulator(num_sims=1000)
+simulator.add_games_from_yahoo(yahoo)
 
-# Print expected points and win percentages
-print("\nExpected Points by Player:")
-print(stats['expected_points'])
-print("\nWin Percentages:")
-print(stats['win_pct'])
+# Optimize picks
+optimal_picks = simulator.optimize_picks(
+    player_name="YourName",
+    confidence_range=4
+)
+
+print(f"Optimized picks: {optimal_picks}")
 ```
 
 ## Features
