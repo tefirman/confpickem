@@ -27,3 +27,12 @@ cookies.txt
 .DS_Store
 **/.DS_Store
 .venv/
+
+# Generated pick reports and cache directories
+NFL_Week*_*.txt
+PickEmCache*/
+PreviousWeeks/
+
+# Player skill data (derived from historical picks)
+current_player_skills*.json
+player_skills_*.json
