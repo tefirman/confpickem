@@ -331,7 +331,8 @@ def main():
                             print(f"     {status} {pick} ({confidence} pts) - {'WIN' if was_correct else 'LOSS'}")
 
                 # Calculate remaining confidence levels
-                all_confidence = set(range(1, 17))  # All possible confidence levels
+                num_games = len(yahoo.games)
+                all_confidence = set(range(1, num_games + 1))  # All possible confidence levels
                 your_remaining_confidence = all_confidence - your_used_confidence
                 print(f"\n📊 CONFIDENCE LEVELS:")
                 print(f"   Used in completed games: {sorted(your_used_confidence)}")

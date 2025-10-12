@@ -487,6 +487,4957 @@
       "total_picks": 256
     }
   },
+  "raw_player_stats": {
+    "John K": {
+      "total_picks": 241,
+      "total_correct": 146,
+      "total_points": 1346,
+      "total_possible_points": 1952,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "2": 16,
+        "10": 16,
+        "3": 17,
+        "12": 16,
+        "16": 8,
+        "4": 17,
+        "13": 17,
+        "15": 10,
+        "6": 16,
+        "1": 13,
+        "7": 16,
+        "9": 16,
+        "11": 16,
+        "5": 17,
+        "8": 16,
+        "14": 14
+      },
+      "pick_accuracy_by_confidence": {
+        "2": {
+          "correct": 4,
+          "total": 16
+        },
+        "10": {
+          "correct": 14,
+          "total": 16
+        },
+        "3": {
+          "correct": 6,
+          "total": 17
+        },
+        "12": {
+          "correct": 11,
+          "total": 16
+        },
+        "16": {
+          "correct": 4,
+          "total": 8
+        },
+        "4": {
+          "correct": 6,
+          "total": 17
+        },
+        "13": {
+          "correct": 14,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 10
+        },
+        "6": {
+          "correct": 10,
+          "total": 16
+        },
+        "1": {
+          "correct": 5,
+          "total": 13
+        },
+        "7": {
+          "correct": 10,
+          "total": 16
+        },
+        "9": {
+          "correct": 10,
+          "total": 16
+        },
+        "11": {
+          "correct": 11,
+          "total": 16
+        },
+        "5": {
+          "correct": 10,
+          "total": 17
+        },
+        "8": {
+          "correct": 10,
+          "total": 16
+        },
+        "14": {
+          "correct": 13,
+          "total": 14
+        }
+      }
+    },
+    "Sutterbrown": {
+      "total_picks": 256,
+      "total_correct": 184,
+      "total_points": 1570,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "3": 17,
+        "4": 17,
+        "1": 17,
+        "16": 9,
+        "8": 17,
+        "10": 17,
+        "9": 17,
+        "12": 17,
+        "15": 11,
+        "2": 17,
+        "7": 17,
+        "13": 17,
+        "5": 17,
+        "11": 17,
+        "14": 15,
+        "6": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "3": {
+          "correct": 10,
+          "total": 17
+        },
+        "4": {
+          "correct": 12,
+          "total": 17
+        },
+        "1": {
+          "correct": 8,
+          "total": 17
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        },
+        "8": {
+          "correct": 15,
+          "total": 17
+        },
+        "10": {
+          "correct": 13,
+          "total": 17
+        },
+        "9": {
+          "correct": 13,
+          "total": 17
+        },
+        "12": {
+          "correct": 10,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        },
+        "2": {
+          "correct": 9,
+          "total": 17
+        },
+        "7": {
+          "correct": 13,
+          "total": 17
+        },
+        "13": {
+          "correct": 14,
+          "total": 17
+        },
+        "5": {
+          "correct": 12,
+          "total": 17
+        },
+        "11": {
+          "correct": 14,
+          "total": 17
+        },
+        "14": {
+          "correct": 13,
+          "total": 15
+        },
+        "6": {
+          "correct": 13,
+          "total": 17
+        }
+      }
+    },
+    "OneNDone": {
+      "total_picks": 256,
+      "total_correct": 183,
+      "total_points": 1561,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "3": 17,
+        "1": 17,
+        "5": 17,
+        "15": 11,
+        "9": 17,
+        "6": 17,
+        "14": 15,
+        "2": 17,
+        "13": 17,
+        "8": 17,
+        "4": 17,
+        "11": 17,
+        "10": 17,
+        "12": 17,
+        "7": 17,
+        "16": 9
+      },
+      "pick_accuracy_by_confidence": {
+        "3": {
+          "correct": 14,
+          "total": 17
+        },
+        "1": {
+          "correct": 7,
+          "total": 17
+        },
+        "5": {
+          "correct": 8,
+          "total": 17
+        },
+        "15": {
+          "correct": 10,
+          "total": 11
+        },
+        "9": {
+          "correct": 15,
+          "total": 17
+        },
+        "6": {
+          "correct": 10,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "2": {
+          "correct": 12,
+          "total": 17
+        },
+        "13": {
+          "correct": 13,
+          "total": 17
+        },
+        "8": {
+          "correct": 14,
+          "total": 17
+        },
+        "4": {
+          "correct": 9,
+          "total": 17
+        },
+        "11": {
+          "correct": 12,
+          "total": 17
+        },
+        "10": {
+          "correct": 13,
+          "total": 17
+        },
+        "12": {
+          "correct": 11,
+          "total": 17
+        },
+        "7": {
+          "correct": 16,
+          "total": 17
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        }
+      }
+    },
+    "NoWayIGotMorePointsThenYou?!?!": {
+      "total_picks": 255,
+      "total_correct": 177,
+      "total_points": 1521,
+      "total_possible_points": 2065,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "14": 15,
+        "10": 17,
+        "4": 17,
+        "15": 11,
+        "7": 17,
+        "16": 9,
+        "6": 17,
+        "12": 17,
+        "9": 17,
+        "2": 17,
+        "8": 17,
+        "1": 16,
+        "13": 17,
+        "11": 17,
+        "3": 17,
+        "5": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "14": {
+          "correct": 11,
+          "total": 15
+        },
+        "10": {
+          "correct": 11,
+          "total": 17
+        },
+        "4": {
+          "correct": 14,
+          "total": 17
+        },
+        "15": {
+          "correct": 10,
+          "total": 11
+        },
+        "7": {
+          "correct": 12,
+          "total": 17
+        },
+        "16": {
+          "correct": 5,
+          "total": 9
+        },
+        "6": {
+          "correct": 12,
+          "total": 17
+        },
+        "12": {
+          "correct": 15,
+          "total": 17
+        },
+        "9": {
+          "correct": 12,
+          "total": 17
+        },
+        "2": {
+          "correct": 10,
+          "total": 17
+        },
+        "8": {
+          "correct": 12,
+          "total": 17
+        },
+        "1": {
+          "correct": 7,
+          "total": 16
+        },
+        "13": {
+          "correct": 13,
+          "total": 17
+        },
+        "11": {
+          "correct": 15,
+          "total": 17
+        },
+        "3": {
+          "correct": 10,
+          "total": 17
+        },
+        "5": {
+          "correct": 8,
+          "total": 17
+        }
+      }
+    },
+    "Hennything Possible": {
+      "total_picks": 255,
+      "total_correct": 184,
+      "total_points": 1539,
+      "total_possible_points": 2057,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "5": 17,
+        "2": 17,
+        "3": 17,
+        "14": 15,
+        "9": 16,
+        "12": 17,
+        "6": 17,
+        "16": 9,
+        "15": 11,
+        "4": 17,
+        "1": 17,
+        "8": 17,
+        "11": 17,
+        "13": 17,
+        "7": 17,
+        "10": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "5": {
+          "correct": 14,
+          "total": 17
+        },
+        "2": {
+          "correct": 12,
+          "total": 17
+        },
+        "3": {
+          "correct": 9,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "9": {
+          "correct": 12,
+          "total": 16
+        },
+        "12": {
+          "correct": 11,
+          "total": 17
+        },
+        "6": {
+          "correct": 12,
+          "total": 17
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        },
+        "15": {
+          "correct": 7,
+          "total": 11
+        },
+        "4": {
+          "correct": 12,
+          "total": 17
+        },
+        "1": {
+          "correct": 8,
+          "total": 17
+        },
+        "8": {
+          "correct": 14,
+          "total": 17
+        },
+        "11": {
+          "correct": 13,
+          "total": 17
+        },
+        "13": {
+          "correct": 14,
+          "total": 17
+        },
+        "7": {
+          "correct": 14,
+          "total": 17
+        },
+        "10": {
+          "correct": 13,
+          "total": 17
+        }
+      }
+    },
+    "Knoll34": {
+      "total_picks": 256,
+      "total_correct": 177,
+      "total_points": 1458,
+      "total_possible_points": 1975,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "1": 16,
+        "3": 16,
+        "2": 16,
+        "15": 11,
+        "7": 16,
+        "16": 9,
+        "8": 16,
+        "9": 16,
+        "14": 15,
+        "4": 16,
+        "6": 16,
+        "13": 16,
+        "5": 16,
+        "10": 16,
+        "11": 16,
+        "12": 16,
+        "0": 13
+      },
+      "pick_accuracy_by_confidence": {
+        "1": {
+          "correct": 7,
+          "total": 16
+        },
+        "3": {
+          "correct": 7,
+          "total": 16
+        },
+        "2": {
+          "correct": 10,
+          "total": 16
+        },
+        "15": {
+          "correct": 10,
+          "total": 11
+        },
+        "7": {
+          "correct": 8,
+          "total": 16
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "8": {
+          "correct": 13,
+          "total": 16
+        },
+        "9": {
+          "correct": 13,
+          "total": 16
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "4": {
+          "correct": 11,
+          "total": 16
+        },
+        "6": {
+          "correct": 11,
+          "total": 16
+        },
+        "13": {
+          "correct": 14,
+          "total": 16
+        },
+        "5": {
+          "correct": 11,
+          "total": 16
+        },
+        "10": {
+          "correct": 13,
+          "total": 16
+        },
+        "11": {
+          "correct": 10,
+          "total": 16
+        },
+        "12": {
+          "correct": 11,
+          "total": 16
+        },
+        "0": {
+          "correct": 10,
+          "total": 13
+        }
+      }
+    },
+    "RICHDOG !!!!!!": {
+      "total_picks": 252,
+      "total_correct": 171,
+      "total_points": 1467,
+      "total_possible_points": 2034,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "16": 9,
+        "5": 17,
+        "1": 14,
+        "14": 14,
+        "8": 17,
+        "15": 10,
+        "2": 17,
+        "13": 17,
+        "7": 17,
+        "3": 17,
+        "6": 17,
+        "11": 17,
+        "4": 17,
+        "12": 17,
+        "10": 17,
+        "9": 17,
+        "0": 1
+      },
+      "pick_accuracy_by_confidence": {
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "5": {
+          "correct": 12,
+          "total": 17
+        },
+        "1": {
+          "correct": 7,
+          "total": 14
+        },
+        "14": {
+          "correct": 10,
+          "total": 14
+        },
+        "8": {
+          "correct": 12,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 10
+        },
+        "2": {
+          "correct": 8,
+          "total": 17
+        },
+        "13": {
+          "correct": 16,
+          "total": 17
+        },
+        "7": {
+          "correct": 13,
+          "total": 17
+        },
+        "3": {
+          "correct": 10,
+          "total": 17
+        },
+        "6": {
+          "correct": 10,
+          "total": 17
+        },
+        "11": {
+          "correct": 12,
+          "total": 17
+        },
+        "4": {
+          "correct": 11,
+          "total": 17
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "10": {
+          "correct": 10,
+          "total": 17
+        },
+        "9": {
+          "correct": 11,
+          "total": 17
+        },
+        "0": {
+          "correct": 1,
+          "total": 1
+        }
+      }
+    },
+    "Oski no 1": {
+      "total_picks": 256,
+      "total_correct": 176,
+      "total_points": 1534,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "7": 17,
+        "8": 17,
+        "3": 17,
+        "16": 9,
+        "10": 17,
+        "11": 17,
+        "9": 17,
+        "14": 15,
+        "6": 17,
+        "1": 17,
+        "5": 17,
+        "4": 17,
+        "2": 17,
+        "13": 17,
+        "12": 17,
+        "15": 11
+      },
+      "pick_accuracy_by_confidence": {
+        "7": {
+          "correct": 11,
+          "total": 17
+        },
+        "8": {
+          "correct": 13,
+          "total": 17
+        },
+        "3": {
+          "correct": 9,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "10": {
+          "correct": 12,
+          "total": 17
+        },
+        "11": {
+          "correct": 12,
+          "total": 17
+        },
+        "9": {
+          "correct": 15,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "6": {
+          "correct": 11,
+          "total": 17
+        },
+        "1": {
+          "correct": 10,
+          "total": 17
+        },
+        "5": {
+          "correct": 9,
+          "total": 17
+        },
+        "4": {
+          "correct": 10,
+          "total": 17
+        },
+        "2": {
+          "correct": 8,
+          "total": 17
+        },
+        "13": {
+          "correct": 15,
+          "total": 17
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "15": {
+          "correct": 9,
+          "total": 11
+        }
+      }
+    },
+    "Lenzen": {
+      "total_picks": 242,
+      "total_correct": 153,
+      "total_points": 1356,
+      "total_possible_points": 1972,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "8": 16,
+        "1": 16,
+        "2": 16,
+        "14": 15,
+        "16": 9,
+        "12": 16,
+        "13": 16,
+        "15": 11,
+        "11": 16,
+        "3": 15,
+        "9": 16,
+        "10": 16,
+        "6": 16,
+        "4": 16,
+        "7": 16,
+        "5": 16
+      },
+      "pick_accuracy_by_confidence": {
+        "8": {
+          "correct": 11,
+          "total": 16
+        },
+        "1": {
+          "correct": 7,
+          "total": 16
+        },
+        "2": {
+          "correct": 6,
+          "total": 16
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        },
+        "12": {
+          "correct": 6,
+          "total": 16
+        },
+        "13": {
+          "correct": 12,
+          "total": 16
+        },
+        "15": {
+          "correct": 10,
+          "total": 11
+        },
+        "11": {
+          "correct": 10,
+          "total": 16
+        },
+        "3": {
+          "correct": 6,
+          "total": 15
+        },
+        "9": {
+          "correct": 13,
+          "total": 16
+        },
+        "10": {
+          "correct": 12,
+          "total": 16
+        },
+        "6": {
+          "correct": 12,
+          "total": 16
+        },
+        "4": {
+          "correct": 9,
+          "total": 16
+        },
+        "7": {
+          "correct": 9,
+          "total": 16
+        },
+        "5": {
+          "correct": 11,
+          "total": 16
+        }
+      }
+    },
+    "Jason B": {
+      "total_picks": 256,
+      "total_correct": 164,
+      "total_points": 1455,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "1": 17,
+        "9": 17,
+        "2": 17,
+        "10": 17,
+        "8": 17,
+        "12": 17,
+        "11": 17,
+        "7": 17,
+        "13": 17,
+        "5": 17,
+        "4": 17,
+        "14": 15,
+        "3": 17,
+        "6": 17,
+        "15": 11,
+        "16": 9
+      },
+      "pick_accuracy_by_confidence": {
+        "1": {
+          "correct": 5,
+          "total": 17
+        },
+        "9": {
+          "correct": 7,
+          "total": 17
+        },
+        "2": {
+          "correct": 8,
+          "total": 17
+        },
+        "10": {
+          "correct": 12,
+          "total": 17
+        },
+        "8": {
+          "correct": 12,
+          "total": 17
+        },
+        "12": {
+          "correct": 15,
+          "total": 17
+        },
+        "11": {
+          "correct": 12,
+          "total": 17
+        },
+        "7": {
+          "correct": 11,
+          "total": 17
+        },
+        "13": {
+          "correct": 13,
+          "total": 17
+        },
+        "5": {
+          "correct": 11,
+          "total": 17
+        },
+        "4": {
+          "correct": 10,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "3": {
+          "correct": 8,
+          "total": 17
+        },
+        "6": {
+          "correct": 13,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        }
+      }
+    },
+    "TD's Nutz": {
+      "total_picks": 256,
+      "total_correct": 173,
+      "total_points": 1493,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "4": 17,
+        "10": 17,
+        "5": 17,
+        "12": 17,
+        "3": 17,
+        "15": 11,
+        "7": 17,
+        "11": 17,
+        "16": 9,
+        "2": 17,
+        "8": 17,
+        "13": 17,
+        "1": 17,
+        "6": 17,
+        "9": 17,
+        "14": 15
+      },
+      "pick_accuracy_by_confidence": {
+        "4": {
+          "correct": 12,
+          "total": 17
+        },
+        "10": {
+          "correct": 14,
+          "total": 17
+        },
+        "5": {
+          "correct": 12,
+          "total": 17
+        },
+        "12": {
+          "correct": 11,
+          "total": 17
+        },
+        "3": {
+          "correct": 11,
+          "total": 17
+        },
+        "15": {
+          "correct": 9,
+          "total": 11
+        },
+        "7": {
+          "correct": 12,
+          "total": 17
+        },
+        "11": {
+          "correct": 13,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "2": {
+          "correct": 7,
+          "total": 17
+        },
+        "8": {
+          "correct": 11,
+          "total": 17
+        },
+        "13": {
+          "correct": 16,
+          "total": 17
+        },
+        "1": {
+          "correct": 7,
+          "total": 17
+        },
+        "6": {
+          "correct": 11,
+          "total": 17
+        },
+        "9": {
+          "correct": 11,
+          "total": 17
+        },
+        "14": {
+          "correct": 10,
+          "total": 15
+        }
+      }
+    },
+    "Fishy Picks": {
+      "total_picks": 256,
+      "total_correct": 179,
+      "total_points": 1570,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "2": 17,
+        "9": 17,
+        "4": 17,
+        "15": 11,
+        "3": 17,
+        "16": 9,
+        "8": 17,
+        "14": 15,
+        "10": 17,
+        "1": 17,
+        "7": 17,
+        "13": 17,
+        "6": 17,
+        "12": 17,
+        "11": 17,
+        "5": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "2": {
+          "correct": 8,
+          "total": 17
+        },
+        "9": {
+          "correct": 15,
+          "total": 17
+        },
+        "4": {
+          "correct": 10,
+          "total": 17
+        },
+        "15": {
+          "correct": 9,
+          "total": 11
+        },
+        "3": {
+          "correct": 9,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "8": {
+          "correct": 13,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "10": {
+          "correct": 12,
+          "total": 17
+        },
+        "1": {
+          "correct": 7,
+          "total": 17
+        },
+        "7": {
+          "correct": 11,
+          "total": 17
+        },
+        "13": {
+          "correct": 13,
+          "total": 17
+        },
+        "6": {
+          "correct": 12,
+          "total": 17
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "11": {
+          "correct": 16,
+          "total": 17
+        },
+        "5": {
+          "correct": 12,
+          "total": 17
+        }
+      }
+    },
+    "Johnsonmaia06": {
+      "total_picks": 255,
+      "total_correct": 183,
+      "total_points": 1512,
+      "total_possible_points": 2051,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "3": 17,
+        "2": 17,
+        "6": 17,
+        "9": 17,
+        "7": 17,
+        "16": 9,
+        "15": 10,
+        "13": 17,
+        "4": 17,
+        "5": 17,
+        "14": 15,
+        "12": 17,
+        "1": 17,
+        "11": 17,
+        "8": 17,
+        "10": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "3": {
+          "correct": 12,
+          "total": 17
+        },
+        "2": {
+          "correct": 14,
+          "total": 17
+        },
+        "6": {
+          "correct": 11,
+          "total": 17
+        },
+        "9": {
+          "correct": 11,
+          "total": 17
+        },
+        "7": {
+          "correct": 10,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "15": {
+          "correct": 9,
+          "total": 10
+        },
+        "13": {
+          "correct": 13,
+          "total": 17
+        },
+        "4": {
+          "correct": 10,
+          "total": 17
+        },
+        "5": {
+          "correct": 11,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "1": {
+          "correct": 12,
+          "total": 17
+        },
+        "11": {
+          "correct": 14,
+          "total": 17
+        },
+        "8": {
+          "correct": 12,
+          "total": 17
+        },
+        "10": {
+          "correct": 12,
+          "total": 17
+        }
+      }
+    },
+    "Piru\u2019s Picks": {
+      "total_picks": 256,
+      "total_correct": 175,
+      "total_points": 1540,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "12": 17,
+        "11": 17,
+        "3": 17,
+        "16": 9,
+        "7": 17,
+        "15": 11,
+        "8": 17,
+        "10": 17,
+        "9": 17,
+        "4": 17,
+        "2": 17,
+        "5": 17,
+        "1": 17,
+        "6": 17,
+        "13": 17,
+        "14": 15
+      },
+      "pick_accuracy_by_confidence": {
+        "12": {
+          "correct": 16,
+          "total": 17
+        },
+        "11": {
+          "correct": 13,
+          "total": 17
+        },
+        "3": {
+          "correct": 9,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "7": {
+          "correct": 15,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        },
+        "8": {
+          "correct": 13,
+          "total": 17
+        },
+        "10": {
+          "correct": 13,
+          "total": 17
+        },
+        "9": {
+          "correct": 12,
+          "total": 17
+        },
+        "4": {
+          "correct": 11,
+          "total": 17
+        },
+        "2": {
+          "correct": 8,
+          "total": 17
+        },
+        "5": {
+          "correct": 9,
+          "total": 17
+        },
+        "1": {
+          "correct": 7,
+          "total": 17
+        },
+        "6": {
+          "correct": 9,
+          "total": 17
+        },
+        "13": {
+          "correct": 15,
+          "total": 17
+        },
+        "14": {
+          "correct": 11,
+          "total": 15
+        }
+      }
+    },
+    "Ballbusters": {
+      "total_picks": 255,
+      "total_correct": 177,
+      "total_points": 1561,
+      "total_possible_points": 2065,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "6": 17,
+        "1": 16,
+        "4": 17,
+        "13": 17,
+        "7": 17,
+        "16": 9,
+        "8": 17,
+        "12": 17,
+        "11": 17,
+        "2": 17,
+        "3": 17,
+        "9": 17,
+        "5": 17,
+        "10": 17,
+        "15": 11,
+        "14": 15
+      },
+      "pick_accuracy_by_confidence": {
+        "6": {
+          "correct": 12,
+          "total": 17
+        },
+        "1": {
+          "correct": 8,
+          "total": 16
+        },
+        "4": {
+          "correct": 7,
+          "total": 17
+        },
+        "13": {
+          "correct": 17,
+          "total": 17
+        },
+        "7": {
+          "correct": 13,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "8": {
+          "correct": 13,
+          "total": 17
+        },
+        "12": {
+          "correct": 13,
+          "total": 17
+        },
+        "11": {
+          "correct": 10,
+          "total": 17
+        },
+        "2": {
+          "correct": 11,
+          "total": 17
+        },
+        "3": {
+          "correct": 7,
+          "total": 17
+        },
+        "9": {
+          "correct": 15,
+          "total": 17
+        },
+        "5": {
+          "correct": 10,
+          "total": 17
+        },
+        "10": {
+          "correct": 13,
+          "total": 17
+        },
+        "15": {
+          "correct": 9,
+          "total": 11
+        },
+        "14": {
+          "correct": 13,
+          "total": 15
+        }
+      }
+    },
+    "EChev": {
+      "total_picks": 256,
+      "total_correct": 166,
+      "total_points": 1458,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "4": 17,
+        "7": 17,
+        "5": 17,
+        "15": 11,
+        "12": 17,
+        "16": 9,
+        "9": 17,
+        "10": 17,
+        "13": 17,
+        "3": 17,
+        "2": 17,
+        "14": 15,
+        "1": 17,
+        "11": 17,
+        "6": 17,
+        "8": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "4": {
+          "correct": 12,
+          "total": 17
+        },
+        "7": {
+          "correct": 10,
+          "total": 17
+        },
+        "5": {
+          "correct": 8,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        },
+        "12": {
+          "correct": 11,
+          "total": 17
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        },
+        "9": {
+          "correct": 13,
+          "total": 17
+        },
+        "10": {
+          "correct": 13,
+          "total": 17
+        },
+        "13": {
+          "correct": 15,
+          "total": 17
+        },
+        "3": {
+          "correct": 8,
+          "total": 17
+        },
+        "2": {
+          "correct": 10,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "1": {
+          "correct": 8,
+          "total": 17
+        },
+        "11": {
+          "correct": 14,
+          "total": 17
+        },
+        "6": {
+          "correct": 8,
+          "total": 17
+        },
+        "8": {
+          "correct": 9,
+          "total": 17
+        }
+      }
+    },
+    "thol1572": {
+      "total_picks": 195,
+      "total_correct": 135,
+      "total_points": 1131,
+      "total_possible_points": 1582,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "4": 13,
+        "2": 13,
+        "5": 13,
+        "16": 7,
+        "11": 13,
+        "14": 12,
+        "7": 13,
+        "6": 13,
+        "15": 8,
+        "1": 12,
+        "10": 13,
+        "9": 13,
+        "3": 13,
+        "13": 13,
+        "8": 13,
+        "12": 13
+      },
+      "pick_accuracy_by_confidence": {
+        "4": {
+          "correct": 9,
+          "total": 13
+        },
+        "2": {
+          "correct": 10,
+          "total": 13
+        },
+        "5": {
+          "correct": 5,
+          "total": 13
+        },
+        "16": {
+          "correct": 6,
+          "total": 7
+        },
+        "11": {
+          "correct": 12,
+          "total": 13
+        },
+        "14": {
+          "correct": 7,
+          "total": 12
+        },
+        "7": {
+          "correct": 10,
+          "total": 13
+        },
+        "6": {
+          "correct": 9,
+          "total": 13
+        },
+        "15": {
+          "correct": 5,
+          "total": 8
+        },
+        "1": {
+          "correct": 7,
+          "total": 12
+        },
+        "10": {
+          "correct": 10,
+          "total": 13
+        },
+        "9": {
+          "correct": 7,
+          "total": 13
+        },
+        "3": {
+          "correct": 7,
+          "total": 13
+        },
+        "13": {
+          "correct": 10,
+          "total": 13
+        },
+        "8": {
+          "correct": 12,
+          "total": 13
+        },
+        "12": {
+          "correct": 9,
+          "total": 13
+        }
+      }
+    },
+    "NFL in PINK": {
+      "total_picks": 256,
+      "total_correct": 179,
+      "total_points": 1500,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "7": 17,
+        "6": 17,
+        "2": 17,
+        "9": 17,
+        "16": 9,
+        "11": 17,
+        "10": 17,
+        "13": 17,
+        "1": 17,
+        "12": 17,
+        "3": 17,
+        "4": 17,
+        "8": 17,
+        "5": 17,
+        "14": 15,
+        "15": 11
+      },
+      "pick_accuracy_by_confidence": {
+        "7": {
+          "correct": 12,
+          "total": 17
+        },
+        "6": {
+          "correct": 12,
+          "total": 17
+        },
+        "2": {
+          "correct": 9,
+          "total": 17
+        },
+        "9": {
+          "correct": 16,
+          "total": 17
+        },
+        "16": {
+          "correct": 8,
+          "total": 9
+        },
+        "11": {
+          "correct": 9,
+          "total": 17
+        },
+        "10": {
+          "correct": 13,
+          "total": 17
+        },
+        "13": {
+          "correct": 13,
+          "total": 17
+        },
+        "1": {
+          "correct": 14,
+          "total": 17
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "3": {
+          "correct": 7,
+          "total": 17
+        },
+        "4": {
+          "correct": 13,
+          "total": 17
+        },
+        "8": {
+          "correct": 12,
+          "total": 17
+        },
+        "5": {
+          "correct": 9,
+          "total": 17
+        },
+        "14": {
+          "correct": 10,
+          "total": 15
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        }
+      }
+    },
+    "BFense": {
+      "total_picks": 253,
+      "total_correct": 175,
+      "total_points": 1502,
+      "total_possible_points": 2042,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "1": 17,
+        "4": 17,
+        "9": 16,
+        "16": 9,
+        "13": 17,
+        "15": 11,
+        "8": 16,
+        "12": 17,
+        "7": 16,
+        "2": 17,
+        "5": 17,
+        "3": 17,
+        "6": 17,
+        "11": 17,
+        "10": 17,
+        "14": 15
+      },
+      "pick_accuracy_by_confidence": {
+        "1": {
+          "correct": 7,
+          "total": 17
+        },
+        "4": {
+          "correct": 11,
+          "total": 17
+        },
+        "9": {
+          "correct": 13,
+          "total": 16
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        },
+        "13": {
+          "correct": 12,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        },
+        "8": {
+          "correct": 12,
+          "total": 16
+        },
+        "12": {
+          "correct": 13,
+          "total": 17
+        },
+        "7": {
+          "correct": 11,
+          "total": 16
+        },
+        "2": {
+          "correct": 10,
+          "total": 17
+        },
+        "5": {
+          "correct": 12,
+          "total": 17
+        },
+        "3": {
+          "correct": 11,
+          "total": 17
+        },
+        "6": {
+          "correct": 9,
+          "total": 17
+        },
+        "11": {
+          "correct": 16,
+          "total": 17
+        },
+        "10": {
+          "correct": 12,
+          "total": 17
+        },
+        "14": {
+          "correct": 11,
+          "total": 15
+        }
+      }
+    },
+    "9 inches": {
+      "total_picks": 250,
+      "total_correct": 172,
+      "total_points": 1467,
+      "total_possible_points": 2007,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "14": 15,
+        "12": 17,
+        "1": 14,
+        "11": 17,
+        "15": 10,
+        "16": 8,
+        "9": 17,
+        "13": 17,
+        "8": 17,
+        "7": 17,
+        "6": 15,
+        "5": 16,
+        "4": 16,
+        "3": 17,
+        "2": 15,
+        "10": 17,
+        "0": 5
+      },
+      "pick_accuracy_by_confidence": {
+        "14": {
+          "correct": 13,
+          "total": 15
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "1": {
+          "correct": 7,
+          "total": 14
+        },
+        "11": {
+          "correct": 13,
+          "total": 17
+        },
+        "15": {
+          "correct": 9,
+          "total": 10
+        },
+        "16": {
+          "correct": 6,
+          "total": 8
+        },
+        "9": {
+          "correct": 12,
+          "total": 17
+        },
+        "13": {
+          "correct": 11,
+          "total": 17
+        },
+        "8": {
+          "correct": 12,
+          "total": 17
+        },
+        "7": {
+          "correct": 11,
+          "total": 17
+        },
+        "6": {
+          "correct": 10,
+          "total": 15
+        },
+        "5": {
+          "correct": 12,
+          "total": 16
+        },
+        "4": {
+          "correct": 8,
+          "total": 16
+        },
+        "3": {
+          "correct": 10,
+          "total": 17
+        },
+        "2": {
+          "correct": 10,
+          "total": 15
+        },
+        "10": {
+          "correct": 11,
+          "total": 17
+        },
+        "0": {
+          "correct": 3,
+          "total": 5
+        }
+      }
+    },
+    "OB1": {
+      "total_picks": 255,
+      "total_correct": 167,
+      "total_points": 1497,
+      "total_possible_points": 2065,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "4": 17,
+        "6": 17,
+        "9": 17,
+        "16": 9,
+        "3": 17,
+        "14": 15,
+        "7": 17,
+        "12": 17,
+        "13": 17,
+        "1": 16,
+        "8": 17,
+        "11": 17,
+        "5": 17,
+        "10": 17,
+        "2": 17,
+        "15": 11
+      },
+      "pick_accuracy_by_confidence": {
+        "4": {
+          "correct": 8,
+          "total": 17
+        },
+        "6": {
+          "correct": 11,
+          "total": 17
+        },
+        "9": {
+          "correct": 14,
+          "total": 17
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        },
+        "3": {
+          "correct": 8,
+          "total": 17
+        },
+        "14": {
+          "correct": 10,
+          "total": 15
+        },
+        "7": {
+          "correct": 11,
+          "total": 17
+        },
+        "12": {
+          "correct": 13,
+          "total": 17
+        },
+        "13": {
+          "correct": 14,
+          "total": 17
+        },
+        "1": {
+          "correct": 7,
+          "total": 16
+        },
+        "8": {
+          "correct": 10,
+          "total": 17
+        },
+        "11": {
+          "correct": 14,
+          "total": 17
+        },
+        "5": {
+          "correct": 8,
+          "total": 17
+        },
+        "10": {
+          "correct": 15,
+          "total": 17
+        },
+        "2": {
+          "correct": 8,
+          "total": 17
+        },
+        "15": {
+          "correct": 9,
+          "total": 11
+        }
+      }
+    },
+    "Mopar": {
+      "total_picks": 256,
+      "total_correct": 174,
+      "total_points": 1520,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "2": 17,
+        "1": 17,
+        "8": 17,
+        "11": 17,
+        "4": 17,
+        "16": 9,
+        "13": 17,
+        "12": 17,
+        "15": 11,
+        "5": 17,
+        "10": 17,
+        "9": 17,
+        "7": 17,
+        "14": 15,
+        "6": 17,
+        "3": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "2": {
+          "correct": 7,
+          "total": 17
+        },
+        "1": {
+          "correct": 7,
+          "total": 17
+        },
+        "8": {
+          "correct": 13,
+          "total": 17
+        },
+        "11": {
+          "correct": 11,
+          "total": 17
+        },
+        "4": {
+          "correct": 12,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "13": {
+          "correct": 13,
+          "total": 17
+        },
+        "12": {
+          "correct": 13,
+          "total": 17
+        },
+        "15": {
+          "correct": 9,
+          "total": 11
+        },
+        "5": {
+          "correct": 10,
+          "total": 17
+        },
+        "10": {
+          "correct": 15,
+          "total": 17
+        },
+        "9": {
+          "correct": 13,
+          "total": 17
+        },
+        "7": {
+          "correct": 9,
+          "total": 17
+        },
+        "14": {
+          "correct": 13,
+          "total": 15
+        },
+        "6": {
+          "correct": 13,
+          "total": 17
+        },
+        "3": {
+          "correct": 10,
+          "total": 17
+        }
+      }
+    },
+    "Tone 3132": {
+      "total_picks": 256,
+      "total_correct": 169,
+      "total_points": 1483,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "1": 17,
+        "2": 17,
+        "3": 17,
+        "10": 17,
+        "4": 17,
+        "12": 17,
+        "11": 17,
+        "16": 9,
+        "15": 11,
+        "5": 17,
+        "6": 17,
+        "7": 17,
+        "8": 17,
+        "9": 17,
+        "14": 15,
+        "13": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "1": {
+          "correct": 12,
+          "total": 17
+        },
+        "2": {
+          "correct": 9,
+          "total": 17
+        },
+        "3": {
+          "correct": 6,
+          "total": 17
+        },
+        "10": {
+          "correct": 11,
+          "total": 17
+        },
+        "4": {
+          "correct": 8,
+          "total": 17
+        },
+        "12": {
+          "correct": 13,
+          "total": 17
+        },
+        "11": {
+          "correct": 13,
+          "total": 17
+        },
+        "16": {
+          "correct": 9,
+          "total": 9
+        },
+        "15": {
+          "correct": 9,
+          "total": 11
+        },
+        "5": {
+          "correct": 9,
+          "total": 17
+        },
+        "6": {
+          "correct": 11,
+          "total": 17
+        },
+        "7": {
+          "correct": 11,
+          "total": 17
+        },
+        "8": {
+          "correct": 13,
+          "total": 17
+        },
+        "9": {
+          "correct": 11,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "13": {
+          "correct": 12,
+          "total": 17
+        }
+      }
+    },
+    "Handsup": {
+      "total_picks": 256,
+      "total_correct": 176,
+      "total_points": 1548,
+      "total_possible_points": 2065,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "1": 16,
+        "6": 17,
+        "7": 17,
+        "15": 11,
+        "12": 17,
+        "16": 9,
+        "3": 17,
+        "8": 17,
+        "13": 17,
+        "4": 17,
+        "11": 17,
+        "14": 15,
+        "2": 17,
+        "5": 17,
+        "9": 17,
+        "10": 17,
+        "0": 1
+      },
+      "pick_accuracy_by_confidence": {
+        "1": {
+          "correct": 6,
+          "total": 16
+        },
+        "6": {
+          "correct": 10,
+          "total": 17
+        },
+        "7": {
+          "correct": 14,
+          "total": 17
+        },
+        "15": {
+          "correct": 7,
+          "total": 11
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "3": {
+          "correct": 9,
+          "total": 17
+        },
+        "8": {
+          "correct": 15,
+          "total": 17
+        },
+        "13": {
+          "correct": 13,
+          "total": 17
+        },
+        "4": {
+          "correct": 10,
+          "total": 17
+        },
+        "11": {
+          "correct": 12,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "2": {
+          "correct": 7,
+          "total": 17
+        },
+        "5": {
+          "correct": 10,
+          "total": 17
+        },
+        "9": {
+          "correct": 15,
+          "total": 17
+        },
+        "10": {
+          "correct": 16,
+          "total": 17
+        },
+        "0": {
+          "correct": 0,
+          "total": 1
+        }
+      }
+    },
+    "#FlytheW": {
+      "total_picks": 256,
+      "total_correct": 153,
+      "total_points": 1395,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "6": 17,
+        "2": 17,
+        "7": 17,
+        "14": 15,
+        "5": 17,
+        "16": 9,
+        "3": 17,
+        "13": 17,
+        "15": 11,
+        "8": 17,
+        "4": 17,
+        "12": 17,
+        "1": 17,
+        "9": 17,
+        "11": 17,
+        "10": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "6": {
+          "correct": 13,
+          "total": 17
+        },
+        "2": {
+          "correct": 7,
+          "total": 17
+        },
+        "7": {
+          "correct": 11,
+          "total": 17
+        },
+        "14": {
+          "correct": 11,
+          "total": 15
+        },
+        "5": {
+          "correct": 9,
+          "total": 17
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        },
+        "3": {
+          "correct": 3,
+          "total": 17
+        },
+        "13": {
+          "correct": 11,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        },
+        "8": {
+          "correct": 11,
+          "total": 17
+        },
+        "4": {
+          "correct": 8,
+          "total": 17
+        },
+        "12": {
+          "correct": 13,
+          "total": 17
+        },
+        "1": {
+          "correct": 5,
+          "total": 17
+        },
+        "9": {
+          "correct": 12,
+          "total": 17
+        },
+        "11": {
+          "correct": 14,
+          "total": 17
+        },
+        "10": {
+          "correct": 10,
+          "total": 17
+        }
+      }
+    },
+    "Brock": {
+      "total_picks": 256,
+      "total_correct": 183,
+      "total_points": 1561,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "5": 17,
+        "2": 17,
+        "9": 17,
+        "15": 11,
+        "11": 17,
+        "16": 9,
+        "4": 17,
+        "7": 17,
+        "8": 17,
+        "1": 17,
+        "6": 17,
+        "14": 15,
+        "3": 17,
+        "12": 17,
+        "13": 17,
+        "10": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "5": {
+          "correct": 11,
+          "total": 17
+        },
+        "2": {
+          "correct": 11,
+          "total": 17
+        },
+        "9": {
+          "correct": 12,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        },
+        "11": {
+          "correct": 14,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "4": {
+          "correct": 11,
+          "total": 17
+        },
+        "7": {
+          "correct": 15,
+          "total": 17
+        },
+        "8": {
+          "correct": 13,
+          "total": 17
+        },
+        "1": {
+          "correct": 9,
+          "total": 17
+        },
+        "6": {
+          "correct": 11,
+          "total": 17
+        },
+        "14": {
+          "correct": 11,
+          "total": 15
+        },
+        "3": {
+          "correct": 8,
+          "total": 17
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "13": {
+          "correct": 14,
+          "total": 17
+        },
+        "10": {
+          "correct": 15,
+          "total": 17
+        }
+      }
+    },
+    "DO YOU FEEL LUCKY PUNK": {
+      "total_picks": 241,
+      "total_correct": 156,
+      "total_points": 1405,
+      "total_possible_points": 1960,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "2": 16,
+        "6": 16,
+        "5": 16,
+        "16": 9,
+        "13": 16,
+        "15": 11,
+        "7": 15,
+        "14": 15,
+        "8": 15,
+        "4": 16,
+        "12": 16,
+        "9": 16,
+        "3": 16,
+        "10": 16,
+        "11": 16,
+        "1": 16
+      },
+      "pick_accuracy_by_confidence": {
+        "2": {
+          "correct": 7,
+          "total": 16
+        },
+        "6": {
+          "correct": 11,
+          "total": 16
+        },
+        "5": {
+          "correct": 8,
+          "total": 16
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        },
+        "13": {
+          "correct": 12,
+          "total": 16
+        },
+        "15": {
+          "correct": 7,
+          "total": 11
+        },
+        "7": {
+          "correct": 11,
+          "total": 15
+        },
+        "14": {
+          "correct": 14,
+          "total": 15
+        },
+        "8": {
+          "correct": 10,
+          "total": 15
+        },
+        "4": {
+          "correct": 8,
+          "total": 16
+        },
+        "12": {
+          "correct": 14,
+          "total": 16
+        },
+        "9": {
+          "correct": 9,
+          "total": 16
+        },
+        "3": {
+          "correct": 7,
+          "total": 16
+        },
+        "10": {
+          "correct": 14,
+          "total": 16
+        },
+        "11": {
+          "correct": 10,
+          "total": 16
+        },
+        "1": {
+          "correct": 7,
+          "total": 16
+        }
+      }
+    },
+    "Omar": {
+      "total_picks": 255,
+      "total_correct": 169,
+      "total_points": 1529,
+      "total_possible_points": 2065,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "2": 17,
+        "1": 16,
+        "5": 17,
+        "14": 15,
+        "6": 17,
+        "16": 9,
+        "4": 17,
+        "3": 17,
+        "15": 11,
+        "8": 17,
+        "12": 17,
+        "13": 17,
+        "7": 17,
+        "11": 17,
+        "10": 17,
+        "9": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "2": {
+          "correct": 8,
+          "total": 17
+        },
+        "1": {
+          "correct": 6,
+          "total": 16
+        },
+        "5": {
+          "correct": 8,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "6": {
+          "correct": 13,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "4": {
+          "correct": 5,
+          "total": 17
+        },
+        "3": {
+          "correct": 10,
+          "total": 17
+        },
+        "15": {
+          "correct": 11,
+          "total": 11
+        },
+        "8": {
+          "correct": 14,
+          "total": 17
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "13": {
+          "correct": 14,
+          "total": 17
+        },
+        "7": {
+          "correct": 11,
+          "total": 17
+        },
+        "11": {
+          "correct": 13,
+          "total": 17
+        },
+        "10": {
+          "correct": 12,
+          "total": 17
+        },
+        "9": {
+          "correct": 12,
+          "total": 17
+        }
+      }
+    },
+    "sawyer 0-4 Michigan owns day": {
+      "total_picks": 256,
+      "total_correct": 156,
+      "total_points": 1390,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "8": 17,
+        "7": 17,
+        "9": 17,
+        "13": 17,
+        "6": 17,
+        "16": 9,
+        "4": 17,
+        "11": 17,
+        "12": 17,
+        "3": 17,
+        "15": 11,
+        "5": 17,
+        "2": 17,
+        "1": 17,
+        "10": 17,
+        "14": 15
+      },
+      "pick_accuracy_by_confidence": {
+        "8": {
+          "correct": 10,
+          "total": 17
+        },
+        "7": {
+          "correct": 6,
+          "total": 17
+        },
+        "9": {
+          "correct": 11,
+          "total": 17
+        },
+        "13": {
+          "correct": 13,
+          "total": 17
+        },
+        "6": {
+          "correct": 9,
+          "total": 17
+        },
+        "16": {
+          "correct": 5,
+          "total": 9
+        },
+        "4": {
+          "correct": 9,
+          "total": 17
+        },
+        "11": {
+          "correct": 12,
+          "total": 17
+        },
+        "12": {
+          "correct": 16,
+          "total": 17
+        },
+        "3": {
+          "correct": 10,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        },
+        "5": {
+          "correct": 10,
+          "total": 17
+        },
+        "2": {
+          "correct": 5,
+          "total": 17
+        },
+        "1": {
+          "correct": 8,
+          "total": 17
+        },
+        "10": {
+          "correct": 12,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        }
+      }
+    },
+    "Matt": {
+      "total_picks": 256,
+      "total_correct": 176,
+      "total_points": 1487,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "2": 17,
+        "3": 17,
+        "4": 17,
+        "10": 17,
+        "11": 17,
+        "15": 11,
+        "9": 17,
+        "12": 17,
+        "8": 17,
+        "1": 17,
+        "5": 17,
+        "6": 17,
+        "7": 17,
+        "14": 15,
+        "13": 17,
+        "16": 9
+      },
+      "pick_accuracy_by_confidence": {
+        "2": {
+          "correct": 6,
+          "total": 17
+        },
+        "3": {
+          "correct": 12,
+          "total": 17
+        },
+        "4": {
+          "correct": 11,
+          "total": 17
+        },
+        "10": {
+          "correct": 13,
+          "total": 17
+        },
+        "11": {
+          "correct": 14,
+          "total": 17
+        },
+        "15": {
+          "correct": 6,
+          "total": 11
+        },
+        "9": {
+          "correct": 13,
+          "total": 17
+        },
+        "12": {
+          "correct": 10,
+          "total": 17
+        },
+        "8": {
+          "correct": 12,
+          "total": 17
+        },
+        "1": {
+          "correct": 10,
+          "total": 17
+        },
+        "5": {
+          "correct": 11,
+          "total": 17
+        },
+        "6": {
+          "correct": 9,
+          "total": 17
+        },
+        "7": {
+          "correct": 16,
+          "total": 17
+        },
+        "14": {
+          "correct": 10,
+          "total": 15
+        },
+        "13": {
+          "correct": 17,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        }
+      }
+    },
+    "Boats n Hoes": {
+      "total_picks": 255,
+      "total_correct": 175,
+      "total_points": 1523,
+      "total_possible_points": 2050,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "1": 17,
+        "2": 17,
+        "12": 17,
+        "5": 17,
+        "13": 17,
+        "14": 15,
+        "11": 17,
+        "15": 11,
+        "4": 17,
+        "10": 17,
+        "9": 17,
+        "3": 17,
+        "8": 17,
+        "7": 17,
+        "6": 17,
+        "16": 8
+      },
+      "pick_accuracy_by_confidence": {
+        "1": {
+          "correct": 9,
+          "total": 17
+        },
+        "2": {
+          "correct": 10,
+          "total": 17
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "5": {
+          "correct": 12,
+          "total": 17
+        },
+        "13": {
+          "correct": 11,
+          "total": 17
+        },
+        "14": {
+          "correct": 15,
+          "total": 15
+        },
+        "11": {
+          "correct": 15,
+          "total": 17
+        },
+        "15": {
+          "correct": 9,
+          "total": 11
+        },
+        "4": {
+          "correct": 9,
+          "total": 17
+        },
+        "10": {
+          "correct": 11,
+          "total": 17
+        },
+        "9": {
+          "correct": 13,
+          "total": 17
+        },
+        "3": {
+          "correct": 9,
+          "total": 17
+        },
+        "8": {
+          "correct": 13,
+          "total": 17
+        },
+        "7": {
+          "correct": 9,
+          "total": 17
+        },
+        "6": {
+          "correct": 10,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 8
+        }
+      }
+    },
+    "BigShroomSecurity": {
+      "total_picks": 254,
+      "total_correct": 162,
+      "total_points": 1496,
+      "total_possible_points": 2064,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "9": 17,
+        "6": 17,
+        "8": 17,
+        "10": 17,
+        "15": 11,
+        "16": 9,
+        "14": 15,
+        "7": 17,
+        "11": 17,
+        "5": 17,
+        "4": 17,
+        "12": 17,
+        "3": 17,
+        "2": 17,
+        "13": 17,
+        "1": 15
+      },
+      "pick_accuracy_by_confidence": {
+        "9": {
+          "correct": 14,
+          "total": 17
+        },
+        "6": {
+          "correct": 12,
+          "total": 17
+        },
+        "8": {
+          "correct": 11,
+          "total": 17
+        },
+        "10": {
+          "correct": 11,
+          "total": 17
+        },
+        "15": {
+          "correct": 10,
+          "total": 11
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        },
+        "14": {
+          "correct": 11,
+          "total": 15
+        },
+        "7": {
+          "correct": 11,
+          "total": 17
+        },
+        "11": {
+          "correct": 11,
+          "total": 17
+        },
+        "5": {
+          "correct": 7,
+          "total": 17
+        },
+        "4": {
+          "correct": 9,
+          "total": 17
+        },
+        "12": {
+          "correct": 13,
+          "total": 17
+        },
+        "3": {
+          "correct": 8,
+          "total": 17
+        },
+        "2": {
+          "correct": 4,
+          "total": 17
+        },
+        "13": {
+          "correct": 17,
+          "total": 17
+        },
+        "1": {
+          "correct": 6,
+          "total": 15
+        }
+      }
+    },
+    "Balz Deep": {
+      "total_picks": 256,
+      "total_correct": 173,
+      "total_points": 1496,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "2": 17,
+        "3": 17,
+        "14": 15,
+        "15": 11,
+        "11": 17,
+        "16": 9,
+        "10": 17,
+        "9": 17,
+        "8": 17,
+        "1": 17,
+        "5": 17,
+        "13": 17,
+        "7": 17,
+        "6": 17,
+        "12": 17,
+        "4": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "2": {
+          "correct": 10,
+          "total": 17
+        },
+        "3": {
+          "correct": 7,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "15": {
+          "correct": 10,
+          "total": 11
+        },
+        "11": {
+          "correct": 12,
+          "total": 17
+        },
+        "16": {
+          "correct": 5,
+          "total": 9
+        },
+        "10": {
+          "correct": 14,
+          "total": 17
+        },
+        "9": {
+          "correct": 11,
+          "total": 17
+        },
+        "8": {
+          "correct": 12,
+          "total": 17
+        },
+        "1": {
+          "correct": 8,
+          "total": 17
+        },
+        "5": {
+          "correct": 9,
+          "total": 17
+        },
+        "13": {
+          "correct": 12,
+          "total": 17
+        },
+        "7": {
+          "correct": 13,
+          "total": 17
+        },
+        "6": {
+          "correct": 13,
+          "total": 17
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "4": {
+          "correct": 11,
+          "total": 17
+        }
+      }
+    },
+    "Diddypicks": {
+      "total_picks": 239,
+      "total_correct": 157,
+      "total_points": 1417,
+      "total_possible_points": 1936,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "9": 16,
+        "1": 13,
+        "10": 16,
+        "12": 16,
+        "8": 17,
+        "16": 8,
+        "6": 16,
+        "11": 17,
+        "5": 17,
+        "2": 15,
+        "3": 16,
+        "7": 16,
+        "4": 16,
+        "13": 15,
+        "14": 14,
+        "15": 10,
+        "0": 1
+      },
+      "pick_accuracy_by_confidence": {
+        "9": {
+          "correct": 13,
+          "total": 16
+        },
+        "1": {
+          "correct": 5,
+          "total": 13
+        },
+        "10": {
+          "correct": 11,
+          "total": 16
+        },
+        "12": {
+          "correct": 13,
+          "total": 16
+        },
+        "8": {
+          "correct": 14,
+          "total": 17
+        },
+        "16": {
+          "correct": 5,
+          "total": 8
+        },
+        "6": {
+          "correct": 11,
+          "total": 16
+        },
+        "11": {
+          "correct": 12,
+          "total": 17
+        },
+        "5": {
+          "correct": 11,
+          "total": 17
+        },
+        "2": {
+          "correct": 4,
+          "total": 15
+        },
+        "3": {
+          "correct": 4,
+          "total": 16
+        },
+        "7": {
+          "correct": 12,
+          "total": 16
+        },
+        "4": {
+          "correct": 9,
+          "total": 16
+        },
+        "13": {
+          "correct": 12,
+          "total": 15
+        },
+        "14": {
+          "correct": 12,
+          "total": 14
+        },
+        "15": {
+          "correct": 8,
+          "total": 10
+        },
+        "0": {
+          "correct": 1,
+          "total": 1
+        }
+      }
+    },
+    "Bucky Swirving": {
+      "total_picks": 256,
+      "total_correct": 181,
+      "total_points": 1566,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "6": 17,
+        "2": 17,
+        "11": 17,
+        "14": 15,
+        "7": 17,
+        "16": 9,
+        "4": 17,
+        "12": 17,
+        "13": 17,
+        "1": 17,
+        "3": 17,
+        "15": 11,
+        "5": 17,
+        "9": 17,
+        "10": 17,
+        "8": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "6": {
+          "correct": 11,
+          "total": 17
+        },
+        "2": {
+          "correct": 7,
+          "total": 17
+        },
+        "11": {
+          "correct": 14,
+          "total": 17
+        },
+        "14": {
+          "correct": 11,
+          "total": 15
+        },
+        "7": {
+          "correct": 11,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "4": {
+          "correct": 11,
+          "total": 17
+        },
+        "12": {
+          "correct": 13,
+          "total": 17
+        },
+        "13": {
+          "correct": 14,
+          "total": 17
+        },
+        "1": {
+          "correct": 8,
+          "total": 17
+        },
+        "3": {
+          "correct": 11,
+          "total": 17
+        },
+        "15": {
+          "correct": 10,
+          "total": 11
+        },
+        "5": {
+          "correct": 14,
+          "total": 17
+        },
+        "9": {
+          "correct": 14,
+          "total": 17
+        },
+        "10": {
+          "correct": 14,
+          "total": 17
+        },
+        "8": {
+          "correct": 12,
+          "total": 17
+        }
+      }
+    },
+    "FastEddie": {
+      "total_picks": 253,
+      "total_correct": 175,
+      "total_points": 1547,
+      "total_possible_points": 2050,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "2": 17,
+        "3": 17,
+        "11": 17,
+        "13": 17,
+        "12": 17,
+        "16": 9,
+        "1": 15,
+        "4": 17,
+        "15": 11,
+        "7": 17,
+        "5": 17,
+        "10": 17,
+        "6": 17,
+        "9": 17,
+        "8": 17,
+        "14": 14
+      },
+      "pick_accuracy_by_confidence": {
+        "2": {
+          "correct": 11,
+          "total": 17
+        },
+        "3": {
+          "correct": 6,
+          "total": 17
+        },
+        "11": {
+          "correct": 14,
+          "total": 17
+        },
+        "13": {
+          "correct": 13,
+          "total": 17
+        },
+        "12": {
+          "correct": 16,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "1": {
+          "correct": 5,
+          "total": 15
+        },
+        "4": {
+          "correct": 11,
+          "total": 17
+        },
+        "15": {
+          "correct": 11,
+          "total": 11
+        },
+        "7": {
+          "correct": 12,
+          "total": 17
+        },
+        "5": {
+          "correct": 11,
+          "total": 17
+        },
+        "10": {
+          "correct": 12,
+          "total": 17
+        },
+        "6": {
+          "correct": 12,
+          "total": 17
+        },
+        "9": {
+          "correct": 11,
+          "total": 17
+        },
+        "8": {
+          "correct": 14,
+          "total": 17
+        },
+        "14": {
+          "correct": 10,
+          "total": 14
+        }
+      }
+    },
+    "Caking": {
+      "total_picks": 64,
+      "total_correct": 34,
+      "total_points": 190,
+      "total_possible_points": 386,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "2": 4,
+        "1": 3,
+        "11": 3,
+        "16": 2,
+        "12": 3,
+        "15": 2,
+        "3": 4,
+        "8": 3,
+        "13": 3,
+        "4": 4,
+        "9": 3,
+        "10": 3,
+        "5": 3,
+        "6": 3,
+        "7": 3,
+        "14": 3,
+        "0": 15
+      },
+      "pick_accuracy_by_confidence": {
+        "2": {
+          "correct": 3,
+          "total": 4
+        },
+        "1": {
+          "correct": 1,
+          "total": 3
+        },
+        "11": {
+          "correct": 1,
+          "total": 3
+        },
+        "16": {
+          "correct": 1,
+          "total": 2
+        },
+        "12": {
+          "correct": 3,
+          "total": 3
+        },
+        "15": {
+          "correct": 0,
+          "total": 2
+        },
+        "3": {
+          "correct": 1,
+          "total": 4
+        },
+        "8": {
+          "correct": 2,
+          "total": 3
+        },
+        "13": {
+          "correct": 1,
+          "total": 3
+        },
+        "4": {
+          "correct": 1,
+          "total": 4
+        },
+        "9": {
+          "correct": 1,
+          "total": 3
+        },
+        "10": {
+          "correct": 1,
+          "total": 3
+        },
+        "5": {
+          "correct": 2,
+          "total": 3
+        },
+        "6": {
+          "correct": 1,
+          "total": 3
+        },
+        "7": {
+          "correct": 3,
+          "total": 3
+        },
+        "14": {
+          "correct": 2,
+          "total": 3
+        },
+        "0": {
+          "correct": 10,
+          "total": 15
+        }
+      }
+    },
+    "KKRAHN21": {
+      "total_picks": 256,
+      "total_correct": 179,
+      "total_points": 1548,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "7": 17,
+        "2": 17,
+        "11": 17,
+        "15": 11,
+        "9": 17,
+        "16": 9,
+        "13": 17,
+        "10": 17,
+        "8": 17,
+        "5": 17,
+        "6": 17,
+        "14": 15,
+        "3": 17,
+        "4": 17,
+        "1": 17,
+        "12": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "7": {
+          "correct": 14,
+          "total": 17
+        },
+        "2": {
+          "correct": 11,
+          "total": 17
+        },
+        "11": {
+          "correct": 12,
+          "total": 17
+        },
+        "15": {
+          "correct": 9,
+          "total": 11
+        },
+        "9": {
+          "correct": 15,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "13": {
+          "correct": 13,
+          "total": 17
+        },
+        "10": {
+          "correct": 12,
+          "total": 17
+        },
+        "8": {
+          "correct": 13,
+          "total": 17
+        },
+        "5": {
+          "correct": 13,
+          "total": 17
+        },
+        "6": {
+          "correct": 10,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "3": {
+          "correct": 5,
+          "total": 17
+        },
+        "4": {
+          "correct": 10,
+          "total": 17
+        },
+        "1": {
+          "correct": 9,
+          "total": 17
+        },
+        "12": {
+          "correct": 15,
+          "total": 17
+        }
+      }
+    },
+    "Pikachu": {
+      "total_picks": 256,
+      "total_correct": 147,
+      "total_points": 1332,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "1": 17,
+        "2": 17,
+        "5": 17,
+        "15": 11,
+        "4": 17,
+        "13": 17,
+        "9": 17,
+        "16": 9,
+        "14": 15,
+        "7": 17,
+        "10": 17,
+        "11": 17,
+        "3": 17,
+        "6": 17,
+        "8": 17,
+        "12": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "1": {
+          "correct": 8,
+          "total": 17
+        },
+        "2": {
+          "correct": 6,
+          "total": 17
+        },
+        "5": {
+          "correct": 3,
+          "total": 17
+        },
+        "15": {
+          "correct": 7,
+          "total": 11
+        },
+        "4": {
+          "correct": 8,
+          "total": 17
+        },
+        "13": {
+          "correct": 11,
+          "total": 17
+        },
+        "9": {
+          "correct": 9,
+          "total": 17
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "7": {
+          "correct": 10,
+          "total": 17
+        },
+        "10": {
+          "correct": 12,
+          "total": 17
+        },
+        "11": {
+          "correct": 14,
+          "total": 17
+        },
+        "3": {
+          "correct": 8,
+          "total": 17
+        },
+        "6": {
+          "correct": 10,
+          "total": 17
+        },
+        "8": {
+          "correct": 9,
+          "total": 17
+        },
+        "12": {
+          "correct": 13,
+          "total": 17
+        }
+      }
+    },
+    "GOOD": {
+      "total_picks": 256,
+      "total_correct": 169,
+      "total_points": 1484,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "4": 17,
+        "2": 17,
+        "7": 17,
+        "15": 11,
+        "11": 17,
+        "16": 9,
+        "5": 17,
+        "14": 15,
+        "13": 17,
+        "1": 17,
+        "6": 17,
+        "9": 17,
+        "3": 17,
+        "8": 17,
+        "10": 17,
+        "12": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "4": {
+          "correct": 10,
+          "total": 17
+        },
+        "2": {
+          "correct": 9,
+          "total": 17
+        },
+        "7": {
+          "correct": 13,
+          "total": 17
+        },
+        "15": {
+          "correct": 10,
+          "total": 11
+        },
+        "11": {
+          "correct": 13,
+          "total": 17
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        },
+        "5": {
+          "correct": 7,
+          "total": 17
+        },
+        "14": {
+          "correct": 13,
+          "total": 15
+        },
+        "13": {
+          "correct": 13,
+          "total": 17
+        },
+        "1": {
+          "correct": 10,
+          "total": 17
+        },
+        "6": {
+          "correct": 11,
+          "total": 17
+        },
+        "9": {
+          "correct": 8,
+          "total": 17
+        },
+        "3": {
+          "correct": 8,
+          "total": 17
+        },
+        "8": {
+          "correct": 11,
+          "total": 17
+        },
+        "10": {
+          "correct": 14,
+          "total": 17
+        },
+        "12": {
+          "correct": 12,
+          "total": 17
+        }
+      }
+    },
+    "California Dreaming": {
+      "total_picks": 256,
+      "total_correct": 176,
+      "total_points": 1518,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "2": 17,
+        "13": 17,
+        "7": 17,
+        "10": 17,
+        "1": 17,
+        "15": 11,
+        "3": 17,
+        "5": 17,
+        "9": 17,
+        "6": 17,
+        "4": 17,
+        "12": 17,
+        "11": 17,
+        "8": 17,
+        "14": 15,
+        "16": 9
+      },
+      "pick_accuracy_by_confidence": {
+        "2": {
+          "correct": 10,
+          "total": 17
+        },
+        "13": {
+          "correct": 14,
+          "total": 17
+        },
+        "7": {
+          "correct": 14,
+          "total": 17
+        },
+        "10": {
+          "correct": 14,
+          "total": 17
+        },
+        "1": {
+          "correct": 9,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        },
+        "3": {
+          "correct": 10,
+          "total": 17
+        },
+        "5": {
+          "correct": 10,
+          "total": 17
+        },
+        "9": {
+          "correct": 11,
+          "total": 17
+        },
+        "6": {
+          "correct": 8,
+          "total": 17
+        },
+        "4": {
+          "correct": 11,
+          "total": 17
+        },
+        "12": {
+          "correct": 13,
+          "total": 17
+        },
+        "11": {
+          "correct": 12,
+          "total": 17
+        },
+        "8": {
+          "correct": 12,
+          "total": 17
+        },
+        "14": {
+          "correct": 13,
+          "total": 15
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        }
+      }
+    },
+    "Reggie": {
+      "total_picks": 256,
+      "total_correct": 175,
+      "total_points": 1468,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "1": 17,
+        "2": 17,
+        "3": 17,
+        "4": 17,
+        "16": 9,
+        "15": 11,
+        "5": 17,
+        "6": 17,
+        "7": 17,
+        "14": 15,
+        "8": 17,
+        "10": 17,
+        "9": 17,
+        "12": 17,
+        "13": 17,
+        "11": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "1": {
+          "correct": 12,
+          "total": 17
+        },
+        "2": {
+          "correct": 10,
+          "total": 17
+        },
+        "3": {
+          "correct": 10,
+          "total": 17
+        },
+        "4": {
+          "correct": 8,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "15": {
+          "correct": 7,
+          "total": 11
+        },
+        "5": {
+          "correct": 8,
+          "total": 17
+        },
+        "6": {
+          "correct": 15,
+          "total": 17
+        },
+        "7": {
+          "correct": 11,
+          "total": 17
+        },
+        "14": {
+          "correct": 9,
+          "total": 15
+        },
+        "8": {
+          "correct": 12,
+          "total": 17
+        },
+        "10": {
+          "correct": 13,
+          "total": 17
+        },
+        "9": {
+          "correct": 12,
+          "total": 17
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "13": {
+          "correct": 15,
+          "total": 17
+        },
+        "11": {
+          "correct": 13,
+          "total": 17
+        }
+      }
+    },
+    "Weird": {
+      "total_picks": 256,
+      "total_correct": 180,
+      "total_points": 1466,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "1": 17,
+        "11": 17,
+        "3": 17,
+        "14": 15,
+        "4": 17,
+        "15": 11,
+        "5": 17,
+        "6": 17,
+        "12": 17,
+        "2": 17,
+        "10": 17,
+        "13": 17,
+        "7": 17,
+        "9": 17,
+        "8": 17,
+        "16": 9
+      },
+      "pick_accuracy_by_confidence": {
+        "1": {
+          "correct": 10,
+          "total": 17
+        },
+        "11": {
+          "correct": 13,
+          "total": 17
+        },
+        "3": {
+          "correct": 11,
+          "total": 17
+        },
+        "14": {
+          "correct": 10,
+          "total": 15
+        },
+        "4": {
+          "correct": 11,
+          "total": 17
+        },
+        "15": {
+          "correct": 6,
+          "total": 11
+        },
+        "5": {
+          "correct": 7,
+          "total": 17
+        },
+        "6": {
+          "correct": 13,
+          "total": 17
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "2": {
+          "correct": 12,
+          "total": 17
+        },
+        "10": {
+          "correct": 15,
+          "total": 17
+        },
+        "13": {
+          "correct": 11,
+          "total": 17
+        },
+        "7": {
+          "correct": 14,
+          "total": 17
+        },
+        "9": {
+          "correct": 14,
+          "total": 17
+        },
+        "8": {
+          "correct": 15,
+          "total": 17
+        },
+        "16": {
+          "correct": 4,
+          "total": 9
+        }
+      }
+    },
+    "DADDY YANKEE": {
+      "total_picks": 254,
+      "total_correct": 179,
+      "total_points": 1487,
+      "total_possible_points": 2051,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "1": 16,
+        "2": 17,
+        "7": 17,
+        "13": 17,
+        "3": 17,
+        "14": 14,
+        "5": 17,
+        "15": 11,
+        "16": 9,
+        "11": 17,
+        "10": 17,
+        "9": 17,
+        "4": 17,
+        "12": 17,
+        "6": 17,
+        "8": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "1": {
+          "correct": 11,
+          "total": 16
+        },
+        "2": {
+          "correct": 11,
+          "total": 17
+        },
+        "7": {
+          "correct": 10,
+          "total": 17
+        },
+        "13": {
+          "correct": 12,
+          "total": 17
+        },
+        "3": {
+          "correct": 14,
+          "total": 17
+        },
+        "14": {
+          "correct": 9,
+          "total": 14
+        },
+        "5": {
+          "correct": 10,
+          "total": 17
+        },
+        "15": {
+          "correct": 9,
+          "total": 11
+        },
+        "16": {
+          "correct": 8,
+          "total": 9
+        },
+        "11": {
+          "correct": 14,
+          "total": 17
+        },
+        "10": {
+          "correct": 15,
+          "total": 17
+        },
+        "9": {
+          "correct": 9,
+          "total": 17
+        },
+        "4": {
+          "correct": 12,
+          "total": 17
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "6": {
+          "correct": 11,
+          "total": 17
+        },
+        "8": {
+          "correct": 10,
+          "total": 17
+        }
+      }
+    },
+    "Arcedinero": {
+      "total_picks": 256,
+      "total_correct": 165,
+      "total_points": 1455,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "8": 17,
+        "3": 17,
+        "11": 17,
+        "12": 17,
+        "14": 15,
+        "16": 9,
+        "7": 17,
+        "9": 17,
+        "15": 11,
+        "10": 17,
+        "5": 17,
+        "13": 17,
+        "1": 17,
+        "4": 17,
+        "6": 17,
+        "2": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "8": {
+          "correct": 13,
+          "total": 17
+        },
+        "3": {
+          "correct": 7,
+          "total": 17
+        },
+        "11": {
+          "correct": 13,
+          "total": 17
+        },
+        "12": {
+          "correct": 13,
+          "total": 17
+        },
+        "14": {
+          "correct": 13,
+          "total": 15
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "7": {
+          "correct": 13,
+          "total": 17
+        },
+        "9": {
+          "correct": 12,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        },
+        "10": {
+          "correct": 10,
+          "total": 17
+        },
+        "5": {
+          "correct": 9,
+          "total": 17
+        },
+        "13": {
+          "correct": 12,
+          "total": 17
+        },
+        "1": {
+          "correct": 5,
+          "total": 17
+        },
+        "4": {
+          "correct": 9,
+          "total": 17
+        },
+        "6": {
+          "correct": 12,
+          "total": 17
+        },
+        "2": {
+          "correct": 10,
+          "total": 17
+        }
+      }
+    },
+    "Boldz36": {
+      "total_picks": 254,
+      "total_correct": 170,
+      "total_points": 1504,
+      "total_possible_points": 2051,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "9": 17,
+        "13": 17,
+        "10": 17,
+        "8": 17,
+        "6": 17,
+        "16": 9,
+        "11": 17,
+        "7": 17,
+        "15": 11,
+        "5": 17,
+        "3": 17,
+        "12": 17,
+        "1": 16,
+        "2": 17,
+        "4": 17,
+        "14": 14
+      },
+      "pick_accuracy_by_confidence": {
+        "9": {
+          "correct": 13,
+          "total": 17
+        },
+        "13": {
+          "correct": 14,
+          "total": 17
+        },
+        "10": {
+          "correct": 10,
+          "total": 17
+        },
+        "8": {
+          "correct": 7,
+          "total": 17
+        },
+        "6": {
+          "correct": 12,
+          "total": 17
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        },
+        "11": {
+          "correct": 14,
+          "total": 17
+        },
+        "7": {
+          "correct": 13,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        },
+        "5": {
+          "correct": 9,
+          "total": 17
+        },
+        "3": {
+          "correct": 11,
+          "total": 17
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "1": {
+          "correct": 4,
+          "total": 16
+        },
+        "2": {
+          "correct": 8,
+          "total": 17
+        },
+        "4": {
+          "correct": 13,
+          "total": 17
+        },
+        "14": {
+          "correct": 13,
+          "total": 14
+        }
+      }
+    },
+    "Rent\u2019s Due Again": {
+      "total_picks": 208,
+      "total_correct": 126,
+      "total_points": 1094,
+      "total_possible_points": 1671,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "3": 15,
+        "13": 14,
+        "9": 14,
+        "5": 15,
+        "4": 14,
+        "16": 6,
+        "10": 14,
+        "6": 14,
+        "12": 14,
+        "7": 14,
+        "8": 15,
+        "15": 8,
+        "2": 14,
+        "11": 14,
+        "1": 11,
+        "14": 12
+      },
+      "pick_accuracy_by_confidence": {
+        "3": {
+          "correct": 6,
+          "total": 15
+        },
+        "13": {
+          "correct": 12,
+          "total": 14
+        },
+        "9": {
+          "correct": 9,
+          "total": 14
+        },
+        "5": {
+          "correct": 9,
+          "total": 15
+        },
+        "4": {
+          "correct": 7,
+          "total": 14
+        },
+        "16": {
+          "correct": 2,
+          "total": 6
+        },
+        "10": {
+          "correct": 9,
+          "total": 14
+        },
+        "6": {
+          "correct": 7,
+          "total": 14
+        },
+        "12": {
+          "correct": 12,
+          "total": 14
+        },
+        "7": {
+          "correct": 9,
+          "total": 14
+        },
+        "8": {
+          "correct": 10,
+          "total": 15
+        },
+        "15": {
+          "correct": 7,
+          "total": 8
+        },
+        "2": {
+          "correct": 6,
+          "total": 14
+        },
+        "11": {
+          "correct": 6,
+          "total": 14
+        },
+        "1": {
+          "correct": 6,
+          "total": 11
+        },
+        "14": {
+          "correct": 9,
+          "total": 12
+        }
+      }
+    },
+    "ShowMeYourTDs": {
+      "total_picks": 255,
+      "total_correct": 158,
+      "total_points": 1462,
+      "total_possible_points": 2065,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "3": 17,
+        "11": 17,
+        "12": 17,
+        "14": 15,
+        "1": 16,
+        "16": 9,
+        "8": 17,
+        "2": 17,
+        "9": 17,
+        "5": 17,
+        "13": 17,
+        "15": 11,
+        "7": 17,
+        "6": 17,
+        "10": 17,
+        "4": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "3": {
+          "correct": 6,
+          "total": 17
+        },
+        "11": {
+          "correct": 13,
+          "total": 17
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "14": {
+          "correct": 13,
+          "total": 15
+        },
+        "1": {
+          "correct": 2,
+          "total": 16
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        },
+        "8": {
+          "correct": 11,
+          "total": 17
+        },
+        "2": {
+          "correct": 6,
+          "total": 17
+        },
+        "9": {
+          "correct": 9,
+          "total": 17
+        },
+        "5": {
+          "correct": 7,
+          "total": 17
+        },
+        "13": {
+          "correct": 15,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        },
+        "7": {
+          "correct": 12,
+          "total": 17
+        },
+        "6": {
+          "correct": 14,
+          "total": 17
+        },
+        "10": {
+          "correct": 11,
+          "total": 17
+        },
+        "4": {
+          "correct": 11,
+          "total": 17
+        }
+      }
+    },
+    "MR 16": {
+      "total_picks": 251,
+      "total_correct": 175,
+      "total_points": 1498,
+      "total_possible_points": 2055,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "7": 17,
+        "5": 17,
+        "13": 17,
+        "14": 15,
+        "15": 11,
+        "16": 9,
+        "4": 16,
+        "3": 16,
+        "6": 17,
+        "11": 17,
+        "8": 17,
+        "10": 17,
+        "9": 17,
+        "2": 16,
+        "1": 15,
+        "12": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "7": {
+          "correct": 13,
+          "total": 17
+        },
+        "5": {
+          "correct": 11,
+          "total": 17
+        },
+        "13": {
+          "correct": 12,
+          "total": 17
+        },
+        "14": {
+          "correct": 13,
+          "total": 15
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        },
+        "4": {
+          "correct": 14,
+          "total": 16
+        },
+        "3": {
+          "correct": 10,
+          "total": 16
+        },
+        "6": {
+          "correct": 11,
+          "total": 17
+        },
+        "11": {
+          "correct": 10,
+          "total": 17
+        },
+        "8": {
+          "correct": 9,
+          "total": 17
+        },
+        "10": {
+          "correct": 13,
+          "total": 17
+        },
+        "9": {
+          "correct": 14,
+          "total": 17
+        },
+        "2": {
+          "correct": 8,
+          "total": 16
+        },
+        "1": {
+          "correct": 8,
+          "total": 15
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        }
+      }
+    },
+    "Mickey's Team": {
+      "total_picks": 253,
+      "total_correct": 174,
+      "total_points": 1478,
+      "total_possible_points": 2060,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "8": 17,
+        "5": 17,
+        "10": 17,
+        "2": 16,
+        "4": 17,
+        "14": 15,
+        "3": 16,
+        "15": 11,
+        "6": 17,
+        "7": 17,
+        "9": 17,
+        "11": 17,
+        "1": 16,
+        "12": 17,
+        "13": 17,
+        "16": 9
+      },
+      "pick_accuracy_by_confidence": {
+        "8": {
+          "correct": 12,
+          "total": 17
+        },
+        "5": {
+          "correct": 13,
+          "total": 17
+        },
+        "10": {
+          "correct": 12,
+          "total": 17
+        },
+        "2": {
+          "correct": 7,
+          "total": 16
+        },
+        "4": {
+          "correct": 11,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "3": {
+          "correct": 9,
+          "total": 16
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        },
+        "6": {
+          "correct": 12,
+          "total": 17
+        },
+        "7": {
+          "correct": 10,
+          "total": 17
+        },
+        "9": {
+          "correct": 13,
+          "total": 17
+        },
+        "11": {
+          "correct": 12,
+          "total": 17
+        },
+        "1": {
+          "correct": 11,
+          "total": 16
+        },
+        "12": {
+          "correct": 12,
+          "total": 17
+        },
+        "13": {
+          "correct": 14,
+          "total": 17
+        },
+        "16": {
+          "correct": 6,
+          "total": 9
+        }
+      }
+    },
+    "Big Daddy125": {
+      "total_picks": 256,
+      "total_correct": 155,
+      "total_points": 1320,
+      "total_possible_points": 2066,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "1": 17,
+        "3": 17,
+        "13": 17,
+        "16": 9,
+        "15": 11,
+        "14": 15,
+        "9": 17,
+        "7": 17,
+        "8": 17,
+        "2": 17,
+        "11": 17,
+        "10": 17,
+        "12": 17,
+        "6": 17,
+        "4": 17,
+        "5": 17
+      },
+      "pick_accuracy_by_confidence": {
+        "1": {
+          "correct": 10,
+          "total": 17
+        },
+        "3": {
+          "correct": 9,
+          "total": 17
+        },
+        "13": {
+          "correct": 12,
+          "total": 17
+        },
+        "16": {
+          "correct": 7,
+          "total": 9
+        },
+        "15": {
+          "correct": 9,
+          "total": 11
+        },
+        "14": {
+          "correct": 8,
+          "total": 15
+        },
+        "9": {
+          "correct": 10,
+          "total": 17
+        },
+        "7": {
+          "correct": 5,
+          "total": 17
+        },
+        "8": {
+          "correct": 10,
+          "total": 17
+        },
+        "2": {
+          "correct": 8,
+          "total": 17
+        },
+        "11": {
+          "correct": 13,
+          "total": 17
+        },
+        "10": {
+          "correct": 10,
+          "total": 17
+        },
+        "12": {
+          "correct": 12,
+          "total": 17
+        },
+        "6": {
+          "correct": 10,
+          "total": 17
+        },
+        "4": {
+          "correct": 10,
+          "total": 17
+        },
+        "5": {
+          "correct": 12,
+          "total": 17
+        }
+      }
+    },
+    "Victorious Bastard": {
+      "total_picks": 239,
+      "total_correct": 156,
+      "total_points": 1358,
+      "total_possible_points": 1925,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "6": 16,
+        "8": 16,
+        "9": 16,
+        "14": 14,
+        "11": 16,
+        "16": 8,
+        "2": 16,
+        "5": 15,
+        "3": 16,
+        "4": 16,
+        "12": 16,
+        "15": 10,
+        "7": 16,
+        "10": 16,
+        "13": 16,
+        "1": 16
+      },
+      "pick_accuracy_by_confidence": {
+        "6": {
+          "correct": 10,
+          "total": 16
+        },
+        "8": {
+          "correct": 10,
+          "total": 16
+        },
+        "9": {
+          "correct": 13,
+          "total": 16
+        },
+        "14": {
+          "correct": 10,
+          "total": 14
+        },
+        "11": {
+          "correct": 11,
+          "total": 16
+        },
+        "16": {
+          "correct": 5,
+          "total": 8
+        },
+        "2": {
+          "correct": 7,
+          "total": 16
+        },
+        "5": {
+          "correct": 12,
+          "total": 15
+        },
+        "3": {
+          "correct": 7,
+          "total": 16
+        },
+        "4": {
+          "correct": 8,
+          "total": 16
+        },
+        "12": {
+          "correct": 13,
+          "total": 16
+        },
+        "15": {
+          "correct": 8,
+          "total": 10
+        },
+        "7": {
+          "correct": 10,
+          "total": 16
+        },
+        "10": {
+          "correct": 11,
+          "total": 16
+        },
+        "13": {
+          "correct": 13,
+          "total": 16
+        },
+        "1": {
+          "correct": 8,
+          "total": 16
+        }
+      }
+    },
+    "Firman's Educated Guesses": {
+      "total_picks": 255,
+      "total_correct": 129,
+      "total_points": 1087,
+      "total_possible_points": 2065,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "5": 17,
+        "7": 17,
+        "10": 17,
+        "13": 17,
+        "8": 17,
+        "1": 16,
+        "16": 9,
+        "2": 17,
+        "11": 17,
+        "12": 17,
+        "9": 17,
+        "4": 17,
+        "6": 17,
+        "14": 15,
+        "3": 17,
+        "15": 11
+      },
+      "pick_accuracy_by_confidence": {
+        "5": {
+          "correct": 9,
+          "total": 17
+        },
+        "7": {
+          "correct": 9,
+          "total": 17
+        },
+        "10": {
+          "correct": 8,
+          "total": 17
+        },
+        "13": {
+          "correct": 8,
+          "total": 17
+        },
+        "8": {
+          "correct": 10,
+          "total": 17
+        },
+        "1": {
+          "correct": 4,
+          "total": 16
+        },
+        "16": {
+          "correct": 2,
+          "total": 9
+        },
+        "2": {
+          "correct": 9,
+          "total": 17
+        },
+        "11": {
+          "correct": 13,
+          "total": 17
+        },
+        "12": {
+          "correct": 7,
+          "total": 17
+        },
+        "9": {
+          "correct": 9,
+          "total": 17
+        },
+        "4": {
+          "correct": 10,
+          "total": 17
+        },
+        "6": {
+          "correct": 12,
+          "total": 17
+        },
+        "14": {
+          "correct": 8,
+          "total": 15
+        },
+        "3": {
+          "correct": 3,
+          "total": 17
+        },
+        "15": {
+          "correct": 8,
+          "total": 11
+        }
+      }
+    },
+    "MDTwinTeam": {
+      "total_picks": 256,
+      "total_correct": 154,
+      "total_points": 1393,
+      "total_possible_points": 2050,
+      "weeks_played": 17,
+      "confidence_distribution": {
+        "7": 17,
+        "6": 17,
+        "8": 17,
+        "12": 17,
+        "10": 17,
+        "14": 15,
+        "13": 17,
+        "16": 8,
+        "11": 17,
+        "2": 17,
+        "3": 17,
+        "5": 17,
+        "15": 11,
+        "1": 17,
+        "9": 17,
+        "4": 17,
+        "0": 1
+      },
+      "pick_accuracy_by_confidence": {
+        "7": {
+          "correct": 9,
+          "total": 17
+        },
+        "6": {
+          "correct": 14,
+          "total": 17
+        },
+        "8": {
+          "correct": 11,
+          "total": 17
+        },
+        "12": {
+          "correct": 14,
+          "total": 17
+        },
+        "10": {
+          "correct": 10,
+          "total": 17
+        },
+        "14": {
+          "correct": 12,
+          "total": 15
+        },
+        "13": {
+          "correct": 13,
+          "total": 17
+        },
+        "16": {
+          "correct": 5,
+          "total": 8
+        },
+        "11": {
+          "correct": 11,
+          "total": 17
+        },
+        "2": {
+          "correct": 6,
+          "total": 17
+        },
+        "3": {
+          "correct": 6,
+          "total": 17
+        },
+        "5": {
+          "correct": 9,
+          "total": 17
+        },
+        "15": {
+          "correct": 9,
+          "total": 11
+        },
+        "1": {
+          "correct": 6,
+          "total": 17
+        },
+        "9": {
+          "correct": 12,
+          "total": 17
+        },
+        "4": {
+          "correct": 7,
+          "total": 17
+        },
+        "0": {
+          "correct": 0,
+          "total": 1
+        }
+      }
+    }
+  },
   "distribution_stats": {
     "skill_level": {
       "mean": 0.7073437499999999,

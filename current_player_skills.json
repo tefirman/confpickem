@@ -1,419 +1,506 @@
 {
-  "ShowMeYourTDs": {
-    "skill_level": 0.6717647058823529,
+  "Back to Back Buckeye Natty": {
+    "skill_level": 0.674025974025974,
     "crowd_following": 0.5,
-    "confidence_following": 0.4666666666666667,
-    "accuracy": 0.6196078431372549,
-    "efficiency": 0.7079903147699758,
-    "weeks_played": 17,
-    "total_picks": 255
-  },
-  "9 Inches": {
-    "skill_level": 0.7127999999999999,
-    "crowd_following": 0.5,
-    "confidence_following": 0.468,
-    "accuracy": 0.688,
-    "efficiency": 0.7309417040358744,
-    "weeks_played": 17,
-    "total_picks": 250
-  },
-  "Fishy Picks": {
-    "skill_level": 0.71953125,
-    "crowd_following": 0.5,
-    "confidence_following": 0.46875,
-    "accuracy": 0.69921875,
-    "efficiency": 0.7599225556631172,
-    "weeks_played": 17,
-    "total_picks": 256
-  },
-  "RICHDOG !!!!!!": {
-    "skill_level": 0.7071428571428571,
-    "crowd_following": 0.5,
-    "confidence_following": 0.46031746031746035,
-    "accuracy": 0.6785714285714286,
-    "efficiency": 0.7212389380530974,
-    "weeks_played": 17,
-    "total_picks": 252
-  },
-  "DADDY YANKEE": {
-    "skill_level": 0.7228346456692913,
-    "crowd_following": 0.5,
-    "confidence_following": 0.4645669291338582,
-    "accuracy": 0.7047244094488189,
-    "efficiency": 0.7250121891760117,
-    "weeks_played": 17,
-    "total_picks": 254
-  },
-  "Brock": {
-    "skill_level": 0.72890625,
-    "crowd_following": 0.5,
-    "confidence_following": 0.46875,
-    "accuracy": 0.71484375,
-    "efficiency": 0.755566311713456,
-    "weeks_played": 17,
-    "total_picks": 256
-  },
-  "Firman's Educated Guesses": {
-    "skill_level": 0.6035294117647059,
-    "crowd_following": 0.5,
-    "confidence_following": 0.4666666666666667,
-    "accuracy": 0.5058823529411764,
-    "efficiency": 0.5263922518159806,
-    "weeks_played": 17,
-    "total_picks": 255
-  },
-  "Hands Up": {
-    "skill_level": 0.7124999999999999,
-    "crowd_following": 0.5,
-    "confidence_following": 0.46875,
-    "accuracy": 0.6875,
-    "efficiency": 0.749636803874092,
-    "weeks_played": 17,
-    "total_picks": 256
-  },
-  "Boats N Hoes": {
-    "skill_level": 0.7117647058823529,
-    "crowd_following": 0.5,
-    "confidence_following": 0.4666666666666667,
-    "accuracy": 0.6862745098039216,
-    "efficiency": 0.7429268292682927,
-    "weeks_played": 17,
-    "total_picks": 255
-  },
-  "Fast Eddie": {
-    "skill_level": 0.7150197628458498,
-    "crowd_following": 0.5,
-    "confidence_following": 0.4624505928853755,
-    "accuracy": 0.691699604743083,
-    "efficiency": 0.7546341463414634,
-    "weeks_played": 17,
-    "total_picks": 253
-  },
-  "thol1572": {
-    "skill_level": 0.7153846153846153,
-    "crowd_following": 0.5,
-    "confidence_following": 0.4666666666666667,
-    "accuracy": 0.6923076923076923,
-    "efficiency": 0.7149178255372945,
-    "weeks_played": 17,
-    "total_picks": 195
-  },
-  "OB1": {
-    "skill_level": 0.6929411764705882,
-    "crowd_following": 0.5,
-    "confidence_following": 0.4666666666666667,
-    "accuracy": 0.6549019607843137,
-    "efficiency": 0.7249394673123487,
-    "weeks_played": 17,
-    "total_picks": 255
-  },
-  "Mopar": {
-    "skill_level": 0.7078125,
-    "crowd_following": 0.5,
-    "confidence_following": 0.46875,
-    "accuracy": 0.6796875,
-    "efficiency": 0.7357212003872217,
-    "weeks_played": 17,
-    "total_picks": 256
-  },
-  "Hennything Possible": {
-    "skill_level": 0.7329411764705882,
-    "crowd_following": 0.5,
-    "confidence_following": 0.47058823529411764,
-    "accuracy": 0.7215686274509804,
-    "efficiency": 0.7481769567331065,
-    "weeks_played": 17,
-    "total_picks": 255
-  },
-  "Balz Deep": {
-    "skill_level": 0.70546875,
-    "crowd_following": 0.5,
-    "confidence_following": 0.46875,
-    "accuracy": 0.67578125,
-    "efficiency": 0.7241045498547919,
-    "weeks_played": 17,
-    "total_picks": 256
+    "confidence_following": 0.48051948051948046,
+    "accuracy": 0.6233766233766234,
+    "efficiency": 0.7196850393700788,
+    "weeks_played": 5,
+    "total_picks": 77
   },
   "OneNDone": {
-    "skill_level": 0.72890625,
+    "skill_level": 0.7288288288288288,
     "crowd_following": 0.5,
-    "confidence_following": 0.46875,
-    "accuracy": 0.71484375,
-    "efficiency": 0.755566311713456,
-    "weeks_played": 17,
-    "total_picks": 256
-  },
-  "Ballbusters": {
-    "skill_level": 0.7164705882352941,
-    "crowd_following": 0.5,
-    "confidence_following": 0.4666666666666667,
-    "accuracy": 0.6941176470588235,
-    "efficiency": 0.7559322033898305,
-    "weeks_played": 17,
-    "total_picks": 255
-  },
-  "Bfense": {
-    "skill_level": 0.7150197628458498,
-    "crowd_following": 0.5,
-    "confidence_following": 0.47430830039525695,
-    "accuracy": 0.691699604743083,
-    "efficiency": 0.7355533790401567,
-    "weeks_played": 17,
-    "total_picks": 253
-  },
-  "#FlyTheW": {
-    "skill_level": 0.65859375,
-    "crowd_following": 0.5,
-    "confidence_following": 0.46875,
-    "accuracy": 0.59765625,
-    "efficiency": 0.6752178121974831,
-    "weeks_played": 17,
-    "total_picks": 256
-  },
-  "Tone": {
-    "skill_level": 0.69609375,
-    "crowd_following": 0.5,
-    "confidence_following": 0.46875,
-    "accuracy": 0.66015625,
-    "efficiency": 0.717812197483059,
-    "weeks_played": 17,
-    "total_picks": 256
-  },
-  "Bucky Swirving": {
-    "skill_level": 0.7242187499999999,
-    "crowd_following": 0.5,
-    "confidence_following": 0.46875,
-    "accuracy": 0.70703125,
-    "efficiency": 0.7579864472410455,
-    "weeks_played": 17,
-    "total_picks": 256
-  },
-  "Johnsonmaia06": {
-    "skill_level": 0.7305882352941176,
-    "crowd_following": 0.5,
-    "confidence_following": 0.4666666666666667,
-    "accuracy": 0.7176470588235294,
-    "efficiency": 0.7372013651877133,
-    "weeks_played": 17,
-    "total_picks": 255
-  },
-  "EChev": {
-    "skill_level": 0.6890624999999999,
-    "crowd_following": 0.5,
-    "confidence_following": 0.46875,
-    "accuracy": 0.6484375,
-    "efficiency": 0.7057115198451114,
-    "weeks_played": 17,
-    "total_picks": 256
-  },
-  "Rent\u2019s Due Again": {
-    "skill_level": 0.6634615384615384,
-    "crowd_following": 0.5,
-    "confidence_following": 0.451923076923077,
-    "accuracy": 0.6057692307692307,
-    "efficiency": 0.6546977857570317,
-    "weeks_played": 17,
-    "total_picks": 208
-  },
-  "TD's Nutz": {
-    "skill_level": 0.70546875,
-    "crowd_following": 0.5,
-    "confidence_following": 0.46875,
-    "accuracy": 0.67578125,
-    "efficiency": 0.7226524685382382,
-    "weeks_played": 17,
-    "total_picks": 256
-  },
-  "Piru\u2019s Picks": {
-    "skill_level": 0.71015625,
-    "crowd_following": 0.5,
-    "confidence_following": 0.46875,
-    "accuracy": 0.68359375,
-    "efficiency": 0.7454017424975798,
-    "weeks_played": 17,
-    "total_picks": 256
-  },
-  "Jason B": {
-    "skill_level": 0.684375,
-    "crowd_following": 0.5,
-    "confidence_following": 0.46875,
-    "accuracy": 0.640625,
-    "efficiency": 0.7042594385285575,
-    "weeks_played": 17,
-    "total_picks": 256
-  },
-  "Dardanes": {
-    "skill_level": 0.6920505296743085,
-    "crowd_following": 0.4499998430645601,
-    "confidence_following": 0.47430910476938576,
-    "source": "sampled"
-  },
-  "Pay up $ucka!": {
-    "skill_level": 0.7105916432608681,
-    "crowd_following": 0.4772951791862251,
-    "confidence_following": 0.47941888647752273,
-    "source": "sampled"
-  },
-  "dbalz": {
-    "skill_level": 0.7203015050662518,
-    "crowd_following": 0.45811007624715755,
-    "confidence_following": 0.4689294428544276,
-    "source": "sampled"
-  },
-  "Do You Fell Lucky Punk": {
-    "skill_level": 0.678929517436546,
-    "crowd_following": 0.4859203313408749,
-    "confidence_following": 0.4629599925103314,
-    "source": "sampled"
-  },
-  "MainGangJefe": {
-    "skill_level": 0.721371541337214,
-    "crowd_following": 0.4872320124704697,
-    "confidence_following": 0.48388394516385874,
-    "source": "sampled"
-  },
-  "VT": {
-    "skill_level": 0.7077683415144267,
-    "crowd_following": 0.4799987018530436,
-    "confidence_following": 0.47076213581684556,
-    "source": "sampled"
-  },
-  "Brown$ 42": {
-    "skill_level": 0.642490986773026,
-    "crowd_following": 0.3890960805287315,
-    "confidence_following": 0.4768312092102349,
-    "source": "sampled"
-  },
-  "Comeback Szn": {
-    "skill_level": 0.7202888054700742,
-    "crowd_following": 0.6401822983611218,
-    "confidence_following": 0.45165096448540043,
-    "source": "sampled"
+    "confidence_following": 0.47147147147147145,
+    "accuracy": 0.7147147147147147,
+    "efficiency": 0.7430581266197704,
+    "weeks_played": 22,
+    "total_picks": 333
   },
   "Sixto23": {
-    "skill_level": 0.7132417330787901,
-    "crowd_following": 0.3812749657397835,
-    "confidence_following": 0.47018994105944506,
-    "source": "sampled"
+    "skill_level": 0.6818181818181818,
+    "crowd_following": 0.5,
+    "confidence_following": 0.48051948051948046,
+    "accuracy": 0.6363636363636364,
+    "efficiency": 0.699685534591195,
+    "weeks_played": 5,
+    "total_picks": 77
   },
-  "KRAHNSKI": {
-    "skill_level": 0.7155458406320507,
-    "crowd_following": 0.5062090715240956,
-    "confidence_following": 0.4674262406589932,
-    "source": "sampled"
-  },
-  "Ashholes": {
-    "skill_level": 0.7556315740269034,
-    "crowd_following": 0.5828107138741286,
-    "confidence_following": 0.45555496029833714,
-    "source": "sampled"
-  },
-  "Gman": {
-    "skill_level": 0.6747448403241951,
-    "crowd_following": 0.46419447625821053,
-    "confidence_following": 0.46866913695308143,
-    "source": "sampled"
-  },
-  "Alan N": {
-    "skill_level": 0.6750521204625004,
-    "crowd_following": 0.4536614558044968,
-    "confidence_following": 0.4621630743527487,
-    "source": "sampled"
-  },
-  "mk3415": {
-    "skill_level": 0.6783010448552764,
-    "crowd_following": 0.4436281017904357,
-    "confidence_following": 0.4817467912317668,
-    "source": "sampled"
-  },
-  "Beer Tank": {
-    "skill_level": 0.6998137122990534,
-    "crowd_following": 0.5827002915984041,
-    "confidence_following": 0.47509699019818724,
-    "source": "sampled"
-  },
-  "Loveland for ROY": {
-    "skill_level": 0.709730760565462,
-    "crowd_following": 0.297661720671652,
-    "confidence_following": 0.4710467376999372,
-    "source": "sampled"
-  },
-  "Go Pack Go": {
-    "skill_level": 0.675209581433045,
-    "crowd_following": 0.39351346357446826,
-    "confidence_following": 0.4793350833803485,
-    "source": "sampled"
-  },
-  "Big oski no.1": {
-    "skill_level": 0.7242870313213384,
-    "crowd_following": 0.6386626212214023,
-    "confidence_following": 0.47035178138735667,
-    "source": "sampled"
-  },
-  "More Birdies": {
-    "skill_level": 0.7421833890669857,
-    "crowd_following": 0.4448301216300222,
-    "confidence_following": 0.46721735238343154,
-    "source": "sampled"
+  "RICHDOG !!!!!!": {
+    "skill_level": 0.7048632218844985,
+    "crowd_following": 0.5,
+    "confidence_following": 0.46808510638297873,
+    "accuracy": 0.6747720364741642,
+    "efficiency": 0.7195806813927368,
+    "weeks_played": 22,
+    "total_picks": 329
   },
   "Mskrlac": {
-    "skill_level": 0.659845574878905,
-    "crowd_following": 0.5911908599614145,
-    "confidence_following": 0.4786822126906882,
-    "source": "sampled"
+    "skill_level": 0.6974025974025974,
+    "crowd_following": 0.5,
+    "confidence_following": 0.48051948051948046,
+    "accuracy": 0.6623376623376623,
+    "efficiency": 0.7275590551181103,
+    "weeks_played": 5,
+    "total_picks": 77
   },
-  "Lenny": {
-    "skill_level": 0.692187575057728,
-    "crowd_following": 0.39142243829469303,
-    "confidence_following": 0.47440360289884015,
-    "source": "sampled"
+  "Rent\u2019s Due Again": {
+    "skill_level": 0.6663157894736842,
+    "crowd_following": 0.5,
+    "confidence_following": 0.4631578947368421,
+    "accuracy": 0.6105263157894737,
+    "efficiency": 0.6675313445741461,
+    "weeks_played": 22,
+    "total_picks": 285
   },
-  "JK": {
-    "skill_level": 0.6982261322109566,
-    "crowd_following": 0.5873795409294792,
-    "confidence_following": 0.46604972045921883,
-    "source": "sampled"
-  },
-  "Ride those dogs": {
-    "skill_level": 0.7324104483982978,
-    "crowd_following": 0.4632142549131273,
-    "confidence_following": 0.4621755657183117,
-    "source": "sampled"
-  },
-  "Ben\u2019s Bears": {
-    "skill_level": 0.716197106288856,
-    "crowd_following": 0.6321125534809475,
-    "confidence_following": 0.4685996957717499,
-    "source": "sampled"
-  },
-  "Back to Back Buckeye Natty": {
-    "skill_level": 0.6911558283928642,
-    "crowd_following": 0.3992599201837867,
-    "confidence_following": 0.46857573152497795,
-    "source": "sampled"
-  },
-  "BIZARRO PICKS": {
-    "skill_level": 0.7103363678056486,
-    "crowd_following": 0.31396738387051376,
-    "confidence_following": 0.4760669559116548,
-    "source": "sampled"
-  },
-  "Rcdinero": {
-    "skill_level": 0.6875905736303042,
-    "crowd_following": 0.5702901884612421,
-    "confidence_following": 0.46693262617211506,
-    "source": "sampled"
+  "Boats N Hoes": {
+    "skill_level": 0.7184210526315788,
+    "crowd_following": 0.5,
+    "confidence_following": 0.48684210526315785,
+    "accuracy": 0.6973684210526315,
+    "efficiency": 0.7169811320754716,
+    "weeks_played": 5,
+    "total_picks": 76
   },
   "Forchione": {
-    "skill_level": 0.75149078668657,
-    "crowd_following": 0.6492873844712412,
-    "confidence_following": 0.47354937462659036,
-    "source": "sampled"
+    "skill_level": 0.6818181818181818,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.6363636363636364,
+    "efficiency": 0.7021943573667712,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "ShowMeYourTDs": {
+    "skill_level": 0.677710843373494,
+    "crowd_following": 0.5,
+    "confidence_following": 0.4698795180722891,
+    "accuracy": 0.6295180722891566,
+    "efficiency": 0.709366901147723,
+    "weeks_played": 22,
+    "total_picks": 332
+  },
+  "KRAHNSKI": {
+    "skill_level": 0.7207792207792207,
+    "crowd_following": 0.5,
+    "confidence_following": 0.48051948051948046,
+    "accuracy": 0.7012987012987013,
+    "efficiency": 0.75,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Dardanes": {
+    "skill_level": 0.6710526315789473,
+    "crowd_following": 0.5,
+    "confidence_following": 0.4736842105263158,
+    "accuracy": 0.618421052631579,
+    "efficiency": 0.7018927444794952,
+    "weeks_played": 5,
+    "total_picks": 76
+  },
+  "VT": {
+    "skill_level": 0.7263157894736842,
+    "crowd_following": 0.5,
+    "confidence_following": 0.48684210526315785,
+    "accuracy": 0.7105263157894737,
+    "efficiency": 0.757527733755943,
+    "weeks_played": 5,
+    "total_picks": 76
+  },
+  "Lenny": {
+    "skill_level": 0.6662337662337662,
+    "crowd_following": 0.5,
+    "confidence_following": 0.4805194805194805,
+    "accuracy": 0.6103896103896104,
+    "efficiency": 0.6373456790123457,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Ben\u2019s Bears": {
+    "skill_level": 0.6662337662337662,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.6103896103896104,
+    "efficiency": 0.6844583987441131,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Hennything Possible": {
+    "skill_level": 0.7228915662650602,
+    "crowd_following": 0.5,
+    "confidence_following": 0.47289156626506024,
+    "accuracy": 0.7048192771084337,
+    "efficiency": 0.7356108429261047,
+    "weeks_played": 22,
+    "total_picks": 332
+  },
+  "Hands Up": {
+    "skill_level": 0.6896103896103896,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.6493506493506493,
+    "efficiency": 0.7205651491365777,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Bucky Swirving": {
+    "skill_level": 0.718018018018018,
+    "crowd_following": 0.5,
+    "confidence_following": 0.47447447447447444,
+    "accuracy": 0.6966966966966966,
+    "efficiency": 0.7491675915649278,
+    "weeks_played": 22,
+    "total_picks": 333
+  },
+  "Fishy Picks": {
+    "skill_level": 0.7126126126126127,
+    "crowd_following": 0.5,
+    "confidence_following": 0.47447447447447444,
+    "accuracy": 0.6876876876876877,
+    "efficiency": 0.746301775147929,
+    "weeks_played": 22,
+    "total_picks": 333
+  },
+  "DADDY YANKEE": {
+    "skill_level": 0.7187311178247734,
+    "crowd_following": 0.5,
+    "confidence_following": 0.4712990936555891,
+    "accuracy": 0.6978851963746223,
+    "efficiency": 0.7260223048327138,
+    "weeks_played": 22,
+    "total_picks": 331
+  },
+  "Brock": {
+    "skill_level": 0.7216216216216216,
+    "crowd_following": 0.5,
+    "confidence_following": 0.47447447447447444,
+    "accuracy": 0.7027027027027027,
+    "efficiency": 0.7491675915649278,
+    "weeks_played": 22,
+    "total_picks": 333
+  },
+  "Gman": {
+    "skill_level": 0.6662337662337662,
+    "crowd_following": 0.5,
+    "confidence_following": 0.48051948051948046,
+    "accuracy": 0.6103896103896104,
+    "efficiency": 0.6708661417322834,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "dbalz": {
+    "skill_level": 0.6974025974025974,
+    "crowd_following": 0.5,
+    "confidence_following": 0.48051948051948046,
+    "accuracy": 0.6623376623376623,
+    "efficiency": 0.7122641509433962,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Comeback Szn": {
+    "skill_level": 0.6789473684210525,
+    "crowd_following": 0.5,
+    "confidence_following": 0.48684210526315785,
+    "accuracy": 0.631578947368421,
+    "efficiency": 0.6949685534591195,
+    "weeks_played": 5,
+    "total_picks": 76
+  },
+  "Piru\u2019s Picks": {
+    "skill_level": 0.6963963963963964,
+    "crowd_following": 0.5,
+    "confidence_following": 0.47447447447447444,
+    "accuracy": 0.6606606606606606,
+    "efficiency": 0.7269700332963374,
+    "weeks_played": 22,
+    "total_picks": 333
+  },
+  "JK": {
+    "skill_level": 0.6863013698630137,
+    "crowd_following": 0.5,
+    "confidence_following": 0.4657534246575342,
+    "accuracy": 0.6438356164383562,
+    "efficiency": 0.6872037914691943,
+    "weeks_played": 5,
+    "total_picks": 73
+  },
+  "BIZARRO PICKS": {
+    "skill_level": 0.6473684210526316,
+    "crowd_following": 0.5,
+    "confidence_following": 0.4736842105263158,
+    "accuracy": 0.5789473684210527,
+    "efficiency": 0.5905511811023622,
+    "weeks_played": 5,
+    "total_picks": 76
+  },
+  "Ballbusters": {
+    "skill_level": 0.7060422960725076,
+    "crowd_following": 0.5,
+    "confidence_following": 0.46827794561933533,
+    "accuracy": 0.676737160120846,
+    "efficiency": 0.7376806224527602,
+    "weeks_played": 22,
+    "total_picks": 331
+  },
+  "Mopar": {
+    "skill_level": 0.6963963963963964,
+    "crowd_following": 0.5,
+    "confidence_following": 0.47447447447447444,
+    "accuracy": 0.6606606606606606,
+    "efficiency": 0.7206807251202367,
+    "weeks_played": 22,
+    "total_picks": 333
+  },
+  "OB1": {
+    "skill_level": 0.6879154078549848,
+    "crowd_following": 0.5,
+    "confidence_following": 0.4712990936555891,
+    "accuracy": 0.6465256797583081,
+    "efficiency": 0.7149237067361369,
+    "weeks_played": 22,
+    "total_picks": 331
+  },
+  "Brown$ 42": {
+    "skill_level": 0.6896103896103896,
+    "crowd_following": 0.5,
+    "confidence_following": 0.4805194805194805,
+    "accuracy": 0.6493506493506493,
+    "efficiency": 0.7120743034055728,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Johnsonmaia06": {
+    "skill_level": 0.713855421686747,
+    "crowd_following": 0.5,
+    "confidence_following": 0.46987951807228917,
+    "accuracy": 0.6897590361445783,
+    "efficiency": 0.7207743857036486,
+    "weeks_played": 22,
+    "total_picks": 332
+  },
+  "Big oski no.1": {
+    "skill_level": 0.7051948051948052,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.6753246753246753,
+    "efficiency": 0.7386541471048513,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Rcdinero": {
+    "skill_level": 0.6662337662337662,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.6103896103896104,
+    "efficiency": 0.6640625,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Loveland for ROY": {
+    "skill_level": 0.6552631578947368,
+    "crowd_following": 0.5,
+    "confidence_following": 0.5,
+    "accuracy": 0.5921052631578947,
+    "efficiency": 0.6735668789808917,
+    "weeks_played": 5,
+    "total_picks": 76
+  },
+  "thol1572": {
+    "skill_level": 0.7118081180811808,
+    "crowd_following": 0.5,
+    "confidence_following": 0.47232472324723246,
+    "accuracy": 0.6863468634686347,
+    "efficiency": 0.7155094679891795,
+    "weeks_played": 22,
+    "total_picks": 271
+  },
+  "Ride those dogs": {
+    "skill_level": 0.6428571428571428,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.5714285714285714,
+    "efficiency": 0.6573208722741433,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Bfense": {
+    "skill_level": 0.6896103896103896,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.6493506493506493,
+    "efficiency": 0.70625,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Do You Fell Lucky Punk": {
+    "skill_level": 0.6896103896103896,
+    "crowd_following": 0.5,
+    "confidence_following": 0.48051948051948046,
+    "accuracy": 0.6493506493506493,
+    "efficiency": 0.6540880503144654,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Go Pack Go": {
+    "skill_level": 0.6818181818181818,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.6363636363636364,
+    "efficiency": 0.702660406885759,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "MainGangJefe": {
+    "skill_level": 0.6818181818181818,
+    "crowd_following": 0.5,
+    "confidence_following": 0.48051948051948046,
+    "accuracy": 0.6363636363636364,
+    "efficiency": 0.710691823899371,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "mk3415": {
+    "skill_level": 0.6896103896103896,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.6493506493506493,
+    "efficiency": 0.6880877742946708,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "9 Inches": {
+    "skill_level": 0.7,
+    "crowd_following": 0.5,
+    "confidence_following": 0.5,
+    "accuracy": 0.6666666666666666,
+    "efficiency": 0.7094594594594594,
+    "weeks_played": 5,
+    "total_picks": 72
+  },
+  "Tone": {
+    "skill_level": 0.6662337662337662,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.6103896103896104,
+    "efficiency": 0.645412130637636,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Fast Eddie": {
+    "skill_level": 0.6662337662337662,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.6103896103896104,
+    "efficiency": 0.6927899686520376,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Jason B": {
+    "skill_level": 0.6783783783783783,
+    "crowd_following": 0.5,
+    "confidence_following": 0.47447447447447444,
+    "accuracy": 0.6306306306306306,
+    "efficiency": 0.6904059040590406,
+    "weeks_played": 22,
+    "total_picks": 333
+  },
+  "More Birdies": {
+    "skill_level": 0.674025974025974,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.6233766233766234,
+    "efficiency": 0.6359375,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Firman's Educated Guesses": {
+    "skill_level": 0.6216867469879518,
+    "crowd_following": 0.5,
+    "confidence_following": 0.47289156626506024,
+    "accuracy": 0.536144578313253,
+    "efficiency": 0.566358595194085,
+    "weeks_played": 22,
+    "total_picks": 332
+  },
+  "Alan N": {
+    "skill_level": 0.674025974025974,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.6233766233766234,
+    "efficiency": 0.6369327073552425,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Ashholes": {
+    "skill_level": 0.6818181818181818,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.6363636363636364,
+    "efficiency": 0.7189952904238619,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "Balz Deep": {
+    "skill_level": 0.6927927927927928,
+    "crowd_following": 0.5,
+    "confidence_following": 0.47147147147147145,
+    "accuracy": 0.6546546546546547,
+    "efficiency": 0.7086264346538319,
+    "weeks_played": 22,
+    "total_picks": 333
+  },
+  "Pay up $ucka!": {
+    "skill_level": 0.6947368421052631,
+    "crowd_following": 0.5,
+    "confidence_following": 0.48684210526315785,
+    "accuracy": 0.6578947368421053,
+    "efficiency": 0.7001569858712716,
+    "weeks_played": 5,
+    "total_picks": 76
+  },
+  "TD's Nutz": {
+    "skill_level": 0.6891891891891893,
+    "crowd_following": 0.5,
+    "confidence_following": 0.47147147147147145,
+    "accuracy": 0.6486486486486487,
+    "efficiency": 0.6983715766099186,
+    "weeks_played": 22,
+    "total_picks": 333
+  },
+  "Beer Tank": {
+    "skill_level": 0.7064516129032258,
+    "crowd_following": 0.5,
+    "confidence_following": 0.467741935483871,
+    "accuracy": 0.6774193548387096,
+    "efficiency": 0.7354014598540146,
+    "weeks_played": 5,
+    "total_picks": 62
   },
   "MDTwins": {
-    "skill_level": 0.7374804893360376,
-    "crowd_following": 0.4220889752665533,
-    "confidence_following": 0.4754449582883829,
-    "source": "sampled"
+    "skill_level": 0.5493506493506494,
+    "crowd_following": 0.5,
+    "confidence_following": 0.4805194805194805,
+    "accuracy": 0.4155844155844156,
+    "efficiency": 0.5209302325581395,
+    "weeks_played": 5,
+    "total_picks": 77
+  },
+  "EChev": {
+    "skill_level": 0.6765765765765765,
+    "crowd_following": 0.5,
+    "confidence_following": 0.4714714714714715,
+    "accuracy": 0.6276276276276276,
+    "efficiency": 0.6917681801402732,
+    "weeks_played": 22,
+    "total_picks": 333
+  },
+  "#FlyTheW": {
+    "skill_level": 0.6506493506493506,
+    "crowd_following": 0.5,
+    "confidence_following": 0.49350649350649345,
+    "accuracy": 0.5844155844155844,
+    "efficiency": 0.6770186335403726,
+    "weeks_played": 5,
+    "total_picks": 77
   }
 }

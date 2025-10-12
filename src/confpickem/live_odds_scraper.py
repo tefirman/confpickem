@@ -109,10 +109,16 @@ class LiveOddsScraper:
 
         # First try The Odds API if we have a key
         if self.odds_api_key:
+            print(f"🔑 Using Odds API with key: {self.odds_api_key[:8]}...")
             odds_data = self._get_odds_from_api(week=week)
             if not odds_data.empty:
                 print(f"✅ Retrieved live odds for {len(odds_data)} games from Odds API")
                 return odds_data
+            else:
+                print(f"⚠️ Odds API returned no games for week {week}")
+        else:
+            print("❌ No Odds API key provided - set ODDS_API_KEY environment variable or pass --odds-api-key")
+            print("   Without an API key, live odds cannot be retrieved!")
 
         # Fallback: Get ESPN schedule and scrape odds from ESPN website
         try:

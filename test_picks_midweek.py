@@ -174,7 +174,8 @@ def main():
                 remaining_teams.add(game.away_team)
         
         remaining_teams = sorted(list(remaining_teams))
-        remaining_confidence = sorted(list(set(range(1, 17)) - used_confidence), reverse=True)
+        num_games = len(yahoo.games)
+        remaining_confidence = sorted(list(set(range(1, num_games + 1)) - used_confidence), reverse=True)
         
         print(f"\n📋 Available teams (remaining games only): {', '.join(remaining_teams)}")
         print(f"🎯 Available confidence points: {', '.join(map(str, remaining_confidence))}")

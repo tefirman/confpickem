@@ -36,11 +36,11 @@ def main():
     
     print("📡 Fetching data...")
     try:
-        # Clear cache
-        cache_dir = Path(".cache")
-        if cache_dir.exists():
-            import shutil
-            shutil.rmtree(cache_dir)
+        # # Clear cache
+        # cache_dir = Path(".cache")
+        # if cache_dir.exists():
+        #     import shutil
+        #     shutil.rmtree(cache_dir)
         
         yahoo = YahooPickEm(week=week, league_id=league_id, cookies_file="cookies.txt")
         print(f"✅ Loaded {len(yahoo.games)} games, {len(yahoo.players)} players")

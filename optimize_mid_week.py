@@ -58,6 +58,17 @@ def main():
             print("   3. Run this script again")
             return 1
         
+        # TEMPORARY HARDCODE EXAMPLE: Uncomment to simulate a specific game result
+        # Useful for "what-if" scenarios (e.g., what are optimal picks if Team X wins?)
+        # yahoo.results = [r for r in yahoo.results
+        #                 if not (set([r.get('favorite'), r.get('underdog')]) == set(['Den', 'NYJ']))]
+        # yahoo.results.append({
+        #     'favorite': 'Den',
+        #     'underdog': 'NYJ',
+        #     'winner': 'Den',
+        #     'spread': -7.0
+        # })
+
         # Check for completed games
         completed_games = [r for r in yahoo.results if r['winner']]
         print(f"🏆 {len(completed_games)} games completed, {len(yahoo.games) - len(completed_games)} remaining")
@@ -245,7 +256,8 @@ def main():
                             print(f"     {status} {pick} ({confidence} pts) - {'WIN' if was_correct else 'LOSS'}")
                 
                 # Calculate remaining confidence levels
-                all_confidence = set(range(1, 17))  # All possible confidence levels
+                num_games = len(yahoo.games)
+                all_confidence = set(range(1, num_games + 1))  # All possible confidence levels
                 your_remaining_confidence = all_confidence - your_used_confidence
                 print(f"\n📊 CONFIDENCE LEVELS:")
                 print(f"   Used in completed games: {sorted(your_used_confidence)}")

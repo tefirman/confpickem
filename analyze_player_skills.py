@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Analyze 2024 player performance to derive realistic skill levels"""
+"""Analyze player performance to derive realistic skill levels"""
 
 import sys
 from pathlib import Path
@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from bs4.element import Comment
 import json
 from collections import defaultdict
+import argparse
 
 # Add src to path
 sys.path.append(str(Path(__file__).parent / "src"))
@@ -147,14 +148,14 @@ def parse_week_data(week_file):
         print(f"❌ Error parsing {week_file}: {e}")
         return None, None
 
-def analyze_player_skills():
-    """Analyze all 2024 weeks to derive player skill levels"""
-    print("📊 ANALYZING 2024 PLAYER SKILLS")
+def analyze_player_skills(year):
+    """Analyze all weeks to derive player skill levels"""
+    print(f"📊 ANALYZING {year} PLAYER SKILLS")
     print("=" * 40)
-    
-    cache_dir = Path("PickEmCache2024")
+
+    cache_dir = Path(f"PickEmCache{year}")
     if not cache_dir.exists():
-        print("❌ PickEmCache2024 directory not found")
+        print(f"❌ PickEmCache{year} directory not found")
         return None
     
     # Find all week files
@@ -271,14 +272,20 @@ def analyze_player_skills():
             'total_picks': stats['total_picks']
         }
     
-    return player_skills
+    return player_skills, all_player_stats
 
 def main():
     """Analyze player skills and save results"""
-    player_skills = analyze_player_skills()
-    
-    if not player_skills:
+    parser = argparse.ArgumentParser(description='Analyze player performance to derive realistic skill levels')
+    parser.add_argument('--year', type=int, default=2024, help='Year to analyze (default: 2024)')
+    args = parser.parse_args()
+
+    result = analyze_player_skills(args.year)
+
+    if not result:
         return 1
+
+    player_skills, all_player_stats = result
     
     # Sort by number of picks (most data first)
     sorted_players = sorted(player_skills.items(), key=lambda x: x[1]['total_picks'], reverse=True)
@@ -311,9 +318,10 @@ def main():
     print(f"   Crowd Following: μ={np.mean(crowd_followings):.3f}, σ={np.std(crowd_followings):.3f}")
     print(f"   Confidence Following: μ={np.mean(confidence_followings):.3f}, σ={np.std(confidence_followings):.3f}")
     
-    # Save results
+    # Save results including raw stats for future aggregation
     results = {
         'player_skills': player_skills,
+        'raw_player_stats': dict(all_player_stats),  # Save raw stats for combining years
         'distribution_stats': {
             'skill_level': {'mean': np.mean(skill_levels), 'std': np.std(skill_levels)},
             'crowd_following': {'mean': np.mean(crowd_followings), 'std': np.std(crowd_followings)},
@@ -321,10 +329,11 @@ def main():
         }
     }
     
-    with open('player_skills_2024.json', 'w') as f:
+    output_file = f'player_skills_{args.year}.json'
+    with open(output_file, 'w') as f:
         json.dump(results, f, indent=2, default=str)
-    
-    print(f"\n💾 Results saved to player_skills_2024.json")
+
+    print(f"\n💾 Results saved to {output_file}")
     print(f"💡 Use this data to create realistic player skill distributions!")
     
     return 0
