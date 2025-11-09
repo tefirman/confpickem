@@ -268,14 +268,18 @@ def main():
                     
                     # Sort by importance and show top games
                     importance_sorted = importance_df.sort_values('total_impact', ascending=False)
-                    
+
                     for i, (_, row) in enumerate(importance_sorted.head(8).iterrows()):
                         game_desc = row['game']  # Already formatted as "Away@Home"
                         pick = row['pick']
                         conf = int(row['points_bid'])  # Convert to int for formatting
                         importance = row['total_impact']
-                        
-                        print(f"   {i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) +{importance*100:4.1f}%")
+
+                        # Get actual win/loss probabilities from the importance analysis
+                        correct_prob = row['win_probability']
+                        incorrect_prob = row['loss_probability']
+
+                        print(f"   {i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) {importance:+5.1%} (Correct: {correct_prob:4.1%}, Wrong: {incorrect_prob:4.1%})")
                         
                 except Exception as e:
                     print(f"   ⚠️ Could not calculate game importance: {e}")
@@ -342,14 +346,18 @@ def main():
                     if importance_df is not None:
                         try:
                             importance_sorted = importance_df.sort_values('total_impact', ascending=False)
-                            
+
                             for i, (_, row) in enumerate(importance_sorted.iterrows()):
                                 game_desc = row['game']
                                 pick = row['pick']
                                 conf = int(row['points_bid'])
                                 importance = row['total_impact']
-                                
-                                f.write(f"{i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) +{importance*100:4.1f}%\n")
+
+                                # Get actual win/loss probabilities from the importance analysis
+                                correct_prob = row['win_probability']
+                                incorrect_prob = row['loss_probability']
+
+                                f.write(f"{i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) {importance:+5.1%} (Correct: {correct_prob:4.1%}, Wrong: {incorrect_prob:4.1%})\n")
                                 
                         except Exception as e:
                             # Fallback to basic picks list if sorting fails

@@ -401,15 +401,10 @@ def main():
                                         conf = int(row['points_bid'])
                                         impact = row['total_impact']
 
-                                        # Calculate absolute win probabilities for correct/incorrect scenarios
-                                        # The impact is the difference: correct_prob - incorrect_prob
-                                        # We need to back-calculate from the baseline probability
-                                        baseline_prob = win_probs[name]  # Current overall win probability
-
-                                        # The impact represents the change from baseline when this specific game changes
-                                        # If impact is positive, getting it right helps more than getting it wrong hurts
-                                        correct_prob = baseline_prob + (impact / 2)  # Approximate
-                                        incorrect_prob = baseline_prob - (impact / 2)  # Approximate
+                                        # Get actual win/loss probabilities from the importance analysis
+                                        # These are the actual probabilities if you win vs lose this specific game
+                                        correct_prob = row['win_probability']
+                                        incorrect_prob = row['loss_probability']
 
                                         print(f"     {i+1}. {game:<15} → {pick:3} ({conf:2d} pts) {impact:+5.1%} (Correct: {correct_prob:4.1%}, Wrong: {incorrect_prob:4.1%})")
 
