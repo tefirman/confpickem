@@ -379,25 +379,25 @@ def main():
     
     simulator, assignments = result
     
-    print(f"\n🧪 TESTING REALISTIC SIMULATOR:")
+    # print(f"\n🧪 TESTING REALISTIC SIMULATOR:")
     
-    # Test with a few players
-    test_players = list(assignments.keys())[:3]
+    # # Test with a few players
+    # test_players = list(assignments.keys())[:3]
     
-    for player_name in test_players:
-        skill_data = assignments[player_name]
-        print(f"\n🎯 Testing {player_name}:")
-        print(f"   Skill: {skill_data['skill_level']:.3f}")
-        print(f"   Crowd: {skill_data['crowd_following']:.3f}")  
-        print(f"   Confidence: {skill_data['confidence_following']:.3f}")
+    # for player_name in test_players:
+    #     skill_data = assignments[player_name]
+    #     print(f"\n🎯 Testing {player_name}:")
+    #     print(f"   Skill: {skill_data['skill_level']:.3f}")
+    #     print(f"   Crowd: {skill_data['crowd_following']:.3f}")  
+    #     print(f"   Confidence: {skill_data['confidence_following']:.3f}")
         
-        # Quick simulation test
-        try:
-            stats = simulator.simulate_all({})
-            win_prob = stats['win_pct'][player_name]
-            print(f"   Win probability: {win_prob:.1%}")
-        except Exception as e:
-            print(f"   ⚠️ Simulation test failed: {e}")
+    #     # Quick simulation test
+    #     try:
+    #         stats = simulator.simulate_all({})
+    #         win_prob = stats['win_pct'][player_name]
+    #         print(f"   Win probability: {win_prob:.1%}")
+    #     except Exception as e:
+    #         print(f"   ⚠️ Simulation test failed: {e}")
     
     # Save assignments for future use
     with open('current_player_skills.json', 'w') as f:

@@ -43,7 +43,7 @@ def main():
         print(f"✅ Loaded {len(yahoo.games)} games, {len(yahoo.players)} players")
         
         # Setup simulator (use high accuracy for verification)
-        simulator = ConfidencePickEmSimulator(num_sims=15000)
+        simulator = ConfidencePickEmSimulator(num_sims=5000)
         
         # Convert games
         games_data = []
