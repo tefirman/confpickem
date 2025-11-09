@@ -127,7 +127,7 @@ def main():
         try:
             with open('current_player_skills.json', 'r') as f:
                 player_skills = json.load(f)
-            print("✅ Using realistic 2024-derived player skills")
+            print("✅ Using reality-derived player skills")
         except FileNotFoundError:
             print("⚠️ current_player_skills.json not found, using defaults")
             player_skills = {}
@@ -403,13 +403,17 @@ def main():
                     
                     # Sort by importance and show top games
                     importance_sorted = importance_df.sort_values('total_impact', ascending=False)
-                    
+
                     for i, (_, row) in enumerate(importance_sorted.head(8).iterrows()):
                         game_desc = row['game']  # Already formatted as "Away@Home"
                         pick = row['pick']
                         conf = int(row['points_bid'])  # Convert to int for formatting
                         importance = row['total_impact']
-                        
+
+                        # Get actual win/loss probabilities from the importance analysis
+                        correct_prob = row['win_probability']
+                        incorrect_prob = row['loss_probability']
+
                         # Check if this is a remaining game by parsing the game string
                         away_team, home_team = game_desc.split('@')
                         is_remaining = any(
@@ -417,8 +421,8 @@ def main():
                             for g in remaining_games
                         )
                         status = "📅" if is_remaining else "✅"
-                        
-                        print(f"   {i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) +{importance*100:4.1f}% {status}")
+
+                        print(f"   {i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) {importance:+5.1%} (Correct: {correct_prob:4.1%}, Wrong: {incorrect_prob:4.1%}) {status}")
                         
                 except Exception as e:
                     print(f"   ⚠️ Could not calculate game importance: {e}")
@@ -488,13 +492,17 @@ def main():
                     if importance_df is not None:
                         try:
                             importance_sorted = importance_df.sort_values('total_impact', ascending=False)
-                            
+
                             for i, (_, row) in enumerate(importance_sorted.iterrows()):
                                 game_desc = row['game']
                                 pick = row['pick']
                                 conf = int(row['points_bid'])
                                 importance = row['total_impact']
-                                
+
+                                # Get actual win/loss probabilities from the importance analysis
+                                correct_prob = row['win_probability']
+                                incorrect_prob = row['loss_probability']
+
                                 # Check if this is a remaining game
                                 away_team, home_team = game_desc.split('@')
                                 is_remaining = any(
@@ -502,8 +510,8 @@ def main():
                                     for g in remaining_games
                                 )
                                 status = "📅" if is_remaining else "✅"
-                                
-                                f.write(f"{i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) +{importance*100:4.1f}% {status}\n")
+
+                                f.write(f"{i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) {importance:+5.1%} (Correct: {correct_prob:4.1%}, Wrong: {incorrect_prob:4.1%}) {status}\n")
                                 
                         except Exception as e:
                             # Fallback to basic picks list if sorting fails

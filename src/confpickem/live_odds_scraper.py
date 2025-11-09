@@ -576,26 +576,27 @@ class LiveOddsScraper:
 
                     # Determine who is the betting favorite and update accordingly
                     if home_spread < 0:
-                        # Home team is betting favorite
+                        # Home team is betting favorite (negative spread means favored)
                         betting_favorite = yahoo_home_team
                         betting_underdog = yahoo_away_team
                         spread_magnitude = abs(home_spread)
                         favorite_win_prob = home_win_prob
                         home_is_betting_favorite = True
                     else:
-                        # Away team is betting favorite
+                        # Away team is betting favorite (positive home spread means away is favored)
                         betting_favorite = yahoo_away_team
                         betting_underdog = yahoo_home_team
                         spread_magnitude = abs(home_spread)
-                        favorite_win_prob = 1.0 - home_win_prob
+                        favorite_win_prob = 1.0 - home_win_prob  # Away team's win prob
                         home_is_betting_favorite = False
 
                     # Update with live odds while preserving Yahoo's home/away structure
-                    # Yahoo uses misleading column names: 'favorite' = home team, 'underdog' = away team
-                    updated_games.at[idx, 'favorite'] = yahoo_home_team  # Keep home team in 'favorite' column
-                    updated_games.at[idx, 'underdog'] = yahoo_away_team  # Keep away team in 'underdog' column
+                    # Note: Yahoo's structure is confusing - it appears to use 'favorite'/'underdog'
+                    # in the betting sense, not the home/away sense. But we're preserving home/away here.
+                    updated_games.at[idx, 'favorite'] = betting_favorite  # Betting favorite
+                    updated_games.at[idx, 'underdog'] = betting_underdog  # Betting underdog
                     updated_games.at[idx, 'spread'] = spread_magnitude
-                    updated_games.at[idx, 'win_prob'] = home_win_prob if home_is_betting_favorite else (1.0 - home_win_prob)
+                    updated_games.at[idx, 'win_prob'] = favorite_win_prob  # Betting favorite's win probability
                     updated_games.at[idx, 'home_favorite'] = home_is_betting_favorite
                     updated_games.at[idx, 'kickoff_time'] = live_game['kickoff_time']
 
