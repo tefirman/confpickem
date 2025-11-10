@@ -18,29 +18,15 @@ Usage:
 
 import sys
 import argparse
-from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-
-# Import the existing scripts' main functions
+# Import the player skills utilities from the package
 try:
-    # Import analyze_player_skills
-    analyze_module_path = Path(__file__).parent.parent.parent.parent / "analyze_player_skills.py"
-    spec = __import__('importlib.util').util.spec_from_file_location("analyze_player_skills", analyze_module_path)
-    analyze_module = __import__('importlib.util').util.module_from_spec(spec)
-    spec.loader.exec_module(analyze_module)
-    analyze_main = analyze_module.main
-
-    # Import apply_realistic_skills
-    apply_module_path = Path(__file__).parent.parent.parent.parent / "apply_realistic_skills.py"
-    spec = __import__('importlib.util').util.spec_from_file_location("apply_realistic_skills", apply_module_path)
-    apply_module = __import__('importlib.util').util.module_from_spec(spec)
-    spec.loader.exec_module(apply_module)
-    apply_main = apply_module.main
-except Exception as e:
+    from confpickem import analyze_player_skills, apply_realistic_skills
+    analyze_main = analyze_player_skills.main
+    apply_main = apply_realistic_skills.main
+except ImportError as e:
     print(f"❌ Error importing player skills modules: {e}")
-    print("   Make sure analyze_player_skills.py and apply_realistic_skills.py exist")
+    print("   Make sure confpickem package is installed properly")
     sys.exit(1)
 
 

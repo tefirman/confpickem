@@ -7,11 +7,8 @@ import json
 import numpy as np
 import argparse
 
-# Add src to path
-sys.path.append(str(Path(__file__).parent / "src"))
-
-from src.confpickem.yahoo_pickem_scraper import YahooPickEm
-from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Player
+from confpickem.yahoo_pickem_scraper import YahooPickEm
+from confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Player
 
 def combine_raw_stats(stats1, stats2):
     """Combine raw player statistics from two different time periods"""
