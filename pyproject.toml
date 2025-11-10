@@ -38,6 +38,12 @@ Repository = "https://github.com/tefirman/confpickem"  # Replace with your actua
 Documentation = "https://github.com/tefirman/confpickem#readme"
 "Bug Tracker" = "https://github.com/tefirman/confpickem/issues"
 
+[project.scripts]
+confpickem = "confpickem.cli.optimize:main"
+confpickem-optimize = "confpickem.cli.optimize:main"
+confpickem-win-probability = "confpickem.cli.win_probability:main"
+confpickem-player-skills = "confpickem.cli.player_skills:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=6.0.0",

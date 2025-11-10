@@ -24,20 +24,25 @@ pip install confpickem
 
 ### Command Line Interface (Recommended)
 
-The easiest way to use confpickem is through the unified CLI tools:
+The easiest way to use confpickem is through the command-line tools:
 
 ```bash
 # Optimize your picks for mid-week with live odds
-python src/confpickem/cli/optimize.py --week 10 --mode midweek --live-odds
+confpickem --week 10 --mode midweek --live-odds
 
 # Check win probabilities for all players
-python src/confpickem/cli/win_probability.py --week 10 --live-odds
+confpickem-win-probability --week 10 --live-odds
 
 # Update player skills from historical data
-python src/confpickem/cli/player_skills.py update --weeks 3,4,5,6,7,8,9 --week 10
+confpickem-player-skills update --weeks 3,4,5,6,7,8,9 --week 10
 ```
 
-See the [CLI Documentation](src/confpickem/cli/README.md) for full details.
+**Installation:** Install the package to get these commands:
+```bash
+pip install -e .   # From project root
+```
+
+See the [CLI Documentation](CLI_README.md) for full details.
 
 ### Python API
 

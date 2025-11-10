@@ -2,28 +2,39 @@
 
 Command-line interface for NFL Confidence Pick'Em optimization and analysis.
 
+## Installation
+
+First, install the package to get the CLI commands:
+
+```bash
+cd /path/to/confpickem
+pip install -e .
+```
+
+This creates convenient commands: `confpickem`, `confpickem-win-probability`, and `confpickem-player-skills`.
+
 ## Quick Start
 
 ```bash
 # Optimize picks for mid-week with live odds
-python src/confpickem/cli/optimize.py --week 10 --mode midweek --live-odds
+confpickem --week 10 --mode midweek --live-odds
 
 # Check win probabilities
-python src/confpickem/cli/win_probability.py --week 10 --live-odds
+confpickem-win-probability --week 10 --live-odds
 
 # Update player skills
-python src/confpickem/cli/player_skills.py update --weeks 3,4,5,6,7,8,9 --week 10
+confpickem-player-skills update --weeks 3,4,5,6,7,8,9 --week 10
 ```
 
 ## Available Commands
 
-### 1. `optimize.py` - Pick Optimization
+### 1. `confpickem` - Pick Optimization
 
 Optimizes your confidence pick assignments using Monte Carlo simulation.
 
 **Usage:**
 ```bash
-python src/confpickem/cli/optimize.py --week WEEK --mode MODE [OPTIONS]
+confpickem --week WEEK --mode MODE [OPTIONS]
 ```
 
 **Modes:**
@@ -45,24 +56,24 @@ python src/confpickem/cli/optimize.py --week WEEK --mode MODE [OPTIONS]
 **Examples:**
 ```bash
 # Mid-week with live odds (most accurate)
-python src/confpickem/cli/optimize.py --week 10 --mode midweek --live-odds
+confpickem --week 10 --mode midweek --live-odds
 
 # Beginning of week, fast mode
-python src/confpickem/cli/optimize.py --week 10 --mode beginning --fast
+confpickem --week 10 --mode beginning --fast
 
 # Custom simulations
-python src/confpickem/cli/optimize.py --week 10 --mode beginning --num-sims 10000
+confpickem --week 10 --mode beginning --num-sims 10000
 ```
 
 ---
 
-### 2. `win_probability.py` - Win Probability Calculator
+### 2. `confpickem-win-probability` - Win Probability Calculator
 
 Calculates win probabilities for all players using Monte Carlo simulation.
 
 **Usage:**
 ```bash
-python src/confpickem/cli/win_probability.py --week WEEK [OPTIONS]
+confpickem-win-probability --week WEEK [OPTIONS]
 ```
 
 **Options:**
@@ -77,24 +88,24 @@ python src/confpickem/cli/win_probability.py --week WEEK [OPTIONS]
 **Examples:**
 ```bash
 # Basic win probabilities
-python src/confpickem/cli/win_probability.py --week 10
+confpickem-win-probability --week 10
 
 # With live Vegas odds
-python src/confpickem/cli/win_probability.py --week 10 --live-odds
+confpickem-win-probability --week 10 --live-odds
 
 # More simulations for accuracy
-python src/confpickem/cli/win_probability.py --week 10 --num-sims 10000
+confpickem-win-probability --week 10 --num-sims 10000
 ```
 
 ---
 
-### 3. `player_skills.py` - Player Skills Management
+### 3. `confpickem-player-skills` - Player Skills Management
 
 Analyzes historical player performance and applies realistic skill levels to the simulator.
 
 **Usage:**
 ```bash
-python src/confpickem/cli/player_skills.py COMMAND [OPTIONS]
+confpickem-player-skills COMMAND [OPTIONS]
 ```
 
 **Commands:**
@@ -121,13 +132,13 @@ update:
 **Examples:**
 ```bash
 # Analyze historical weeks
-python src/confpickem/cli/player_skills.py analyze --weeks 3,4,5,6
+confpickem-player-skills analyze --weeks 3,4,5,6
 
 # Apply to current week
-python src/confpickem/cli/player_skills.py apply --week 10
+confpickem-player-skills apply --week 10
 
 # Do both in one command
-python src/confpickem/cli/player_skills.py update --weeks 3,4,5,6,7,8,9 --week 10
+confpickem-player-skills update --weeks 3,4,5,6,7,8,9 --week 10
 ```
 
 ---
@@ -156,22 +167,22 @@ python src/confpickem/cli/optimize.py --week 10 --mode midweek --live-odds
 **Beginning of Week:**
 ```bash
 # 1. Update player skills (optional, do once per season or periodically)
-python src/confpickem/cli/player_skills.py update --weeks 3,4,5,6,7,8,9 --week 10
+confpickem-player-skills update --weeks 3,4,5,6,7,8,9 --week 10
 
 # 2. Get your optimal picks
-python src/confpickem/cli/optimize.py --week 10 --mode beginning --live-odds
+confpickem --week 10 --mode beginning --live-odds
 ```
 
 **Mid-Week (After Thursday/Friday Games):**
 ```bash
 # Re-optimize with completed game results and live odds
-python src/confpickem/cli/optimize.py --week 10 --mode midweek --live-odds
+confpickem --week 10 --mode midweek --live-odds
 ```
 
 **Check Your Position:**
 ```bash
 # See everyone's win probabilities
-python src/confpickem/cli/win_probability.py --week 10 --live-odds
+confpickem-win-probability --week 10 --live-odds
 ```
 
 ---
@@ -196,7 +207,7 @@ Use `--fast` when you need results quickly (~85% accuracy):
 ### 4. Update Player Skills Periodically
 Refresh player skills every few weeks:
 ```bash
-player_skills.py update --weeks 7,8,9,10,11,12 --week 13
+confpickem-player-skills update --weeks 7,8,9,10,11,12 --week 13
 ```
 
 ### 5. Set Environment Variables
@@ -206,27 +217,27 @@ Set `ODDS_API_KEY` once instead of passing it every time.
 
 ## Getting Help
 
-Each script has comprehensive help:
+Each command has comprehensive help:
 ```bash
-python src/confpickem/cli/optimize.py --help
-python src/confpickem/cli/win_probability.py --help
-python src/confpickem/cli/player_skills.py --help
+confpickem --help
+confpickem-win-probability --help
+confpickem-player-skills --help
 ```
 
 For subcommands:
 ```bash
-python src/confpickem/cli/player_skills.py analyze --help
+confpickem-player-skills analyze --help
 ```
 
 ---
 
 ## Troubleshooting
 
-### Import Errors
-Always run from project root:
+### Command Not Found
+Make sure you've installed the package:
 ```bash
 cd /path/to/confpickem
-python src/confpickem/cli/optimize.py ...
+pip install -e .
 ```
 
 ### Missing cookies.txt
