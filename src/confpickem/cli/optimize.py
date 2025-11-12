@@ -97,7 +97,7 @@ Examples:
         num_sims = 2000  # Default
 
     # Determine confidence range (for optimize_picks)
-    confidence_range = 4 if args.fast else 3
+    confidence_range = 4  # Original scripts all used 4
 
     # Print banner
     mode_str = "MID-WEEK" if args.mode == 'midweek' else "BEGINNING-OF-WEEK"
