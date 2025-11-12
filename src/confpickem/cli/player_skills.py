@@ -7,13 +7,13 @@ to the simulator for more accurate predictions.
 
 Usage:
   # Analyze historical performance and save skills
-  player_skills.py analyze --weeks 3,4,5,6
+  player_skills.py analyze --year 2024
 
   # Apply saved skills to current week
   player_skills.py apply --week 10
 
   # Do both: analyze and apply
-  player_skills.py update --weeks 3,4,5,6 --week 10
+  player_skills.py update --year 2024 --week 10
 """
 
 import sys
@@ -42,14 +42,14 @@ Commands:
   update   - Do both: analyze then apply
 
 Examples:
-  # Analyze weeks 3-6 and save skills
-  %(prog)s analyze --weeks 3,4,5,6
+  # Analyze 2024 season and save skills
+  %(prog)s analyze --year 2024
 
   # Apply saved skills to week 10
   %(prog)s apply --week 10
 
-  # Analyze weeks 3-6 and apply to week 10
-  %(prog)s update --weeks 3,4,5,6 --week 10
+  # Analyze 2024 season and apply to week 10
+  %(prog)s update --year 2024 --week 10
         """
     )
 
@@ -57,8 +57,8 @@ Examples:
 
     # Analyze command
     analyze_parser = subparsers.add_parser('analyze', help='Analyze historical performance')
-    analyze_parser.add_argument('--weeks', '-w', type=str, required=True,
-                               help='Comma-separated week numbers (e.g., "3,4,5,6")')
+    analyze_parser.add_argument('--year', '-y', type=int, default=2024,
+                               help='Year to analyze (default: 2024)')
     analyze_parser.add_argument('--league-id', '-l', type=int, default=15435,
                                help='Yahoo league ID (default: 15435)')
 
@@ -71,8 +71,8 @@ Examples:
 
     # Update command (analyze + apply)
     update_parser = subparsers.add_parser('update', help='Analyze and apply skills')
-    update_parser.add_argument('--weeks', type=str, required=True,
-                              help='Comma-separated week numbers for analysis (e.g., "3,4,5,6")')
+    update_parser.add_argument('--year', '-y', type=int, default=2024,
+                              help='Year to analyze (default: 2024)')
     update_parser.add_argument('--week', '-w', type=int, required=True,
                               help='NFL week number to apply to')
     update_parser.add_argument('--league-id', '-l', type=int, default=15435,
@@ -89,17 +89,15 @@ Examples:
             print("🔍 ANALYZING HISTORICAL PLAYER PERFORMANCE")
             print("=" * 50)
 
-            # Parse weeks
-            weeks = [int(w.strip()) for w in args.weeks.split(',')]
-            print(f"📊 Analyzing weeks: {weeks}")
+            print(f"📊 Analyzing year: {args.year}")
 
             # Call analyze_player_skills main with appropriate args
-            sys.argv = ['analyze_player_skills.py', '--weeks', args.weeks, '--league-id', str(args.league_id)]
+            sys.argv = ['analyze_player_skills.py', '--year', str(args.year)]
             result = analyze_main()
 
             if result == 0:
                 print("\n✅ Analysis complete!")
-                print("💾 Skills saved to player_skills_analysis.json")
+                print(f"💾 Skills saved to player_skills_{args.year}.json")
             return result
 
         elif args.command == 'apply':
@@ -120,8 +118,8 @@ Examples:
             print("=" * 50)
 
             # First analyze
-            print("\n📊 Step 1: Analyzing historical performance...")
-            sys.argv = ['analyze_player_skills.py', '--weeks', args.weeks, '--league-id', str(args.league_id)]
+            print(f"\n📊 Step 1: Analyzing {args.year} season...")
+            sys.argv = ['analyze_player_skills.py', '--year', str(args.year)]
             result = analyze_main()
 
             if result != 0:
