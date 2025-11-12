@@ -9,11 +9,11 @@ Usage:
   # Analyze historical performance and save skills
   player_skills.py analyze --year 2024
 
-  # Apply saved skills to current week
-  player_skills.py apply --week 10
+  # Apply saved skills to current players
+  player_skills.py apply
 
   # Do both: analyze and apply
-  player_skills.py update --year 2024 --week 10
+  player_skills.py update --year 2024
 """
 
 import sys
@@ -45,11 +45,14 @@ Examples:
   # Analyze 2024 season and save skills
   %(prog)s analyze --year 2024
 
-  # Apply saved skills to week 10
-  %(prog)s apply --week 10
+  # Apply saved skills to current players
+  %(prog)s apply
 
-  # Analyze 2024 season and apply to week 10
-  %(prog)s update --year 2024 --week 10
+  # Apply skills from specific year
+  %(prog)s apply --year 2024
+
+  # Analyze 2024 season and apply
+  %(prog)s update --year 2024
         """
     )
 
@@ -64,17 +67,15 @@ Examples:
 
     # Apply command
     apply_parser = subparsers.add_parser('apply', help='Apply saved skills to simulator')
-    apply_parser.add_argument('--week', '-w', type=int, required=True,
-                             help='NFL week number')
+    apply_parser.add_argument('--year', '-y', type=int, default=None,
+                             help='Year to use (default: combine all available years)')
     apply_parser.add_argument('--league-id', '-l', type=int, default=15435,
                              help='Yahoo league ID (default: 15435)')
 
     # Update command (analyze + apply)
     update_parser = subparsers.add_parser('update', help='Analyze and apply skills')
     update_parser.add_argument('--year', '-y', type=int, default=2024,
-                              help='Year to analyze (default: 2024)')
-    update_parser.add_argument('--week', '-w', type=int, required=True,
-                              help='NFL week number to apply to')
+                              help='Year to analyze and apply (default: 2024)')
     update_parser.add_argument('--league-id', '-l', type=int, default=15435,
                               help='Yahoo league ID (default: 15435)')
 
@@ -101,11 +102,17 @@ Examples:
             return result
 
         elif args.command == 'apply':
-            print(f"🎯 APPLYING PLAYER SKILLS TO WEEK {args.week}")
+            print("🎯 APPLYING PLAYER SKILLS TO CURRENT PLAYERS")
             print("=" * 50)
 
             # Call apply_realistic_skills main with appropriate args
-            sys.argv = ['apply_realistic_skills.py', '--week', str(args.week), '--league-id', str(args.league_id)]
+            if args.year:
+                sys.argv = ['apply_realistic_skills.py', '--year', str(args.year)]
+                print(f"📊 Using skills from year: {args.year}")
+            else:
+                sys.argv = ['apply_realistic_skills.py']
+                print("📊 Combining skills from all available years")
+
             result = apply_main()
 
             if result == 0:
@@ -129,8 +136,8 @@ Examples:
             print("✅ Analysis complete!")
 
             # Then apply
-            print(f"\n🎯 Step 2: Applying skills to week {args.week}...")
-            sys.argv = ['apply_realistic_skills.py', '--week', str(args.week), '--league-id', str(args.league_id)]
+            print(f"\n🎯 Step 2: Applying skills from {args.year}...")
+            sys.argv = ['apply_realistic_skills.py', '--year', str(args.year)]
             result = apply_main()
 
             if result != 0:
