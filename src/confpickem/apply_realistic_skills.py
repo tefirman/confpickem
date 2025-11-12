@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 import json
 import numpy as np
+import pandas as pd
 import argparse
 
 from confpickem.yahoo_pickem_scraper import YahooPickEm
@@ -406,5 +407,4 @@ def main():
     return 0
 
 if __name__ == "__main__":
-    import pandas as pd  # Import here to avoid issues if not available
     main()
