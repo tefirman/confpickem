@@ -60,8 +60,8 @@ Examples:
     )
 
     # Required arguments
-    parser.add_argument('--week', '-w', type=int, required=True,
-                       help='NFL week number')
+    parser.add_argument('--week', '-w', type=int, default=3,
+                       help='NFL week number (default: 3)')
     parser.add_argument('--league-id', '-l', type=int, default=15435,
                        help='Yahoo league ID (default: 15435)')
 

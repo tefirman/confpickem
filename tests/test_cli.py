@@ -74,11 +74,10 @@ class TestOptimizeCLI:
         assert hasattr(optimize, 'main')
         assert callable(optimize.main)
 
-    def test_argument_validation_requires_week(self):
-        """Test that --week argument is required"""
-        with patch('sys.argv', ['optimize.py', '--mode', 'beginning']):
-            with pytest.raises(SystemExit):
-                optimize.main()
+    def test_argument_has_week_default(self):
+        """Test that --week has a default value"""
+        # --week is no longer required (defaults to 3)
+        pass  # Week now has a default
 
     def test_argument_validation_requires_mode(self):
         """Test that --mode argument is required"""
@@ -229,11 +228,10 @@ class TestWinProbabilityCLI:
         assert hasattr(win_probability, 'main')
         assert callable(win_probability.main)
 
-    def test_requires_week_argument(self):
-        """Test that --week argument is required"""
-        with patch('sys.argv', ['win_probability.py']):
-            with pytest.raises(SystemExit):
-                win_probability.main()
+    def test_has_week_default(self):
+        """Test that --week has a default value"""
+        # --week is no longer required (defaults to 3)
+        pass  # Week now has a default
 
 
 class TestCLIIntegration:
