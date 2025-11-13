@@ -428,6 +428,10 @@ Examples:
                 print(f"   🎲 Random picks: {rand_win:.1%}")
                 print(f"   💪 Advantage: +{(opt_win - rand_win)*100:.1f} percentage points")
 
+                # Initialize midweek tracking variables
+                your_rank = None
+                your_points = None
+
                 if args.mode == 'midweek' and current_standings:
                     your_points = current_standings.get(selected, 0)
                     sorted_standings = sorted(current_standings.items(), key=lambda x: x[1], reverse=True)
@@ -508,7 +512,7 @@ Examples:
                         f.write(f"Live odds updates: {live_updates}/{len(enhanced_games)} games\n")
                     f.write(f"Win probability: {opt_win:.1%}\n")
                     f.write(f"Advantage: +{(opt_win - rand_win)*100:.1f} pp\n")
-                    if args.mode == 'midweek':
+                    if args.mode == 'midweek' and your_rank is not None:
                         f.write(f"Current rank: #{your_rank}\n")
                         f.write(f"Current points: {your_points}\n")
                     f.write("\n")
