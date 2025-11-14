@@ -521,6 +521,32 @@ Examples:
                     for team, conf in sorted_picks:
                         f.write(f"{conf:2d}. {team}\n")
 
+                    # Write game importance analysis if available
+                    try:
+                        if 'importance_sorted' in locals():
+                            f.write(f"\nGAME IMPORTANCE ANALYSIS:\n")
+                            f.write("(Impact on your win probability)\n\n")
+                            for i, (_, row) in enumerate(importance_sorted.head(8).iterrows()):
+                                game_desc = row['game']
+                                pick = row['pick']
+                                conf = int(row['points_bid'])
+                                importance = row['total_impact']
+                                correct_prob = row['win_probability']
+                                incorrect_prob = row['loss_probability']
+
+                                # Check if remaining
+                                away_team, home_team = game_desc.split('@')
+                                is_remaining = any(
+                                    set([home_team, away_team]) == set([g['home'], g['away']])
+                                    for g in remaining_games
+                                )
+                                status = "[REMAINING]" if is_remaining else "[COMPLETE]"
+
+                                f.write(f"{i+1:2d}. {game_desc:<20} -> {pick:3} ({conf:2d} pts) {importance:+5.1%} "
+                                       f"(Correct: {correct_prob:4.1%}, Wrong: {incorrect_prob:4.1%}) {status}\n")
+                    except Exception as e:
+                        f.write(f"\nGame importance analysis: Could not calculate ({e})\n")
+
                     f.write(f"\nCOPY-PASTE FORMAT:\n")
                     f.write(f"{paste_format}\n")
 
