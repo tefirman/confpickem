@@ -526,7 +526,7 @@ Examples:
                         if 'importance_sorted' in locals():
                             f.write(f"\nGAME IMPORTANCE ANALYSIS:\n")
                             f.write("(Impact on your win probability)\n\n")
-                            for i, (_, row) in enumerate(importance_sorted.head(8).iterrows()):
+                            for i, (_, row) in enumerate(importance_sorted.iterrows()):
                                 game_desc = row['game']
                                 pick = row['pick']
                                 conf = int(row['points_bid'])
