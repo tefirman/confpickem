@@ -153,6 +153,9 @@ Examples:
   # Using live Vegas odds
   %(prog)s --week 10 --live-odds
 
+  # Coin flip mode (all games 50-50)
+  %(prog)s --week 10 --coin-flip
+
   # Simulate from specific time point
   %(prog)s --week 10 --simulate-from sunday
         """
@@ -166,12 +169,21 @@ Examples:
                        help='Use live Vegas odds (requires --odds-api-key or ODDS_API_KEY env var)')
     parser.add_argument('--odds-api-key', '-k', type=str,
                        help='The Odds API key for live odds')
+    parser.add_argument('--coin-flip', action='store_true',
+                       help='Treat all games as 50-50 (ignore spreads/odds)')
     parser.add_argument('--num-sims', '-n', type=int, default=5000,
                        help='Number of simulations (default: 5000)')
 
     args = parser.parse_args()
 
-    odds_str = "LIVE VEGAS ODDS" if args.live_odds else "YAHOO ODDS"
+    # Determine odds mode
+    if args.coin_flip:
+        odds_str = "COIN FLIP (50-50)"
+    elif args.live_odds:
+        odds_str = "LIVE VEGAS ODDS"
+    else:
+        odds_str = "YAHOO ODDS"
+
     print(f"🎯 WIN PROBABILITY CALCULATOR - WEEK {args.week}")
     print(f"📊 Using {odds_str}")
     print("=" * 50)
@@ -196,7 +208,13 @@ Examples:
         enhanced_games = yahoo.games
         live_updates = 0
 
-        if args.live_odds:
+        if args.coin_flip:
+            # Override all win probabilities to 0.5 (50-50)
+            print(f"\n🪙 Setting all games to 50-50 (coin flip mode)...")
+            enhanced_games = enhanced_games.copy()
+            enhanced_games['win_prob'] = 0.5
+            print(f"💡 All {len(enhanced_games)} games set to equal probability")
+        elif args.live_odds:
             print(f"\n🔄 Enhancing with live Vegas odds...")
             enhanced_games = update_odds_with_live_data(
                 yahoo.games,
