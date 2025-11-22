@@ -65,6 +65,15 @@ confpickem --week 10 --mode beginning --fast
 confpickem --week 10 --mode beginning --num-sims 10000
 ```
 
+**Interactive Features:**
+
+The optimizer will prompt you to:
+1. **Select your player** - Choose which player to optimize for
+2. **Enter fixed picks** (optional) - Lock in specific picks you want to keep
+   - Format: `PHI:16,KC:15,SF:14` (TEAM:CONFIDENCE pairs, comma-separated)
+   - Useful for constraining optimization or testing specific pick combinations
+   - Leave blank to optimize all games freely
+
 ---
 
 ### 2. `confpickem-win-probability` - Win Probability Calculator
