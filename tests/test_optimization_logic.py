@@ -224,7 +224,7 @@ class TestOptimizationPerformanceComparison:
     
     def test_skill_vs_optimization_interaction(self):
         """Test how player skill interacts with optimization benefits"""
-        sim = ConfidencePickEmSimulator(num_sims=100)  # Reduced for speed
+        sim = ConfidencePickEmSimulator(num_sims=500)  # Increased to reduce variance
         
         # Simple 3-game setup
         sim.games = [
