@@ -11,9 +11,6 @@ import json
 from collections import defaultdict
 import argparse
 
-# Add src to path
-sys.path.append(str(Path(__file__).parent / "src"))
-
 def parse_week_data(week_file):
     """Parse a single week's HTML file to extract player performance"""
     try:

@@ -5,13 +5,11 @@ import sys
 from pathlib import Path
 import json
 import numpy as np
+import pandas as pd
 import argparse
 
-# Add src to path
-sys.path.append(str(Path(__file__).parent / "src"))
-
-from src.confpickem.yahoo_pickem_scraper import YahooPickEm
-from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Player
+from confpickem.yahoo_pickem_scraper import YahooPickEm
+from confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Player
 
 def combine_raw_stats(stats1, stats2):
     """Combine raw player statistics from two different time periods"""
@@ -409,5 +407,4 @@ def main():
     return 0
 
 if __name__ == "__main__":
-    import pandas as pd  # Import here to avoid issues if not available
     main()
