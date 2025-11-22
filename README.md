@@ -1,6 +1,6 @@
 <table>
 <tr>
-  <td><img src="assets/ConfPickEmLogo.png" width="400" alt="confpickem logo"></td>
+  <td><img src="assets/ConfPickEmLogo.png" height="150" alt="confpickem logo"></td>
   <td>
     <h1>confpickem - NFL Confidence Pick'em Analyzer</h1>
     A Python package for analyzing and optimizing picks for NFL Confidence Pick'em pools. This package provides tools for:
