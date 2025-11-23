@@ -166,6 +166,9 @@ class YahooPickEm:
                 game_dict['underdog_pick_pct'] = float(percentages[1].text.strip().replace('%', ''))
                 
                 if teams_full:
+                    # @ symbol means "at" that location (i.e., that team is home)
+                    # If favorite (teams_full[0]) has @, then favorite is home
+                    # If underdog (teams_full[1]) has @, then underdog is home (favorite is away)
                     game_dict['home_favorite'] = teams_full[0].text.strip().startswith("@ ")
                 else:
                     game_dict['home_favorite'] = True  # Default assumption
