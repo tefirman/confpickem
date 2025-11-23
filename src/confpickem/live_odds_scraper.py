@@ -533,7 +533,14 @@ class LiveOddsScraper:
         print(f"\n🔍 DEBUGGING TEAM NAME MATCHING:")
         print(f"Yahoo games ({len(yahoo_games)}):")
         for i, (_, yahoo_game) in enumerate(yahoo_games.iterrows(), 1):
-            print(f"   {i:2d}. {yahoo_game['underdog']} @ {yahoo_game['favorite']}")
+            # Determine actual home/away based on home_favorite flag
+            if yahoo_game.get('home_favorite', True):
+                # Favorite is home
+                matchup = f"{yahoo_game['underdog']} @ {yahoo_game['favorite']}"
+            else:
+                # Favorite is away (underdog is home)
+                matchup = f"{yahoo_game['favorite']} @ {yahoo_game['underdog']}"
+            print(f"   {i:2d}. {matchup}")
 
         print(f"\nLive odds games ({len(live_odds)}):")
         for i, (_, live_game) in enumerate(live_odds.iterrows(), 1):
@@ -559,9 +566,16 @@ class LiveOddsScraper:
                     # Store original Yahoo data for comparison
                     original_spread = yahoo_game['spread']
 
-                    # Yahoo structure: underdog @ favorite (away @ home), with home_favorite indicating if home team is betting favorite
-                    yahoo_home_team = yahoo_game['favorite']  # This is actually the home team (misleading column name)
-                    yahoo_away_team = yahoo_game['underdog']  # This is actually the away team (misleading column name)
+                    # Yahoo structure: 'favorite' = betting favorite, 'underdog' = betting underdog
+                    # 'home_favorite' = True if favorite is home, False if favorite is away
+                    if yahoo_game.get('home_favorite', True):
+                        # Favorite is home team
+                        yahoo_home_team = yahoo_game['favorite']
+                        yahoo_away_team = yahoo_game['underdog']
+                    else:
+                        # Favorite is away team (underdog is home)
+                        yahoo_home_team = yahoo_game['underdog']
+                        yahoo_away_team = yahoo_game['favorite']
                     yahoo_home_is_betting_favorite = yahoo_game.get('home_favorite', True)
 
                     # Determine which team is actually the home team in live data
@@ -608,7 +622,7 @@ class LiveOddsScraper:
                     updated_games.at[idx, 'last_updated'] = datetime.now()
 
                     matches_found += 1
-                    print(f"🔴 Matched: {yahoo_underdog} @ {yahoo_favorite} → Live spread: {spread_magnitude}")
+                    print(f"🔴 Matched: {yahoo_away_team} @ {yahoo_home_team} → Live spread: {spread_magnitude}")
                     break
 
         print(f"✅ Updated {matches_found}/{len(yahoo_games)} games with live odds")

@@ -173,6 +173,12 @@ Examples:
 
         # Convert games to simulator format
         games_data = []
+
+        # DEBUG: Show matchups and probabilities
+        print(f"\n🏈 MATCHUP ANALYSIS (Away @ Home):")
+        print(f"{'Matchup':<30} {'Favorite':<10} {'Home Win %':<12} {'Spread':<8} {'Home=Fav?'}")
+        print("=" * 80)
+
         for _, game_row in enhanced_games.iterrows():
             favorite, underdog = game_row['favorite'], game_row['underdog']
 
@@ -186,6 +192,12 @@ Examples:
                 home_prob = 1.0 - game_row['win_prob']
                 crowd_home_pct = game_row['underdog_pick_pct'] / 100.0
                 home_conf, away_conf = game_row['underdog_confidence'], game_row['favorite_confidence']
+
+            # DEBUG: Print each matchup
+            matchup = f"{away_team} @ {home_team}"
+            is_home_fav = "YES" if game_row['home_favorite'] else "NO"
+            spread = game_row.get('spread', 0.0)
+            print(f"{matchup:<30} {favorite:<10} {home_prob*100:>6.1f}%     {spread:>5.1f}     {is_home_fav}")
 
             # Determine actual outcome if mid-week mode
             actual_outcome = None
@@ -268,13 +280,13 @@ Examples:
 
                 current_standings[player_name] = points_earned
 
-            # Show top 5
+            # Show top 10
             sorted_standings = sorted(current_standings.items(), key=lambda x: x[1], reverse=True)
-            for i, (name, points) in enumerate(sorted_standings[:5], 1):
+            for i, (name, points) in enumerate(sorted_standings[:10], 1):
                 print(f"   {i}. {name}: {points} points")
 
-            if len(sorted_standings) > 5:
-                print(f"   ... and {len(sorted_standings) - 5} more")
+            if len(sorted_standings) > 10:
+                print(f"   ... and {len(sorted_standings) - 10} more")
 
         # Player selection
         player_names = [p.name for p in simulator.players]
