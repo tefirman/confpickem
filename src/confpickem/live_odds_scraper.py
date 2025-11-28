@@ -73,8 +73,8 @@ class LiveOddsScraper:
             9: (f'{season_year}-10-31', f'{season_year}-11-06'),   # Week 9: Thu Oct 31 - Wed Nov 6
             10: (f'{season_year}-11-07', f'{season_year}-11-13'),  # Week 10: Thu Nov 7 - Wed Nov 13
             11: (f'{season_year}-11-14', f'{season_year}-11-20'),  # Week 11: Thu Nov 14 - Wed Nov 20
-            12: (f'{season_year}-11-21', f'{season_year}-11-27'),  # Week 12: Thu Nov 21 - Wed Nov 27 (Thanksgiving week)
-            13: (f'{season_year}-11-28', f'{season_year}-12-04'),  # Week 13: Thu Nov 28 - Wed Dec 4
+            12: (f'{season_year}-11-21', f'{season_year}-11-26'),  # Week 12: Thu Nov 21 - Wed Nov 26
+            13: (f'{season_year}-11-27', f'{season_year}-12-04'),  # Week 13: Thu Nov 27 (Thanksgiving) - Wed Dec 4
             14: (f'{season_year}-12-05', f'{season_year}-12-11'),  # Week 14: Thu Dec 5 - Wed Dec 11
             15: (f'{season_year}-12-12', f'{season_year}-12-18'),  # Week 15: Thu Dec 12 - Wed Dec 18
             16: (f'{season_year}-12-19', f'{season_year}-12-25'),  # Week 16: Thu Dec 19 - Wed Dec 25 (Christmas week)
@@ -142,7 +142,7 @@ class LiveOddsScraper:
             params = {
                 'apiKey': self.odds_api_key,
                 'regions': 'us',
-                'markets': 'spreads,totals',
+                'markets': 'h2h',
                 'bookmakers': 'draftkings,fanduel',
                 'oddsFormat': 'american'
             }
@@ -203,8 +203,8 @@ class LiveOddsScraper:
             away_team = game['away_team']
 
             # Get the best available odds (prefer DraftKings, fallback to FanDuel)
-            spread = 0.0
-            total_points = 0.0
+            home_moneyline = None
+            away_moneyline = None
 
             bookmakers = game.get('bookmakers', [])
             for bookmaker in bookmakers:
@@ -212,27 +212,37 @@ class LiveOddsScraper:
                     markets = bookmaker.get('markets', [])
 
                     for market in markets:
-                        if market['key'] == 'spreads':
+                        if market['key'] == 'h2h':
                             for outcome in market['outcomes']:
                                 if outcome['name'] == home_team:
-                                    spread = float(outcome['point'])
-                                    break
+                                    home_moneyline = float(outcome['price'])
+                                elif outcome['name'] == away_team:
+                                    away_moneyline = float(outcome['price'])
 
-                        elif market['key'] == 'totals':
-                            total_points = float(market['outcomes'][0]['point'])
-
-                    if spread != 0.0:  # Found spread data, use this bookmaker
+                    if home_moneyline is not None and away_moneyline is not None:
                         break
 
-            # Calculate win probability from spread
-            home_win_prob = min(max(-spread * 0.031 + 0.5, 0.0), 1.0)
+            # Convert moneyline odds to implied probability
+            if home_moneyline is not None:
+                home_win_prob = self._moneyline_to_probability(home_moneyline)
+            else:
+                home_win_prob = 0.5  # Default to 50% if no odds available
+
+            # Calculate spread equivalent (for compatibility with existing code)
+            # Negative spread means home is favored
+            if home_win_prob > 0.5:
+                spread = -(home_win_prob - 0.5) / 0.031  # Home favored
+            else:
+                spread = (0.5 - home_win_prob) / 0.031  # Away favored
 
             return {
                 'home_team': home_team,
                 'away_team': away_team,
                 'home_spread': spread,
-                'total_points': total_points,
+                'total_points': 0.0,  # Not using totals anymore
                 'home_win_prob': home_win_prob,
+                'home_moneyline': home_moneyline,
+                'away_moneyline': away_moneyline,
                 'kickoff_time': pd.to_datetime(game['commence_time']),
                 'game_completed': False,
                 'winner': None,
@@ -242,6 +252,27 @@ class LiveOddsScraper:
         except Exception as e:
             print(f"Warning: Error parsing Odds API game: {e}")
             return None
+
+    def _moneyline_to_probability(self, moneyline: float) -> float:
+        """
+        Convert American moneyline odds to implied probability
+
+        Args:
+            moneyline: American odds (e.g., -150, +200)
+
+        Returns:
+            Implied probability (0.0 to 1.0)
+        """
+        if moneyline < 0:
+            # Favorite (negative odds)
+            # Formula: abs(moneyline) / (abs(moneyline) + 100)
+            probability = abs(moneyline) / (abs(moneyline) + 100)
+        else:
+            # Underdog (positive odds)
+            # Formula: 100 / (moneyline + 100)
+            probability = 100 / (moneyline + 100)
+
+        return min(max(probability, 0.0), 1.0)  # Clamp between 0 and 1
 
     def _get_espn_schedule(self, week: int) -> pd.DataFrame:
         """Get ESPN schedule data without odds"""
@@ -583,10 +614,14 @@ class LiveOddsScraper:
                         # Live data matches Yahoo structure
                         home_spread = live_game['home_spread']
                         home_win_prob = live_game['home_win_prob']
+                        home_moneyline = live_game.get('home_moneyline')
+                        away_moneyline = live_game.get('away_moneyline')
                     else:
                         # Live data has teams flipped - need to adjust
                         home_spread = -live_game['home_spread']  # Flip the spread
                         home_win_prob = 1.0 - live_game['home_win_prob']  # Flip the probability
+                        home_moneyline = live_game.get('away_moneyline')
+                        away_moneyline = live_game.get('home_moneyline')
 
                     # Determine who is the betting favorite and update accordingly
                     if home_spread < 0:
@@ -619,6 +654,8 @@ class LiveOddsScraper:
                     updated_games.at[idx, 'live_spread'] = spread_magnitude
                     updated_games.at[idx, 'original_spread'] = original_spread
                     updated_games.at[idx, 'total_points'] = live_game.get('total_points', 0.0)
+                    updated_games.at[idx, 'home_moneyline'] = home_moneyline
+                    updated_games.at[idx, 'away_moneyline'] = away_moneyline
                     updated_games.at[idx, 'last_updated'] = datetime.now()
 
                     matches_found += 1
