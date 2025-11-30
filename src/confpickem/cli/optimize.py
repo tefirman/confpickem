@@ -81,6 +81,14 @@ Examples:
     parser.add_argument('--no-cache', action='store_true',
                        help='Clear cache before loading data (forces fresh fetch)')
 
+    # Optimization algorithm selection
+    parser.add_argument('--hill-climb', action='store_true',
+                       help='Use hill climbing optimization instead of greedy (better results, slower)')
+    parser.add_argument('--hc-iterations', type=int, default=1000,
+                       help='Hill climbing iterations per restart (default: 1000)')
+    parser.add_argument('--hc-restarts', type=int, default=10,
+                       help='Hill climbing random restarts (default: 10)')
+
     args = parser.parse_args()
 
     # Validate arguments
@@ -103,8 +111,9 @@ Examples:
     mode_str = "MID-WEEK" if args.mode == 'midweek' else "BEGINNING-OF-WEEK"
     odds_str = " + LIVE ODDS" if args.live_odds else ""
     fast_str = " (FAST MODE)" if args.fast else ""
+    algo_str = " | HILL CLIMB" if args.hill_climb else " | GREEDY"
 
-    print(f"🎯 NFL PICK OPTIMIZATION - {mode_str}{odds_str}{fast_str}")
+    print(f"🎯 NFL PICK OPTIMIZATION - {mode_str}{odds_str}{fast_str}{algo_str}")
     print(f"📅 Week {args.week} | League {args.league_id}")
     print("=" * 60)
 
@@ -405,23 +414,42 @@ Examples:
         # Run optimization
         print(f"\n🚀 STARTING OPTIMIZATION:")
         print(f"   Mode: {mode_str}")
+        print(f"   Algorithm: {'Hill Climbing' if args.hill_climb else 'Greedy Sequential'}")
         if args.live_odds:
             print(f"   Live Odds: {live_updates} games updated")
-        print(f"   Simulations: {num_sims:,} per game")
+        print(f"   Simulations: {num_sims:,} per evaluation")
         print(f"   Games to optimize: {games_to_optimize}")
         if args.fast:
             print(f"   ⚡ Fast mode: ~85% accuracy, 10x speed")
+        if args.hill_climb:
+            print(f"   🔍 Hill climb: {args.hc_iterations} iterations × {args.hc_restarts} restarts")
+            # Adjust time estimate for hill climbing
+            estimated_minutes = games_to_optimize * time_per_game * args.hc_iterations * args.hc_restarts / 100
         print(f"   ⏱️  Estimated time: {estimated_minutes:.0f}-{estimated_minutes*1.5:.0f} minutes")
         print()
 
         try:
             fixed_formatted = {selected: fixed_picks} if fixed_picks else None
-            optimal_picks = simulator.optimize_picks(
-                player_name=selected,
-                fixed_picks=fixed_formatted,
-                confidence_range=confidence_range,
-                available_points=your_remaining_confidence if args.mode == 'midweek' else None
-            )
+
+            if args.hill_climb:
+                # Use hill climbing optimizer
+                optimal_picks = simulator.optimize_picks_hill_climb(
+                    player_name=selected,
+                    fixed_picks=fixed_formatted,
+                    iterations=args.hc_iterations,
+                    restarts=args.hc_restarts,
+                    available_points=your_remaining_confidence if args.mode == 'midweek' else None,
+                    player_data=yahoo.players
+                )
+            else:
+                # Use greedy optimizer
+                optimal_picks = simulator.optimize_picks(
+                    player_name=selected,
+                    fixed_picks=fixed_formatted,
+                    confidence_range=confidence_range,
+                    available_points=your_remaining_confidence if args.mode == 'midweek' else None,
+                    player_data=yahoo.players
+                )
 
             if optimal_picks:
                 print("\n🏆 OPTIMIZATION RESULTS:")
@@ -429,8 +457,8 @@ Examples:
 
                 # Performance analysis
                 optimal_fixed = {selected: optimal_picks}
-                optimal_stats = simulator.simulate_all(optimal_fixed)
-                random_stats = simulator.simulate_all({})
+                optimal_stats = simulator.simulate_all(optimal_fixed, player_data=yahoo.players)
+                random_stats = simulator.simulate_all({}, player_data=yahoo.players)
 
                 opt_win = optimal_stats['win_pct'][selected]
                 rand_win = random_stats['win_pct'][selected]
@@ -439,6 +467,80 @@ Examples:
                 print(f"   🎯 Optimized strategy: {opt_win:.1%}")
                 print(f"   🎲 Random picks: {rand_win:.1%}")
                 print(f"   💪 Advantage: +{(opt_win - rand_win)*100:.1f} percentage points")
+
+                # Show simulated final standings
+                print(f"\n📊 SIMULATED FINAL STANDINGS (with your optimized picks):")
+                print(f"   Based on {num_sims:,} simulations of remaining games")
+                print()
+
+                # Calculate number of remaining games to determine what portion is projected
+                num_remaining = sum(1 for g in simulator.games if g.actual_outcome is None)
+                num_completed = len(simulator.games) - num_remaining
+
+                # Get all players' win probabilities and calculate total expected points
+                all_win_probs = []
+                for player_name in optimal_stats['win_pct'].index:
+                    win_pct = optimal_stats['win_pct'][player_name]
+
+                    # The simulation returns expected points for ALL games (completed + remaining)
+                    # We need to show: current actual points + expected remaining points
+                    simulated_total = optimal_stats['expected_points'][player_name]
+
+                    # Current points from completed games
+                    current_pts = current_standings.get(player_name, 0) if current_standings else 0
+
+                    # For mid-week: show total expected (which is already calculated correctly)
+                    # For beginning of week: simulated_total is the full expected
+                    total_expected = simulated_total
+
+                    all_win_probs.append({
+                        'player': player_name,
+                        'win_pct': win_pct,
+                        'total_expected': total_expected,
+                        'current_pts': current_pts,
+                        'is_you': player_name == selected
+                    })
+
+                # Sort by win probability
+                all_win_probs.sort(key=lambda x: x['win_pct'], reverse=True)
+
+                # Display top contenders and your position
+                if args.mode == 'midweek' and current_standings:
+                    print(f"   {'Rank':<6} {'Player':<25} {'Win %':<10} {'Total Exp':<12} {'Current':<10} {'Remaining'}")
+                    print(f"   {'-'*6} {'-'*25} {'-'*10} {'-'*12} {'-'*10} {'-'*10}")
+                else:
+                    print(f"   {'Rank':<6} {'Player':<25} {'Win %':<10} {'Exp Points'}")
+                    print(f"   {'-'*6} {'-'*25} {'-'*10} {'-'*12}")
+
+                for i, player_data in enumerate(all_win_probs[:25], 1):
+                    player_name = player_data['player']
+                    win_pct = player_data['win_pct']
+                    total_exp = player_data['total_expected']
+                    current_pts = player_data['current_pts']
+                    remaining_exp = total_exp - current_pts
+
+                    marker = "👉 " if player_data['is_you'] else "   "
+
+                    if args.mode == 'midweek' and current_standings:
+                        print(f"{marker}{i:<4} {player_name:<25} {win_pct:>6.1%}     {total_exp:>6.1f} pts    {current_pts:>4.0f} pts   +{remaining_exp:>5.1f}")
+                    else:
+                        print(f"{marker}{i:<4} {player_name:<25} {win_pct:>6.1%}     {total_exp:>6.1f} pts")
+
+                if len(all_win_probs) > 25:
+                    print(f"   ... and {len(all_win_probs) - 25} more players")
+
+                    # If you're not in top 25, show your position
+                    your_rank = next((i+1 for i, p in enumerate(all_win_probs) if p['is_you']), None)
+                    if your_rank and your_rank > 25:
+                        your_data = next(p for p in all_win_probs if p['is_you'])
+                        total_exp = your_data['total_expected']
+                        current_pts = your_data['current_pts']
+                        remaining_exp = total_exp - current_pts
+                        print()
+                        if args.mode == 'midweek' and current_standings:
+                            print(f"👉 {your_rank:<4} {selected:<25} {your_data['win_pct']:>6.1%}     {total_exp:>6.1f} pts    {current_pts:>4.0f} pts   +{remaining_exp:>5.1f}")
+                        else:
+                            print(f"👉 {your_rank:<4} {selected:<25} {your_data['win_pct']:>6.1%}     {total_exp:>6.1f} pts")
 
                 # Initialize midweek tracking variables
                 your_rank = None
@@ -473,9 +575,34 @@ Examples:
                 print("   (Impact on your win probability)")
 
                 try:
+                    # For game importance, we need ALL picks (completed + optimized)
+                    # Build complete picks dictionary for this player
+                    complete_picks = optimal_picks.copy()
+
+                    # Add completed game picks from player_data if in midweek mode
+                    if args.mode == 'midweek' and yahoo.players is not None:
+                        player_row = yahoo.players[yahoo.players['player_name'] == selected]
+                        if not player_row.empty:
+                            # Iterate through games to find completed ones
+                            for game_idx, game in enumerate(simulator.games):
+                                if game.actual_outcome is not None:  # Completed game
+                                    # Yahoo data uses game_N_pick and game_N_confidence columns
+                                    pick_col = f'game_{game_idx+1}_pick'
+                                    conf_col = f'game_{game_idx+1}_confidence'
+
+                                    if pick_col in yahoo.players.columns and conf_col in yahoo.players.columns:
+                                        picked_team = player_row[pick_col].values[0]
+                                        confidence = player_row[conf_col].values[0]
+
+                                        if pd.notna(picked_team) and pd.notna(confidence) and confidence > 0:
+                                            complete_picks[picked_team] = int(confidence)
+
+                    complete_fixed = {selected: complete_picks}
+
                     importance_df = simulator.assess_game_importance(
                         player_name=selected,
-                        fixed_picks=optimal_fixed
+                        fixed_picks=complete_fixed,
+                        player_data=yahoo.players
                     )
 
                     importance_sorted = importance_df.sort_values('total_impact', ascending=False)
@@ -510,15 +637,19 @@ Examples:
                 mode_suffix = "MidWeek" if args.mode == 'midweek' else "BeginningWeek"
                 odds_suffix = "_LiveOdds" if args.live_odds else ""
                 fast_suffix = "_Fast" if args.fast else ""
+                algo_suffix = "_HillClimb" if args.hill_climb else "_Greedy"
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
                 safe_name = selected.replace(' ', '_').replace('/', '_')
-                filename = f"NFL_Week{args.week}_{mode_suffix}{odds_suffix}{fast_suffix}_{safe_name}_{timestamp}.txt"
+                filename = f"NFL_Week{args.week}_{mode_suffix}{odds_suffix}{fast_suffix}{algo_suffix}_{safe_name}_{timestamp}.txt"
 
                 with open(filename, 'w') as f:
                     f.write(f"NFL Week {args.week} Optimized Picks\n")
                     f.write(f"Player: {selected}\n")
                     f.write(f"Generated: {datetime.now()}\n")
                     f.write(f"Mode: {mode_str}{odds_suffix}{fast_suffix}\n")
+                    f.write(f"Algorithm: {'Hill Climbing' if args.hill_climb else 'Greedy Sequential'}\n")
+                    if args.hill_climb:
+                        f.write(f"Hill climb params: {args.hc_iterations} iterations × {args.hc_restarts} restarts\n")
                     f.write(f"Simulations: {num_sims:,}\n")
                     if args.live_odds:
                         f.write(f"Live odds updates: {live_updates}/{len(enhanced_games)} games\n")

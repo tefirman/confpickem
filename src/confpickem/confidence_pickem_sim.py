@@ -344,8 +344,9 @@ class ConfidencePickEmSimulator:
         stats = self.analyze_results(picks_df, outcomes)
         return stats
 
-    def optimize_picks(self, player_name: str, fixed_picks: Dict[str, Dict[str, int]] = None, 
-                    confidence_range: int = 3, available_points: set = None) -> Dict[str, int]:
+    def optimize_picks(self, player_name: str, fixed_picks: Dict[str, Dict[str, int]] = None,
+                    confidence_range: int = 3, available_points: set = None,
+                    player_data: pd.DataFrame = None) -> Dict[str, int]:
         """Optimize picks using simulation results for a specific player.
 
         Args:
@@ -353,6 +354,7 @@ class ConfidencePickEmSimulator:
             fixed_picks: Dictionary mapping player names to their fixed picks
             confidence_range: Number of confidence values to explore for each game
             available_points: Set of confidence points available to use (if None, auto-calculate)
+            player_data: DataFrame containing actual player picks for completed games
 
         Returns:
             Dict mapping team abbreviations to optimal confidence points
@@ -433,7 +435,7 @@ class ConfidencePickEmSimulator:
                 
                 # Simulate home team pick (with consistent seed)
                 np.random.seed(51 + hash(f"{game.home_team}_{current_points}") % 10000)
-                home_results = self.simulate_all(home_picks)
+                home_results = self.simulate_all(home_picks, player_data=player_data)
                 home_prob = home_results['win_pct'][player_name]
                 
                 # Update best result if better (use >= with deterministic tie-breaking)
@@ -452,7 +454,7 @@ class ConfidencePickEmSimulator:
                 
                 # Simulate away team pick (with consistent seed)
                 np.random.seed(51 + hash(f"{game.away_team}_{current_points}") % 10000)
-                away_results = self.simulate_all(away_picks)
+                away_results = self.simulate_all(away_picks, player_data=player_data)
                 away_prob = away_results['win_pct'][player_name]
                 
                 # Update best result if better (use >= with deterministic tie-breaking)
@@ -470,12 +472,13 @@ class ConfidencePickEmSimulator:
         
         return optimal
     
-    def assess_game_importance(self, player_name: str, picks_df: pd.DataFrame = None, 
-                            fixed_picks: Dict[str, Dict[str, int]] = None) -> pd.DataFrame:
+    def assess_game_importance(self, player_name: str, picks_df: pd.DataFrame = None,
+                            fixed_picks: Dict[str, Dict[str, int]] = None,
+                            player_data: pd.DataFrame = None) -> pd.DataFrame:
         """
         Assess the relative importance of each game by calculating win probability
         changes between winning and losing each matchup.
-        
+
         Args:
             player_name: Name of the player to analyze game importance for
             picks_df: DataFrame containing picks (optional - will simulate if not provided)
@@ -489,14 +492,15 @@ class ConfidencePickEmSimulator:
                 }
                 If player name is not in fixed_picks, all their picks will be simulated.
                 For players in fixed_picks, any teams not specified will be simulated.
-        
+            player_data: DataFrame with actual player picks for completed games
+
         Returns:
             DataFrame containing impact metrics for each game
         """
         # Generate picks if not provided
         if picks_df is None:
-            picks_df = self.simulate_picks(fixed_picks if fixed_picks else {})
-        
+            picks_df = self.simulate_picks(fixed_picks if fixed_picks else {}, player_data)
+
         # Get base simulation results
         outcomes = self.simulate_outcomes()
         base_stats = self.analyze_results(picks_df, outcomes)
@@ -552,18 +556,253 @@ class ConfidencePickEmSimulator:
         
         return results
     
-    def assess_remaining_game_importance(self, player_name: str, current_standings: dict, 
+    def optimize_picks_hill_climb(self, player_name: str, fixed_picks: Dict[str, Dict[str, int]] = None,
+                                   iterations: int = 1000, restarts: int = 10,
+                                   available_points: set = None, player_data: pd.DataFrame = None) -> Dict[str, int]:
+        """Optimize picks using hill climbing with random restarts.
+
+        This is a local search optimization that explores the solution space more thoroughly
+        than the greedy sequential approach. It can find better global optima by:
+        1. Starting from random or greedy initial solutions
+        2. Making small iterative improvements (swapping teams, swapping confidence)
+        3. Restarting multiple times to avoid local minima
+
+        Args:
+            player_name: Name of the player to optimize picks for
+            fixed_picks: Dictionary mapping player names to their fixed picks
+            iterations: Number of hill climbing iterations per restart
+            restarts: Number of random restarts
+            available_points: Set of confidence points available to use (if None, auto-calculate)
+            player_data: DataFrame with actual player picks for completed games
+
+        Returns:
+            Dict mapping team abbreviations to optimal confidence points
+        """
+        # Set consistent random seed for deterministic optimization
+        np.random.seed(42)
+
+        # Store player_data for use in evaluations
+        self._optimization_player_data = player_data
+
+        # Validate player exists
+        if player_name not in [p.name for p in self.players]:
+            raise ValueError(f"Unknown player: {player_name}")
+
+        if fixed_picks is None:
+            fixed_picks = {}
+
+        # Get current player's fixed picks if they exist
+        player_fixed = fixed_picks.get(player_name, {})
+
+        # Track which points have been used in fixed picks
+        used_points = set(player_fixed.values())
+
+        # Validate no duplicate confidence points in fixed picks
+        if len(player_fixed) != len(used_points):
+            raise ValueError("Fixed picks cannot have duplicate confidence points")
+
+        # Use provided available_points or auto-calculate
+        if available_points is None:
+            available_points = set(range(1, len(self.games) + 1)) - used_points
+        else:
+            available_points = available_points - used_points
+
+        # Get games that need picks (not completed, not in fixed picks)
+        games_to_pick = [g for g in self.games
+                        if g.actual_outcome is None
+                        and g.home_team not in player_fixed
+                        and g.away_team not in player_fixed]
+
+        if len(games_to_pick) == 0:
+            print("No games to optimize (all fixed or completed)")
+            return player_fixed.copy()
+
+        if len(available_points) < len(games_to_pick):
+            raise ValueError(f"Not enough confidence points ({len(available_points)}) for games ({len(games_to_pick)})")
+
+        print(f"\n🔍 HILL CLIMBING OPTIMIZATION")
+        print(f"   Games to optimize: {len(games_to_pick)}")
+        print(f"   Iterations per restart: {iterations}")
+        print(f"   Restarts: {restarts}")
+        print(f"   Total evaluations: ~{iterations * restarts:,}")
+
+        best_overall_picks = None
+        best_overall_prob = 0
+
+        for restart in range(restarts):
+            print(f"\n🔄 Restart {restart + 1}/{restarts}")
+
+            # Generate initial solution
+            if restart == 0:
+                # First restart: use greedy approach as starting point
+                print("   Starting from greedy solution...")
+                current_picks = self._generate_greedy_picks(
+                    player_name, player_fixed, games_to_pick, available_points, fixed_picks
+                )
+            else:
+                # Subsequent restarts: use random solutions
+                print("   Starting from random solution...")
+                current_picks = self._generate_random_picks(games_to_pick, available_points)
+
+            # Combine with fixed picks
+            current_picks.update(player_fixed)
+
+            # Evaluate initial solution
+            current_prob = self._evaluate_picks(player_name, current_picks, fixed_picks)
+            print(f"   Initial win probability: {current_prob:.4f}")
+
+            improvements = 0
+            no_improvement_count = 0
+
+            # Hill climbing iterations
+            for i in range(iterations):
+                # Generate neighbor solution
+                neighbor_picks = self._get_neighbor_solution(
+                    current_picks, games_to_pick, player_fixed
+                )
+
+                # Evaluate neighbor
+                neighbor_prob = self._evaluate_picks(player_name, neighbor_picks, fixed_picks)
+
+                # Accept if better
+                if neighbor_prob > current_prob:
+                    current_picks = neighbor_picks
+                    current_prob = neighbor_prob
+                    improvements += 1
+                    no_improvement_count = 0
+                else:
+                    no_improvement_count += 1
+
+                # Early stopping if no improvement for a while
+                if no_improvement_count >= 100:
+                    print(f"   Early stop at iteration {i+1} (no improvement for 100 iterations)")
+                    break
+
+                # Progress update every 100 iterations
+                if (i + 1) % 100 == 0:
+                    print(f"   Iteration {i+1}/{iterations}: {current_prob:.4f} ({improvements} improvements)")
+
+            print(f"   Final win probability: {current_prob:.4f} ({improvements} total improvements)")
+
+            # Update best overall solution
+            if current_prob > best_overall_prob:
+                best_overall_picks = current_picks.copy()
+                best_overall_prob = current_prob
+                print(f"   ⭐ New best solution!")
+
+        print(f"\n✅ Best win probability found: {best_overall_prob:.4f}")
+        return best_overall_picks
+
+    def _generate_greedy_picks(self, player_name: str, player_fixed: Dict[str, int],
+                               games_to_pick: List[Game], available_points: set,
+                               fixed_picks: Dict[str, Dict[str, int]]) -> Dict[str, int]:
+        """Generate initial picks using a simple greedy heuristic based on Vegas odds."""
+        picks = {}
+        remaining_points = sorted(list(available_points), reverse=True)
+
+        # Sort games by certainty (most certain first)
+        sorted_games = sorted(games_to_pick, key=lambda g: abs(g.vegas_win_prob - 0.5), reverse=True)
+
+        for i, game in enumerate(sorted_games):
+            if i >= len(remaining_points):
+                break
+
+            # Pick the team favored by Vegas
+            if game.vegas_win_prob >= 0.5:
+                picks[game.home_team] = remaining_points[i]
+            else:
+                picks[game.away_team] = remaining_points[i]
+
+        return picks
+
+    def _generate_random_picks(self, games_to_pick: List[Game],
+                               available_points: set) -> Dict[str, int]:
+        """Generate random picks for initial solution."""
+        picks = {}
+        points_list = list(available_points)
+        np.random.shuffle(points_list)
+
+        for i, game in enumerate(games_to_pick):
+            if i >= len(points_list):
+                break
+
+            # Randomly pick home or away
+            team = game.home_team if np.random.random() < 0.5 else game.away_team
+            picks[team] = points_list[i]
+
+        return picks
+
+    def _evaluate_picks(self, player_name: str, picks: Dict[str, int],
+                        all_fixed_picks: Dict[str, Dict[str, int]]) -> float:
+        """Evaluate a set of picks and return win probability."""
+        # Format picks for simulation
+        formatted_picks = all_fixed_picks.copy() if all_fixed_picks else {}
+        formatted_picks[player_name] = picks
+
+        # Run simulation with player_data if available (for mid-week optimization)
+        player_data = getattr(self, '_optimization_player_data', None)
+        stats = self.simulate_all(formatted_picks, player_data=player_data)
+        return stats['win_pct'][player_name]
+
+    def _get_neighbor_solution(self, current_picks: Dict[str, int],
+                               games_to_pick: List[Game],
+                               player_fixed: Dict[str, int]) -> Dict[str, int]:
+        """Generate a neighbor solution by making a small change.
+
+        Possible changes:
+        1. Swap which team we pick in a random game (50% probability)
+        2. Swap confidence values between two random games (50% probability)
+        """
+        neighbor = current_picks.copy()
+
+        # Get teams that are not fixed (can be modified)
+        modifiable_teams = [team for team in neighbor.keys() if team not in player_fixed]
+
+        if len(modifiable_teams) < 2:
+            return neighbor  # Can't make meaningful changes
+
+        if np.random.random() < 0.5:
+            # Operation 1: Swap which team we pick in a game
+            # Find a game where we picked one of the teams
+            game_to_swap = None
+            picked_team = None
+
+            for game in games_to_pick:
+                if game.home_team in modifiable_teams:
+                    game_to_swap = game
+                    picked_team = game.home_team
+                    break
+                elif game.away_team in modifiable_teams:
+                    game_to_swap = game
+                    picked_team = game.away_team
+                    break
+
+            if game_to_swap and picked_team:
+                # Swap to the other team in this game
+                other_team = game_to_swap.away_team if picked_team == game_to_swap.home_team else game_to_swap.home_team
+                confidence = neighbor[picked_team]
+                del neighbor[picked_team]
+                neighbor[other_team] = confidence
+        else:
+            # Operation 2: Swap confidence values between two games
+            if len(modifiable_teams) >= 2:
+                team1, team2 = np.random.choice(modifiable_teams, size=2, replace=False)
+                neighbor[team1], neighbor[team2] = neighbor[team2], neighbor[team1]
+
+        return neighbor
+
+    def assess_remaining_game_importance(self, player_name: str, current_standings: dict,
                                        player_picks: dict) -> pd.DataFrame:
         """
         Assess the importance of remaining games based on current standings and locked-in results.
         This is designed for mid-week/Sunday analysis when some games are completed.
-        
+
         Args:
             player_name: Name of the player to analyze
             current_standings: Dict mapping player names to current points
             player_picks: Dict mapping players to their pick dictionaries
                 Example: {'Player1': {'GB': 16, 'Cin': 15, ...}, 'Player2': {...}}
-        
+
         Returns:
             DataFrame with remaining game importance analysis
         """

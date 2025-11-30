@@ -344,18 +344,110 @@ class TestOptimizationIntegration:
             assert avg_high_impact >= avg_low_impact * 0.3, \
                 "High confidence games should generally have higher impact"
 
+class TestHillClimbingOptimization:
+    """Test hill climbing optimization method"""
+
+    def test_hill_climb_returns_valid_picks(self, basic_simulator):
+        """Test that hill climbing returns valid confidence point assignments"""
+        with patch('builtins.print'):
+            optimal = basic_simulator.optimize_picks_hill_climb(
+                "Expert", iterations=50, restarts=2
+            )
+
+        # Should assign all confidence points from 1 to num_games
+        expected_points = set(range(1, len(basic_simulator.games) + 1))
+        actual_points = set(optimal.values())
+
+        assert actual_points == expected_points, f"Expected {expected_points}, got {actual_points}"
+
+        # Should pick exactly one team per game
+        assert len(optimal) == len(basic_simulator.games)
+
+    def test_hill_climb_respects_fixed_picks(self, basic_simulator):
+        """Test that hill climbing respects fixed pick constraints"""
+        fixed_picks = {"Expert": {"SF": 3, "KC": 1}}
+
+        with patch('builtins.print'):
+            optimal = basic_simulator.optimize_picks_hill_climb(
+                "Expert", fixed_picks=fixed_picks, iterations=50, restarts=2
+            )
+
+        # Fixed picks should be preserved
+        assert optimal["SF"] == 3
+        assert optimal["KC"] == 1
+
+        # Remaining points should still be valid
+        all_points = set(range(1, len(basic_simulator.games) + 1))
+        used_points = set(optimal.values())
+        assert used_points == all_points
+
+    def test_hill_climb_vs_greedy_comparison(self, basic_simulator):
+        """Test that hill climbing can find solutions at least as good as greedy"""
+        with patch('builtins.print'):
+            greedy_picks = basic_simulator.optimize_picks("Expert", confidence_range=3)
+            hill_picks = basic_simulator.optimize_picks_hill_climb(
+                "Expert", iterations=100, restarts=3
+            )
+
+        # Evaluate both solutions
+        greedy_fixed = {"Expert": greedy_picks}
+        hill_fixed = {"Expert": hill_picks}
+
+        greedy_stats = basic_simulator.simulate_all(greedy_fixed)
+        hill_stats = basic_simulator.simulate_all(hill_fixed)
+
+        greedy_win_pct = greedy_stats['win_pct']['Expert']
+        hill_win_pct = hill_stats['win_pct']['Expert']
+
+        print(f"\nGreedy win %: {greedy_win_pct:.3f}")
+        print(f"Hill climb win %: {hill_win_pct:.3f}")
+
+        # Hill climbing should be at least competitive with greedy (allow small variance)
+        # Note: Due to stochastic nature, we allow hill climb to be slightly worse
+        assert hill_win_pct >= greedy_win_pct - 0.1, \
+            f"Hill climbing ({hill_win_pct:.3f}) should be competitive with greedy ({greedy_win_pct:.3f})"
+
+    def test_hill_climb_with_completed_games(self):
+        """Test hill climbing with some completed games (mid-week scenario)"""
+        sim = ConfidencePickEmSimulator(num_sims=100)
+
+        sim.games = [
+            Game("SF", "ARI", 0.85, 0.90, 14.0, 2.0, 1,
+                 datetime(2024, 9, 8, 13, 0), actual_outcome=True),  # Completed
+            Game("KC", "DEN", 0.65, 0.70, 10.0, 6.0, 1,
+                 datetime(2024, 9, 8, 16, 25)),  # Not completed
+            Game("BAL", "CIN", 0.52, 0.48, 8.0, 8.5, 1,
+                 datetime(2024, 9, 8, 20, 20))  # Not completed
+        ]
+
+        sim.players = [
+            Player("Expert", skill_level=0.9, crowd_following=0.1, confidence_following=0.2)
+        ]
+
+        # First game already picked with confidence 3
+        available_points = {1, 2}  # Only 2 points left for 2 remaining games
+
+        with patch('builtins.print'):
+            optimal = sim.optimize_picks_hill_climb(
+                "Expert", iterations=50, restarts=2, available_points=available_points
+            )
+
+        # Should only pick for incomplete games
+        assert len(optimal) == 2
+        assert set(optimal.values()) == {1, 2}
+
 class TestOptimizationPerformance:
     """Test optimization performance characteristics"""
-    
+
     def test_optimization_runtime_reasonable(self, basic_simulator):
         """Test that optimization completes in reasonable time"""
         import time
-        
+
         with patch('builtins.print'):
             start_time = time.time()
             basic_simulator.optimize_picks("Expert", confidence_range=2)
             end_time = time.time()
-        
+
         # Should complete in under 30 seconds for basic case
         runtime = end_time - start_time
         assert runtime < 30, f"Optimization took too long: {runtime:.2f}s"
