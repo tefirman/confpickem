@@ -690,6 +690,26 @@ class ConfidencePickEmSimulator:
                 best_overall_prob = current_prob
                 print(f"   ⭐ New best solution!")
 
+            # Print best solution so far after each restart (safety net for interruptions)
+            print(f"\n   💾 Best solution so far (after {restart + 1}/{restarts} restarts):")
+            print(f"      Win probability: {best_overall_prob:.4f}")
+            if best_overall_picks:
+                sorted_best = sorted(best_overall_picks.items(), key=lambda x: x[1], reverse=True)
+                picks_summary = ", ".join(f"{team}({pts})" for team, pts in sorted_best)
+                print(f"      Picks: {picks_summary}")
+
+                # Save checkpoint to file
+                checkpoint_file = "hill_climb_checkpoint.txt"
+                with open(checkpoint_file, 'w') as f:
+                    f.write(f"Hill Climbing Checkpoint - Restart {restart + 1}/{restarts}\n")
+                    f.write(f"Win Probability: {best_overall_prob:.4f}\n")
+                    f.write(f"\nBest Picks (sorted by confidence):\n")
+                    for team, pts in sorted_best:
+                        f.write(f"  {team}: {pts}\n")
+                    f.write(f"\nCopy-paste format:\n")
+                    paste_format = ", ".join(f"{team} {pts}" for team, pts in sorted_best)
+                    f.write(f"{paste_format}\n")
+
         print(f"\n✅ Best win probability found: {best_overall_prob:.4f}")
         return best_overall_picks
 
