@@ -350,7 +350,7 @@ class TestHillClimbingOptimization:
     def test_hill_climb_returns_valid_picks(self, basic_simulator):
         """Test that hill climbing returns valid confidence point assignments"""
         with patch('builtins.print'):
-            optimal = basic_simulator.optimize_picks_hill_climb(
+            optimal, summary_stats = basic_simulator.optimize_picks_hill_climb(
                 "Expert", iterations=50, restarts=2
             )
 
@@ -363,12 +363,15 @@ class TestHillClimbingOptimization:
         # Should pick exactly one team per game
         assert len(optimal) == len(basic_simulator.games)
 
+        # Summary stats should be a DataFrame
+        assert hasattr(summary_stats, 'shape'), "Should return summary statistics DataFrame"
+
     def test_hill_climb_respects_fixed_picks(self, basic_simulator):
         """Test that hill climbing respects fixed pick constraints"""
         fixed_picks = {"Expert": {"SF": 3, "KC": 1}}
 
         with patch('builtins.print'):
-            optimal = basic_simulator.optimize_picks_hill_climb(
+            optimal, _ = basic_simulator.optimize_picks_hill_climb(
                 "Expert", fixed_picks=fixed_picks, iterations=50, restarts=2
             )
 
@@ -385,7 +388,7 @@ class TestHillClimbingOptimization:
         """Test that hill climbing can find solutions at least as good as greedy"""
         with patch('builtins.print'):
             greedy_picks = basic_simulator.optimize_picks("Expert", confidence_range=3)
-            hill_picks = basic_simulator.optimize_picks_hill_climb(
+            hill_picks, _ = basic_simulator.optimize_picks_hill_climb(
                 "Expert", iterations=100, restarts=3
             )
 
@@ -428,13 +431,65 @@ class TestHillClimbingOptimization:
         available_points = {1, 2}  # Only 2 points left for 2 remaining games
 
         with patch('builtins.print'):
-            optimal = sim.optimize_picks_hill_climb(
+            optimal, _ = sim.optimize_picks_hill_climb(
                 "Expert", iterations=50, restarts=2, available_points=available_points
             )
 
         # Should only pick for incomplete games
         assert len(optimal) == 2
         assert set(optimal.values()) == {1, 2}
+
+    def test_hill_climb_returns_summary_statistics(self):
+        """Test that hill climbing returns summary statistics for top combinations"""
+        sim = ConfidencePickEmSimulator(num_sims=200)
+
+        sim.games = [
+            Game("SF", "ARI", 0.85, 0.90, 14.0, 2.0, 1,
+                 datetime(2024, 9, 8, 13, 0)),
+            Game("KC", "DEN", 0.65, 0.70, 10.0, 6.0, 1,
+                 datetime(2024, 9, 8, 16, 25)),
+            Game("BAL", "CIN", 0.52, 0.48, 8.0, 8.5, 1,
+                 datetime(2024, 9, 8, 20, 20)),
+            Game("BUF", "MIA", 0.58, 0.55, 9.0, 7.0, 1,
+                 datetime(2024, 9, 9, 13, 0))
+        ]
+
+        sim.players = [
+            Player("TestPlayer", skill_level=0.7, crowd_following=0.3, confidence_following=0.4),
+            Player("Opponent1", skill_level=0.5, crowd_following=0.5, confidence_following=0.5)
+        ]
+
+        with patch('builtins.print'):
+            optimal_picks, summary_stats = sim.optimize_picks_hill_climb(
+                "TestPlayer", iterations=50, restarts=3, top_n=30
+            )
+
+        # Verify return types
+        assert isinstance(optimal_picks, dict), "First return value should be dict of picks"
+        assert hasattr(summary_stats, 'shape'), "Second return value should be DataFrame"
+
+        # Verify picks are valid
+        assert len(optimal_picks) == 4, "Should have picks for all 4 games"
+        assert set(optimal_picks.values()) == {1, 2, 3, 4}, "Should use each confidence level once"
+
+        # Verify summary stats structure
+        required_columns = {'team', 'frequency', 'appearances', 'avg_confidence',
+                          'min_confidence', 'max_confidence'}
+        assert required_columns.issubset(set(summary_stats.columns)), \
+            f"Summary stats missing columns. Has: {summary_stats.columns.tolist()}"
+
+        # Verify summary stats content
+        assert len(summary_stats) > 0, "Summary stats should have at least one team"
+        assert all(0 <= summary_stats['frequency']) and all(summary_stats['frequency'] <= 1), \
+            "Frequencies should be between 0 and 1"
+        assert all(summary_stats['appearances'] > 0), "All teams should appear at least once"
+        assert all(1 <= summary_stats['avg_confidence']) and all(summary_stats['avg_confidence'] <= 4), \
+            "Average confidence should be between 1 and number of games"
+
+        # Verify the optimal picks appear in the summary stats
+        for team in optimal_picks.keys():
+            assert team in summary_stats['team'].values, \
+                f"Team {team} from optimal picks should appear in summary stats"
 
 class TestOptimizationPerformance:
     """Test optimization performance characteristics"""

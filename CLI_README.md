@@ -51,6 +51,10 @@ confpickem --week WEEK --mode MODE [OPTIONS]
 --fast             Fast mode (~85% accuracy, 10x speed)
 --num-sims, -n     Number of simulations
 --no-cache         Clear cache before loading
+--hill-climb       Use hill climbing instead of greedy (better results, slower)
+--hc-iterations    Iterations per restart (default: 1000)
+--hc-restarts      Random restarts (default: 10)
+--hc-top-n         Top combinations for robustness analysis (default: 1000)
 ```
 
 **Examples:**
@@ -63,7 +67,15 @@ confpickem --week 10 --mode beginning --fast
 
 # Custom simulations
 confpickem --week 10 --mode beginning --num-sims 10000
+
+# Hill climbing with recommended starting parameters
+confpickem --week 18 --mode midweek --live-odds --hill-climb \
+  --hc-iterations 100 --hc-restarts 5 --num-sims 500 --hc-top-n 250
 ```
+
+**Hill Climbing vs Greedy:**
+- **Greedy (default):** Fast, picks the best option at each step. Good for quick decisions.
+- **Hill Climbing:** Explores more of the solution space via random restarts. Better results but slower. The robustness analysis shows how often each team appears across top solutions, helping identify "lock" picks vs. volatile ones.
 
 **Interactive Features:**
 
@@ -125,29 +137,35 @@ confpickem-player-skills COMMAND [OPTIONS]
 **Options:**
 ```
 analyze:
-  --weeks, -w      Comma-separated week numbers (required)
+  --year, -y       Year to analyze (default: 2024)
   --league-id, -l  Yahoo league ID (default: 15435)
 
 apply:
-  --week, -w       NFL week number (required)
+  --year, -y       Year to use (default: combine all available years)
   --league-id, -l  Yahoo league ID (default: 15435)
 
 update:
-  --weeks          Weeks to analyze (required)
-  --week, -w       Week to apply to (required)
+  --years, -y      Years to analyze, comma-separated (e.g., 2024,2025)
+                   If not specified, skips analysis and applies all available
   --league-id, -l  Yahoo league ID (default: 15435)
 ```
 
 **Examples:**
 ```bash
-# Analyze historical weeks
-confpickem-player-skills analyze --weeks 3,4,5,6
+# Analyze a single season
+confpickem-player-skills analyze --year 2024
 
-# Apply to current week
-confpickem-player-skills apply --week 10
+# Apply skills from all available years (combines 2024 + 2025 if both exist)
+confpickem-player-skills apply
 
-# Do both in one command
-confpickem-player-skills update --weeks 3,4,5,6,7,8,9 --week 10
+# Apply skills from a specific year only
+confpickem-player-skills apply --year 2025
+
+# Analyze multiple years and apply combined skills
+confpickem-player-skills update --years 2024,2025
+
+# Just apply all available years (no analysis)
+confpickem-player-skills update
 ```
 
 ---
@@ -213,13 +231,22 @@ Use `--fast` when you need results quickly (~85% accuracy):
 --mode beginning --fast
 ```
 
-### 4. Update Player Skills Periodically
-Refresh player skills every few weeks:
+### 4. Use Hill Climbing for Better Results
+When accuracy matters more than speed, use hill climbing:
 ```bash
-confpickem-player-skills update --weeks 7,8,9,10,11,12 --week 13
+confpickem --week 10 --mode midweek --live-odds --hill-climb \
+  --hc-iterations 100 --hc-restarts 5 --num-sims 500 --hc-top-n 250
+```
+The robustness analysis helps identify which picks are "locks" (appear in 90%+ of top solutions) vs. uncertain.
+
+### 5. Update Player Skills Periodically
+Refresh player skills when new season data is available:
+```bash
+# Analyze both seasons and apply combined skills
+confpickem-player-skills update --years 2024,2025
 ```
 
-### 5. Set Environment Variables
+### 6. Set Environment Variables
 Set `ODDS_API_KEY` once instead of passing it every time.
 
 ---

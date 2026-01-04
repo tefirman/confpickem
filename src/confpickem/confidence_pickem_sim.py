@@ -214,7 +214,28 @@ class ConfidencePickEmSimulator:
         results = []
         for sim in range(self.num_sims):
             for p_idx, player in enumerate(self.players):
-                # Handle fixed picks for this player if they exist
+                # First, apply actual picks from completed games for all players
+                if player_data is not None:
+                    player_row = player_data[player_data['player_name'] == player.name]
+                    if not player_row.empty:
+                        player_row = player_row.iloc[0]
+                        for g_idx, game in enumerate(self.games):
+                            if game.actual_outcome is not None:  # Completed game
+                                game_num = g_idx + 1
+                                pick_col = f'game_{game_num}_pick'
+                                conf_col = f'game_{game_num}_confidence'
+
+                                if pick_col in player_data.columns and conf_col in player_data.columns:
+                                    picked_team = player_row[pick_col]
+                                    conf_value = player_row[conf_col]
+
+                                    if pd.notna(picked_team) and pd.notna(conf_value) and conf_value > 0:
+                                        # Set the pick
+                                        picks[sim, p_idx, g_idx] = (picked_team == game.home_team)
+                                        # Set the confidence
+                                        confidence[sim, p_idx, g_idx] = int(conf_value)
+
+                # Handle fixed picks for this player if they exist (for remaining games)
                 if player.name in fixed_picks:
                     player_fixed = fixed_picks[player.name]
                     
@@ -558,7 +579,8 @@ class ConfidencePickEmSimulator:
     
     def optimize_picks_hill_climb(self, player_name: str, fixed_picks: Dict[str, Dict[str, int]] = None,
                                    iterations: int = 1000, restarts: int = 10,
-                                   available_points: set = None, player_data: pd.DataFrame = None) -> Dict[str, int]:
+                                   available_points: set = None, player_data: pd.DataFrame = None,
+                                   top_n: int = 1000) -> tuple[Dict[str, int], pd.DataFrame]:
         """Optimize picks using hill climbing with random restarts.
 
         This is a local search optimization that explores the solution space more thoroughly
@@ -574,9 +596,12 @@ class ConfidencePickEmSimulator:
             restarts: Number of random restarts
             available_points: Set of confidence points available to use (if None, auto-calculate)
             player_data: DataFrame with actual player picks for completed games
+            top_n: Number of top combinations to analyze for summary statistics
 
         Returns:
-            Dict mapping team abbreviations to optimal confidence points
+            Tuple of (optimal_picks, summary_stats) where:
+            - optimal_picks: Dict mapping team abbreviations to optimal confidence points
+            - summary_stats: DataFrame with frequency and average points for each team in top N solutions
         """
         # Set consistent random seed for deterministic optimization
         np.random.seed(42)
@@ -625,9 +650,13 @@ class ConfidencePickEmSimulator:
         print(f"   Iterations per restart: {iterations}")
         print(f"   Restarts: {restarts}")
         print(f"   Total evaluations: ~{iterations * restarts:,}")
+        print(f"   Tracking top {top_n} combinations for summary statistics")
 
         best_overall_picks = None
         best_overall_prob = 0
+
+        # Track all explored combinations: list of (picks_dict, win_probability)
+        all_combinations = []
 
         for restart in range(restarts):
             print(f"\n🔄 Restart {restart + 1}/{restarts}")
@@ -651,6 +680,9 @@ class ConfidencePickEmSimulator:
             current_prob = self._evaluate_picks(player_name, current_picks, fixed_picks)
             print(f"   Initial win probability: {current_prob:.4f}")
 
+            # Track this initial solution
+            all_combinations.append((current_picks.copy(), current_prob))
+
             improvements = 0
             no_improvement_count = 0
 
@@ -663,6 +695,9 @@ class ConfidencePickEmSimulator:
 
                 # Evaluate neighbor
                 neighbor_prob = self._evaluate_picks(player_name, neighbor_picks, fixed_picks)
+
+                # Track this neighbor solution
+                all_combinations.append((neighbor_picks.copy(), neighbor_prob))
 
                 # Accept if better
                 if neighbor_prob > current_prob:
@@ -710,8 +745,82 @@ class ConfidencePickEmSimulator:
                     paste_format = ", ".join(f"{team} {pts}" for team, pts in sorted_best)
                     f.write(f"{paste_format}\n")
 
+        # Calculate summary statistics from top N combinations
+        print(f"\n📊 CALCULATING SUMMARY STATISTICS...")
+        print(f"   Total combinations explored: {len(all_combinations):,}")
+
+        # Filter out combinations with zero win probability
+        viable_combinations = [(picks, prob) for picks, prob in all_combinations if prob > 0]
+        print(f"   Viable combinations (win prob > 0): {len(viable_combinations):,}")
+
+        # Sort viable combinations by win probability (descending)
+        viable_combinations.sort(key=lambda x: x[1], reverse=True)
+
+        # Take top N from viable combinations
+        top_combinations = viable_combinations[:top_n]
+        actual_n = len(top_combinations)
+        print(f"   Analyzing top {actual_n} combinations")
+
+        # Build summary statistics for each team
+        team_stats = {}
+
+        for picks, win_prob in top_combinations:
+            for team, points in picks.items():
+                if team not in team_stats:
+                    team_stats[team] = {
+                        'appearances': 0,
+                        'total_points': 0,
+                        'point_values': []
+                    }
+
+                team_stats[team]['appearances'] += 1
+                team_stats[team]['total_points'] += points
+                team_stats[team]['point_values'].append(points)
+
+        # Convert to DataFrame
+        summary_rows = []
+        for team, stats in team_stats.items():
+            frequency = stats['appearances'] / actual_n
+            avg_points = stats['total_points'] / stats['appearances']
+            point_values = stats['point_values']
+            median_points = float(np.median(point_values))
+            std_points = float(np.std(point_values)) if len(point_values) > 1 else 0.0
+
+            summary_rows.append({
+                'team': team,
+                'frequency': frequency,
+                'appearances': stats['appearances'],
+                'avg_confidence': avg_points,
+                'median_confidence': median_points,
+                'std_confidence': std_points,
+                'min_confidence': min(point_values),
+                'max_confidence': max(point_values)
+            })
+
+        summary_df = pd.DataFrame(summary_rows)
+        summary_df = summary_df.sort_values('frequency', ascending=False)
+
+        print(f"\n📈 SUMMARY STATISTICS (Top {actual_n} combinations):")
+        print(f"   {'Team':<8} {'Frequency':<12} {'Avg Pts':<10} {'Range'}")
+        print(f"   {'-'*8} {'-'*12} {'-'*10} {'-'*15}")
+
+        for _, row in summary_df.head(15).iterrows():
+            team = row['team']
+            freq = row['frequency']
+            avg_conf = row['avg_confidence']
+            min_conf = row['min_confidence']
+            max_conf = row['max_confidence']
+
+            # Add visual indicator for very high frequency (>80%)
+            indicator = "🔒" if freq > 0.8 else "  "
+
+            print(f"   {team:<8} {freq:>6.1%} ({row['appearances']:>4})  {avg_conf:>5.1f}      {min_conf:.0f}-{max_conf:.0f} {indicator}")
+
+        if len(summary_df) > 15:
+            print(f"   ... and {len(summary_df) - 15} more teams")
+
         print(f"\n✅ Best win probability found: {best_overall_prob:.4f}")
-        return best_overall_picks
+        return best_overall_picks, summary_df
 
     def _generate_greedy_picks(self, player_name: str, player_fixed: Dict[str, int],
                                games_to_pick: List[Game], available_points: set,

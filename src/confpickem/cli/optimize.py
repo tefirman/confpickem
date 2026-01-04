@@ -81,6 +81,11 @@ Examples:
     parser.add_argument('--no-cache', action='store_true',
                        help='Clear cache before loading data (forces fresh fetch)')
 
+    # Synthetic opponents (for private games outside your Yahoo league)
+    parser.add_argument('--num-opponents', '-o', type=int,
+                       help='Use N synthetic average opponents instead of real league players. '
+                            'Useful for optimizing against a small private group.')
+
     # Optimization algorithm selection
     parser.add_argument('--hill-climb', action='store_true',
                        help='Use hill climbing optimization instead of greedy (better results, slower)')
@@ -88,12 +93,23 @@ Examples:
                        help='Hill climbing iterations per restart (default: 1000)')
     parser.add_argument('--hc-restarts', type=int, default=10,
                        help='Hill climbing random restarts (default: 10)')
+    parser.add_argument('--hc-top-n', type=int, default=1000,
+                       help='Number of top combinations to analyze for summary stats (default: 1000)')
 
     args = parser.parse_args()
 
     # Validate arguments
     if args.fast and args.mode == 'midweek':
         print("❌ Error: --fast mode is only available for beginning-of-week optimization")
+        return 1
+
+    if args.num_opponents is not None and args.mode == 'midweek':
+        print("❌ Error: --num-opponents is only available for beginning-of-week optimization")
+        print("   (Midweek mode requires real player data to track completed games)")
+        return 1
+
+    if args.num_opponents is not None and args.num_opponents < 1:
+        print("❌ Error: --num-opponents must be at least 1")
         return 1
 
     # Determine simulation count
@@ -233,101 +249,125 @@ Examples:
 
         simulator.add_games_from_dataframe(pd.DataFrame(games_data))
 
-        # Load player skills
-        try:
-            with open('current_player_skills.json', 'r') as f:
-                player_skills = json.load(f)
-            print("✅ Using realistic player skills from current_player_skills.json")
-        except FileNotFoundError:
-            print("⚠️  current_player_skills.json not found, using default skills")
-            player_skills = {}
-
-        # Add players
-        players = []
-        for _, player in yahoo.players.iterrows():
-            name = player['player_name']
-            if name in player_skills:
-                skill_data = player_skills[name]
-                skill = skill_data['skill_level']
-                crowd = skill_data['crowd_following']
-                confidence = skill_data['confidence_following']
-            else:
-                skill, crowd, confidence = 0.6, 0.5, 0.5
-
-            players.append(Player(
-                name=name,
-                skill_level=skill,
-                crowd_following=crowd,
-                confidence_following=confidence
-            ))
-
-        simulator.players = players
-        print(f"✅ Added {len(players)} league players")
-
         # Calculate current standings if mid-week
         current_standings = {}
         your_used_confidence = set()
         your_remaining_confidence = None
 
-        if args.mode == 'midweek' and len(completed_games) > 0:
-            print(f"\n📊 CURRENT STANDINGS (from completed games):")
+        # Check if using synthetic opponents
+        if args.num_opponents is not None:
+            # Create synthetic average players
+            players = []
+            # Add "You" as the first player (the one we're optimizing for)
+            players.append(Player(
+                name="You",
+                skill_level=0.6,
+                crowd_following=0.5,
+                confidence_following=0.5
+            ))
+            # Add N synthetic opponents with average skills
+            for i in range(args.num_opponents):
+                players.append(Player(
+                    name=f"Opponent {i + 1}",
+                    skill_level=0.6,
+                    crowd_following=0.5,
+                    confidence_following=0.5
+                ))
+            simulator.players = players
+            print(f"✅ Created {args.num_opponents} synthetic average opponents")
+            selected = "You"
+        else:
+            # Load real players from Yahoo league
+            # Load player skills
+            try:
+                with open('current_player_skills.json', 'r') as f:
+                    player_skills = json.load(f)
+                print("✅ Using realistic player skills from current_player_skills.json")
+            except FileNotFoundError:
+                print("⚠️  current_player_skills.json not found, using default skills")
+                player_skills = {}
 
+            # Add players
+            players = []
             for _, player in yahoo.players.iterrows():
-                player_name = player['player_name']
-                points_earned = 0
+                name = player['player_name']
+                if name in player_skills:
+                    skill_data = player_skills[name]
+                    skill = skill_data['skill_level']
+                    crowd = skill_data['crowd_following']
+                    confidence = skill_data['confidence_following']
+                else:
+                    skill, crowd, confidence = 0.6, 0.5, 0.5
 
-                for i, game in enumerate(simulator.games):
-                    if game.actual_outcome is not None:
-                        game_num = i + 1
-                        pick = player.get(f'game_{game_num}_pick')
-                        conf = player.get(f'game_{game_num}_confidence', 0)
+                players.append(Player(
+                    name=name,
+                    skill_level=skill,
+                    crowd_following=crowd,
+                    confidence_following=confidence
+                ))
 
-                        if pick:
-                            if (pick == game.home_team and game.actual_outcome) or \
-                               (pick == game.away_team and not game.actual_outcome):
-                                points_earned += conf
+            simulator.players = players
+            print(f"✅ Added {len(players)} league players")
 
-                current_standings[player_name] = points_earned
+            if args.mode == 'midweek' and len(completed_games) > 0:
+                print(f"\n📊 CURRENT STANDINGS (from completed games):")
 
-            # Show top 10
-            sorted_standings = sorted(current_standings.items(), key=lambda x: x[1], reverse=True)
-            for i, (name, points) in enumerate(sorted_standings[:10], 1):
-                print(f"   {i}. {name}: {points} points")
+                for _, player in yahoo.players.iterrows():
+                    player_name = player['player_name']
+                    points_earned = 0
 
-            if len(sorted_standings) > 10:
-                print(f"   ... and {len(sorted_standings) - 10} more")
+                    for i, game in enumerate(simulator.games):
+                        if game.actual_outcome is not None:
+                            game_num = i + 1
+                            pick = player.get(f'game_{game_num}_pick')
+                            conf = player.get(f'game_{game_num}_confidence', 0)
 
-        # Player selection
-        player_names = [p.name for p in simulator.players]
-        print(f"\n👥 Select your player from {len(player_names)} total:")
+                            if pick:
+                                if (pick == game.home_team and game.actual_outcome) or \
+                                   (pick == game.away_team and not game.actual_outcome):
+                                    points_earned += conf
 
-        for i in range(0, min(15, len(player_names)), 3):
-            row_players = player_names[i:i+3]
-            for j, name in enumerate(row_players):
-                current_points = current_standings.get(name, 0) if current_standings else 0
-                print(f"   {i+j+1:2d}. {name:<25} ({current_points} pts)", end="")
-            print()
+                    current_standings[player_name] = points_earned
 
-        if len(player_names) > 15:
-            print(f"   ... and {len(player_names) - 15} more")
+                # Show top 10
+                sorted_standings = sorted(current_standings.items(), key=lambda x: x[1], reverse=True)
+                for i, (name, points) in enumerate(sorted_standings[:10], 1):
+                    print(f"   {i}. {name}: {points} points")
 
-        choice = input(f"\nPlayer (number or name): ").strip()
+                if len(sorted_standings) > 10:
+                    print(f"   ... and {len(sorted_standings) - 10} more")
 
-        # Find player
-        selected = None
-        try:
-            idx = int(choice) - 1
-            if 0 <= idx < len(player_names):
-                selected = player_names[idx]
-        except ValueError:
-            matches = [p for p in player_names if choice.lower() in p.lower()]
-            if len(matches) == 1:
-                selected = matches[0]
-            else:
-                print(f"❌ Player not found: {choice}")
-                return 1
+            # Player selection
+            player_names = [p.name for p in simulator.players]
+            print(f"\n👥 Select your player from {len(player_names)} total:")
 
-        print(f"✅ Selected: {selected}")
+            for i in range(0, min(15, len(player_names)), 3):
+                row_players = player_names[i:i+3]
+                for j, name in enumerate(row_players):
+                    current_points = current_standings.get(name, 0) if current_standings else 0
+                    print(f"   {i+j+1:2d}. {name:<25} ({current_points} pts)", end="")
+                print()
+
+            if len(player_names) > 15:
+                print(f"   ... and {len(player_names) - 15} more")
+
+            choice = input(f"\nPlayer (number or name): ").strip()
+
+            # Find player
+            selected = None
+            try:
+                idx = int(choice) - 1
+                if 0 <= idx < len(player_names):
+                    selected = player_names[idx]
+            except ValueError:
+                matches = [p for p in player_names if choice.lower() in p.lower()]
+                if len(matches) == 1:
+                    selected = matches[0]
+                else:
+                    print(f"❌ Player not found: {choice}")
+                    return 1
+
+            print(f"✅ Selected: {selected}")
 
         # Calculate available confidence levels for mid-week
         if args.mode == 'midweek' and len(completed_games) > 0:
@@ -431,18 +471,22 @@ Examples:
         try:
             fixed_formatted = {selected: fixed_picks} if fixed_picks else None
 
+            # Initialize summary_stats to None (only hill climb returns this)
+            summary_stats = None
+
             if args.hill_climb:
-                # Use hill climbing optimizer
-                optimal_picks = simulator.optimize_picks_hill_climb(
+                # Use hill climbing optimizer - returns (picks, summary_stats)
+                optimal_picks, summary_stats = simulator.optimize_picks_hill_climb(
                     player_name=selected,
                     fixed_picks=fixed_formatted,
                     iterations=args.hc_iterations,
                     restarts=args.hc_restarts,
                     available_points=your_remaining_confidence if args.mode == 'midweek' else None,
-                    player_data=yahoo.players
+                    player_data=yahoo.players,
+                    top_n=args.hc_top_n
                 )
             else:
-                # Use greedy optimizer
+                # Use greedy optimizer - returns just picks
                 optimal_picks = simulator.optimize_picks(
                     player_name=selected,
                     fixed_picks=fixed_formatted,
@@ -628,6 +672,49 @@ Examples:
                 except Exception as e:
                     print(f"   ⚠️  Could not calculate: {e}")
 
+                # Display summary statistics if available (from hill climbing)
+                if summary_stats is not None and len(summary_stats) > 0:
+                    print(f"\n📊 PICK ROBUSTNESS ANALYSIS:")
+                    print(f"   Frequency each team appears in top {len(summary_stats)} combinations")
+                    print()
+                    print(f"   {'Team':<8} {'Frequency':<14} {'Avg':<6} {'Med':<6} {'Std':<6} {'Range':<8} {'Signal'}")
+                    print(f"   {'-'*8} {'-'*14} {'-'*6} {'-'*6} {'-'*6} {'-'*8} {'-'*20}")
+
+                    for _, row in summary_stats.head(20).iterrows():
+                        team = row['team']
+                        freq = row['frequency']
+                        avg_conf = row['avg_confidence']
+                        med_conf = row['median_confidence']
+                        std_conf = row['std_confidence']
+                        min_conf = row['min_confidence']
+                        max_conf = row['max_confidence']
+
+                        # Determine signal strength
+                        if freq > 0.9:
+                            signal = "🔒 Lock it in"
+                        elif freq > 0.7:
+                            signal = "✅ Very confident"
+                        elif freq > 0.5:
+                            signal = "👍 Confident"
+                        elif freq > 0.3:
+                            signal = "🤔 Moderate"
+                        else:
+                            signal = "⚠️  Uncertain"
+
+                        # Check if this team is in optimal picks
+                        in_optimal = "→" if team in optimal_picks else " "
+
+                        print(f"   {team:<8} {freq:>6.1%} ({row['appearances']:>4})  {avg_conf:>5.1f} {med_conf:>5.1f} {std_conf:>5.2f}  {min_conf:.0f}-{max_conf:.0f}    {signal} {in_optimal}")
+
+                    if len(summary_stats) > 20:
+                        print(f"\n   ... and {len(summary_stats) - 20} more teams analyzed")
+
+                    print(f"\n   Legend:")
+                    print(f"   → = Team in final optimized picks")
+                    print(f"   🔒 = Appears in >90% of top solutions (very stable pick)")
+                    print(f"   ✅ = Appears in >70% of top solutions (confident pick)")
+                    print(f"   Std = Standard deviation (lower = more consistent point assignment)")
+
                 # Copy-paste format
                 print(f"\n📋 COPY-PASTE FORMAT:")
                 paste_format = ", ".join(f"{team} {conf}" for team, conf in sorted_picks)
@@ -689,6 +776,42 @@ Examples:
                                        f"(Correct: {correct_prob:4.1%}, Wrong: {incorrect_prob:4.1%}) {status}\n")
                     except Exception as e:
                         f.write(f"\nGame importance analysis: Could not calculate ({e})\n")
+
+                    # Write summary statistics if available
+                    if summary_stats is not None and len(summary_stats) > 0:
+                        f.write(f"\nPICK ROBUSTNESS ANALYSIS:\n")
+                        f.write(f"Frequency each team appears in top solutions from hill climbing\n\n")
+                        f.write(f"{'Team':<10} {'Frequency':<12} {'Count':<8} {'Avg':<8} {'Median':<8} {'Std':<8} {'Range':<10} {'Signal'}\n")
+                        f.write(f"{'-'*10} {'-'*12} {'-'*8} {'-'*8} {'-'*8} {'-'*8} {'-'*10} {'-'*20}\n")
+
+                        for _, row in summary_stats.iterrows():
+                            team = row['team']
+                            freq = row['frequency']
+                            appearances = row['appearances']
+                            avg_conf = row['avg_confidence']
+                            med_conf = row['median_confidence']
+                            std_conf = row['std_confidence']
+                            min_conf = row['min_confidence']
+                            max_conf = row['max_confidence']
+
+                            # Determine signal strength
+                            if freq > 0.9:
+                                signal = "Lock it in"
+                            elif freq > 0.7:
+                                signal = "Very confident"
+                            elif freq > 0.5:
+                                signal = "Confident"
+                            elif freq > 0.3:
+                                signal = "Moderate"
+                            else:
+                                signal = "Uncertain"
+
+                            in_optimal = "*" if team in optimal_picks else " "
+
+                            f.write(f"{team:<10} {freq:>6.1%}       {appearances:>5}   {avg_conf:>5.1f}    {med_conf:>5.1f}    {std_conf:>5.2f}    {min_conf:.0f}-{max_conf:.0f}      {signal} {in_optimal}\n")
+
+                        f.write(f"\n* = Team in final optimized picks\n")
+                        f.write(f"Std = Standard deviation (lower = more consistent point assignment)\n")
 
                     f.write(f"\nCOPY-PASTE FORMAT:\n")
                     f.write(f"{paste_format}\n")
