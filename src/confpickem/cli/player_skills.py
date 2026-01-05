@@ -74,8 +74,9 @@ Examples:
 
     # Update command (analyze + apply)
     update_parser = subparsers.add_parser('update', help='Analyze and apply skills')
-    update_parser.add_argument('--year', '-y', type=int, default=2024,
-                              help='Year to analyze and apply (default: 2024)')
+    update_parser.add_argument('--years', '-y', type=str, default=None,
+                              help='Year(s) to analyze, comma-separated (e.g., --years 2024,2025). '
+                                   'If not specified, skips analysis and applies all available years.')
     update_parser.add_argument('--league-id', '-l', type=int, default=15435,
                               help='Yahoo league ID (default: 15435)')
 
@@ -124,20 +125,31 @@ Examples:
             print("🔄 UPDATING PLAYER SKILLS")
             print("=" * 50)
 
-            # First analyze
-            print(f"\n📊 Step 1: Analyzing {args.year} season...")
-            sys.argv = ['analyze_player_skills.py', '--year', str(args.year)]
-            result = analyze_main()
+            # Parse years if provided
+            if args.years:
+                years = [int(y.strip()) for y in args.years.split(',')]
+                print(f"📊 Will analyze years: {years}")
 
-            if result != 0:
-                print("❌ Analysis failed")
-                return result
+                # Analyze each year
+                for i, year in enumerate(years, 1):
+                    print(f"\n📊 Step {i}/{len(years)}: Analyzing {year} season...")
+                    sys.argv = ['analyze_player_skills.py', '--year', str(year)]
+                    result = analyze_main()
 
-            print("✅ Analysis complete!")
+                    if result != 0:
+                        print(f"❌ Analysis failed for {year}")
+                        return result
 
-            # Then apply
-            print(f"\n🎯 Step 2: Applying skills from {args.year}...")
-            sys.argv = ['apply_realistic_skills.py', '--year', str(args.year)]
+                    print(f"✅ Analysis complete for {year}!")
+
+                # Apply combining all available years
+                print(f"\n🎯 Step {len(years) + 1}: Applying combined skills from all years...")
+            else:
+                print("📊 No years specified, skipping analysis step")
+                print("🎯 Applying combined skills from all available years...")
+
+            # Apply without specifying year to combine all available
+            sys.argv = ['apply_realistic_skills.py']
             result = apply_main()
 
             if result != 0:

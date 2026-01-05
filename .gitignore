@@ -30,6 +30,7 @@ cookies.txt
 
 # Generated pick reports and cache directories
 NFL_Week*_*.txt
+hill_climb_checkpoint.txt
 PickEmCache*/
 PreviousWeeks/
 
