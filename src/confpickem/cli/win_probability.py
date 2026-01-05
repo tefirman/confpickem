@@ -419,7 +419,7 @@ Examples:
 
                             # Run analysis
                             test_picks = {name: player_picks[name]}
-                            picks_df = importance_simulator.simulate_picks(test_picks)
+                            picks_df = importance_simulator.simulate_picks(test_picks, player_data=yahoo.players)
 
                             # Fixed picks for completed games
                             completed_picks = {}
@@ -438,7 +438,8 @@ Examples:
                             importance_df = importance_simulator.assess_game_importance(
                                 player_name=name,
                                 picks_df=picks_df,
-                                fixed_picks=fixed_picks_for_analysis
+                                fixed_picks=fixed_picks_for_analysis,
+                                player_data=yahoo.players
                             )
 
                             if len(importance_df) > 0:
