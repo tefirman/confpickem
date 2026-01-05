@@ -37,3 +37,6 @@ PreviousWeeks/
 # Player skill data (derived from historical picks)
 current_player_skills*.json
 player_skills_*.json
+
+# Personal notes/documentation
+notes/
