@@ -10,7 +10,7 @@
 '''
 
 from dataclasses import dataclass
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 import numpy as np
 import pandas as pd
 import scipy
@@ -580,7 +580,7 @@ class ConfidencePickEmSimulator:
     def optimize_picks_hill_climb(self, player_name: str, fixed_picks: Dict[str, Dict[str, int]] = None,
                                    iterations: int = 1000, restarts: int = 10,
                                    available_points: set = None, player_data: pd.DataFrame = None,
-                                   top_n: int = 1000) -> tuple[Dict[str, int], pd.DataFrame]:
+                                   top_n: int = 1000) -> Tuple[Dict[str, int], pd.DataFrame]:
         """Optimize picks using hill climbing with random restarts.
 
         This is a local search optimization that explores the solution space more thoroughly
