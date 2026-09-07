@@ -94,13 +94,19 @@ class TestOptimizationBehavior:
     
     def test_optimization_picks_favorites_with_high_confidence(self, basic_simulator):
         """Test that optimization tends to put high confidence on clear favorites"""
+        # optimize_picks reseeds per candidate with a process-randomized
+        # hash(str), so a 3-game / low-sim run occasionally lands SF at 2 instead
+        # of 3. Bump the sim count so the win-probability estimates separate the
+        # 85% favorite from the field reliably.
+        basic_simulator.num_sims = 500
+
         # Suppress print statements during test
         with patch('builtins.print'):
             optimal = basic_simulator.optimize_picks("Expert", confidence_range=3)
-        
+
         # SF is the clearest favorite (85% win prob), should get high confidence
         sf_confidence = optimal.get("SF", 0)
-        
+
         # Should be above average confidence (which would be 2 for 3 games)
         assert sf_confidence >= 2, f"Expected SF to get high confidence, got {sf_confidence}"
     
