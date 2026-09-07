@@ -10,6 +10,7 @@ import argparse
 
 from confpickem.yahoo_pickem_scraper import YahooPickEm
 from confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Player
+from confpickem.analyze_player_skills import skills_from_raw_stats
 
 def combine_raw_stats(stats1, stats2):
     """Combine raw player statistics from two different time periods"""
@@ -30,6 +31,10 @@ def combine_raw_stats(stats1, stats2):
                 'total_points': s1['total_points'] + s2['total_points'],
                 'total_possible_points': s1['total_possible_points'] + s2['total_possible_points'],
                 'weeks_played': s1['weeks_played'] + s2['weeks_played'],
+                'crowd_agree': s1.get('crowd_agree', 0) + s2.get('crowd_agree', 0),
+                'crowd_comparable': s1.get('crowd_comparable', 0) + s2.get('crowd_comparable', 0),
+                'conf_align_sum': s1.get('conf_align_sum', 0.0) + s2.get('conf_align_sum', 0.0),
+                'conf_align_n': s1.get('conf_align_n', 0) + s2.get('conf_align_n', 0),
                 'confidence_distribution': {
                     k: s1['confidence_distribution'].get(k, 0) + s2['confidence_distribution'].get(k, 0)
                     for k in set(s1['confidence_distribution'].keys()) | set(s2['confidence_distribution'].keys())
@@ -54,52 +59,12 @@ def combine_raw_stats(stats1, stats2):
     return combined
 
 def calculate_skills_from_stats(raw_stats):
-    """Calculate skill levels from raw statistics"""
-    player_skills = {}
+    """Calculate skill levels from raw statistics.
 
-    for name, stats in raw_stats.items():
-        if stats['total_picks'] < 20:  # Skip players with too little data
-            continue
-
-        accuracy = stats['total_correct'] / stats['total_picks']
-        efficiency = stats['total_points'] / stats['total_possible_points'] if stats['total_possible_points'] > 0 else 0
-
-        # Analyze confidence behavior
-        total_conf_picks = sum(stats['confidence_distribution'].values())
-        high_conf_usage = 0  # 13-16 point picks
-        low_conf_usage = 0   # 1-4 point picks
-
-        for conf, count in stats['confidence_distribution'].items():
-            conf_int = int(conf) if isinstance(conf, str) else conf
-            if conf_int >= 13:
-                high_conf_usage += count
-            elif conf_int <= 4:
-                low_conf_usage += count
-
-        high_conf_rate = high_conf_usage / total_conf_picks if total_conf_picks > 0 else 0
-        low_conf_rate = low_conf_usage / total_conf_picks if total_conf_picks > 0 else 0
-
-        # Estimate skill level (0.3 to 0.9 range)
-        skill_level = max(0.3, min(0.9, 0.3 + accuracy * 0.6))
-
-        # Estimate crowd following (high confidence on popular picks)
-        crowd_following = 0.5  # Default for now
-
-        # Estimate confidence following (how much they use extreme confidence levels)
-        confidence_following = (high_conf_rate + low_conf_rate)  # 0-1 scale
-        confidence_following = max(0.1, min(0.9, confidence_following))
-
-        player_skills[name] = {
-            'skill_level': skill_level,
-            'crowd_following': crowd_following,
-            'confidence_following': confidence_following,
-            'accuracy': accuracy,
-            'efficiency': efficiency,
-            'weeks_played': stats['weeks_played'],
-            'total_picks': stats['total_picks']
-        }
-
-    return player_skills
+    Thin wrapper around analyze_player_skills.skills_from_raw_stats so the
+    single-year and combined-year paths derive skills identically.
+    """
+    return skills_from_raw_stats(raw_stats)
 
 def load_skill_data(year=None):
     """Load skill analysis from specified year(s)
