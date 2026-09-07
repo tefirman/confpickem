@@ -238,42 +238,47 @@ class ConfidencePickEmSimulator:
                 # Handle fixed picks for this player if they exist (for remaining games)
                 if player.name in fixed_picks:
                     player_fixed = fixed_picks[player.name]
-                    
-                    # Track available points to maintain valid confidence distribution
-                    used_points = set()
-                    
-                    # Apply fixed picks
+
+                    # Pinned game indices -> point value. Includes completed games
+                    # applied above (their confidence is already spent) so the repack
+                    # below never reuses those point values or reshuffles those slots.
+                    pinned_points = {}
                     for g_idx, game in enumerate(self.games):
-                        game_id = f"{game.away_team}@{game.home_team}"
-                        
-                        # Check if either team in this game has fixed picks
+                        if game.actual_outcome is not None and confidence[sim, p_idx, g_idx] > 0:
+                            pinned_points[g_idx] = int(confidence[sim, p_idx, g_idx])
+
+                    # Apply this player's fixed picks
+                    for g_idx, game in enumerate(self.games):
+                        # Check if either team in this game has a fixed pick
                         fixed_home = game.home_team in player_fixed
                         fixed_away = game.away_team in player_fixed
-                        
+
                         if fixed_home or fixed_away:
                             if fixed_home:
-                                team = game.home_team
                                 picks[sim, p_idx, g_idx] = True
+                                pts = player_fixed[game.home_team]
                             else:
-                                team = game.away_team
                                 picks[sim, p_idx, g_idx] = False
-                                
-                            pts = player_fixed[team]
+                                pts = player_fixed[game.away_team]
+
                             confidence[sim, p_idx, g_idx] = pts
-                            used_points.add(pts)
-                    
-                    # Adjust remaining confidence points to be valid
-                    available_points = set(range(1, num_games + 1)) - used_points
-                    remaining_indices = [i for i in range(num_games) 
-                                    if confidence[sim, p_idx, i] not in used_points]
-                    
-                    if remaining_indices:
-                        remaining_points = sorted(list(available_points), reverse=True)
-                        remaining_confidence = confidence[sim, p_idx, remaining_indices]
-                        rank_order = np.argsort(-remaining_confidence)
-                        
+                            pinned_points[g_idx] = pts
+
+                    # Repack every non-pinned game with the leftover point values,
+                    # ranked by the (noisy) confidence scores from the block above.
+                    # Tracking pinned games *by index* (not by value) guarantees the
+                    # result is a valid permutation of 1..num_games even when a fixed
+                    # point value collides with one already sitting in a free slot.
+                    free_indices = [i for i in range(num_games) if i not in pinned_points]
+                    if free_indices:
+                        leftover_points = sorted(
+                            set(range(1, num_games + 1)) - set(pinned_points.values()),
+                            reverse=True,
+                        )
+                        free_scores = confidence[sim, p_idx, free_indices]
+                        rank_order = np.argsort(-free_scores)  # highest score first
                         for rank, idx in enumerate(rank_order):
-                            confidence[sim, p_idx, remaining_indices[idx]] = remaining_points[rank]
+                            confidence[sim, p_idx, free_indices[idx]] = leftover_points[rank]
                 
                 # Add results for this player
                 for g_idx, game in enumerate(self.games):
