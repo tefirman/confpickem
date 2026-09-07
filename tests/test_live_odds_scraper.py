@@ -1,6 +1,7 @@
 import pytest
 import pandas as pd
 from datetime import datetime
+from unittest.mock import patch
 from src.confpickem.live_odds_scraper import LiveOddsScraper
 
 
@@ -138,8 +139,11 @@ class TestLiveOddsScraper:
             'home_favorite': [False, True]
         })
 
-        # Pass None to ensure it tries to get live odds but gets empty result
-        result = scraper.update_yahoo_odds(yahoo_games, None)
+        # Force the "no live odds" branch offline: get_live_odds otherwise reaches
+        # out to ESPN, which 403s on CI runners and returns mock spreads (a
+        # non-empty frame), so the fallback path under test would never run.
+        with patch.object(scraper, 'get_live_odds', return_value=pd.DataFrame()):
+            result = scraper.update_yahoo_odds(yahoo_games, None)
 
         # Should return original data with fallback indicators
         assert len(result) == 2
