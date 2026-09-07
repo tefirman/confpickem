@@ -11,12 +11,66 @@ import json
 from collections import defaultdict
 import argparse
 
+def parse_pick_distribution(dist_file):
+    """Parse a pick_distribution HTML file for crowd pick % and crowd confidence.
+
+    Returns a list of dicts keyed by favorite/underdog so it can be paired with
+    the confidence_picks games (which use the same favorite/underdog labels and
+    ordering). Missing/unparseable -> None.
+    """
+    try:
+        with open(dist_file, 'r') as f:
+            content = f.read()
+    except OSError:
+        return None
+
+    soup = BeautifulSoup(content, 'html.parser')
+    blocks = soup.find_all('div', class_='ysf-matchup-dist')
+    if not blocks:
+        return None
+
+    crowd = []
+    for block in blocks:
+        try:
+            teams = block.find_all('th')
+            percentages = block.find_all('dd', class_='percent')
+            if len(teams) < 2 or len(percentages) < 2:
+                continue
+
+            entry = {
+                'favorite': teams[0].text.strip(),
+                'underdog': teams[-1].text.strip(),
+                'favorite_pick_pct': float(percentages[0].text.strip().replace('%', '')),
+                'underdog_pick_pct': float(percentages[1].text.strip().replace('%', '')),
+                'favorite_confidence': 8.0,
+                'underdog_confidence': 8.0,
+            }
+
+            ft = block.find('div', class_='ft')
+            if ft:
+                conf_row = ft.find('tr', class_='odd first')
+                if conf_row:
+                    cells = conf_row.find_all('td')
+                    if len(cells) >= 3:
+                        try:
+                            entry['favorite_confidence'] = float(cells[0].text.strip())
+                            entry['underdog_confidence'] = float(cells[2].text.strip())
+                        except ValueError:
+                            pass
+
+            crowd.append(entry)
+        except Exception:
+            continue
+
+    return crowd or None
+
+
 def parse_week_data(week_file):
     """Parse a single week's HTML file to extract player performance"""
     try:
         with open(week_file, 'r') as f:
             content = f.read()
-        
+
         soup = BeautifulSoup(content, 'html.parser')
         
         # Find the main picks table
@@ -43,25 +97,40 @@ def parse_week_data(week_file):
             
         games_meta = header_rows
         games = []
-        
+
+        # Crowd pick %/confidence from the sibling pick_distribution file, if present.
+        # Paired positionally (both pages list games in the same order).
+        dist_file = str(week_file).replace('confidence_picks_week', 'pick_distribution_week')
+        crowd_by_index = parse_pick_distribution(dist_file)
+
         # Parse each game from the header columns
         num_games = len(games_meta[0])
         for game in range(num_games):
             try:
                 favorite = games_meta[0][game].text.strip()
                 underdog = games_meta[2][game].text.strip()
-                
+
                 winner = None
                 if "yspNflPickWin" in games_meta[0][game].get("class", []):
                     winner = favorite
                 elif "yspNflPickWin" in games_meta[2][game].get("class", []):
                     winner = underdog
-                
-                games.append({
+
+                entry = {
                     'favorite': favorite,
                     'underdog': underdog,
-                    'winner': winner
-                })
+                    'winner': winner,
+                }
+
+                if crowd_by_index and game < len(crowd_by_index):
+                    c = crowd_by_index[game]
+                    # Only trust the crowd row if the teams line up
+                    if c.get('favorite') == favorite and c.get('underdog') == underdog:
+                        entry['favorite_pick_pct'] = c['favorite_pick_pct']
+                        entry['favorite_confidence'] = c['favorite_confidence']
+                        entry['underdog_confidence'] = c['underdog_confidence']
+
+                games.append(entry)
             except Exception as e:
                 continue
         
@@ -129,7 +198,8 @@ def parse_week_data(week_file):
                                     'team': team,
                                     'confidence': confidence,
                                     'correct': is_correct,
-                                    'points': confidence if is_correct else 0
+                                    'points': confidence if is_correct else 0,
+                                    'game_index': i,
                                 })
                         except Exception:
                             continue
@@ -170,7 +240,12 @@ def analyze_player_skills(year):
         'total_possible_points': 0,
         'weeks_played': 0,
         'confidence_distribution': defaultdict(int),
-        'pick_accuracy_by_confidence': defaultdict(lambda: {'correct': 0, 'total': 0})
+        'pick_accuracy_by_confidence': defaultdict(lambda: {'correct': 0, 'total': 0}),
+        # Crowd behavior (populated only for weeks where pick_distribution parsed)
+        'crowd_agree': 0,        # picks matching the crowd majority side
+        'crowd_comparable': 0,   # picks where a crowd majority was known
+        'conf_align_sum': 0.0,   # sum of 1 - |conf - crowd_conf| / max(conf, crowd_conf)
+        'conf_align_n': 0,       # picks where crowd confidence was known
     })
     
     total_games = 0
@@ -200,65 +275,108 @@ def analyze_player_skills(year):
             stats['weeks_played'] += 1
             
             # Analyze picks
-            for pick in player['picks']:
+            for pick_idx, pick in enumerate(player['picks']):
                 if pick['correct'] is not None:  # Only count completed games
                     stats['total_picks'] += 1
                     stats['total_possible_points'] += pick['confidence']
-                    
+
                     if pick['correct']:
                         stats['total_correct'] += 1
                         stats['total_points'] += pick['confidence']
-                    
+
                     # Track confidence usage
                     conf = pick['confidence']
                     stats['confidence_distribution'][conf] += 1
-                    
+
                     # Track accuracy by confidence level
                     conf_stats = stats['pick_accuracy_by_confidence'][conf]
                     conf_stats['total'] += 1
                     if pick['correct']:
                         conf_stats['correct'] += 1
+
+                    # Crowd behavior, when we have crowd data for this game
+                    g_idx = pick.get('game_index', pick_idx)
+                    g = games[g_idx] if g_idx < len(games) else {}
+                    fav_pct = g.get('favorite_pick_pct')
+                    if fav_pct is not None:
+                        picked_favorite = (pick['team'] == g['favorite'])
+                        majority_favorite = fav_pct > 50
+                        stats['crowd_comparable'] += 1
+                        if picked_favorite == majority_favorite:
+                            stats['crowd_agree'] += 1
+
+                    fav_conf = g.get('favorite_confidence')
+                    und_conf = g.get('underdog_confidence')
+                    if fav_conf is not None and und_conf is not None:
+                        crowd_conf = fav_conf if pick['team'] == g['favorite'] else und_conf
+                        pts = pick['confidence']
+                        denom = max(pts, crowd_conf)
+                        if denom > 0:
+                            stats['conf_align_sum'] += 1 - abs(pts - crowd_conf) / denom
+                            stats['conf_align_n'] += 1
     
     print(f"\n📈 ANALYSIS COMPLETE:")
     print(f"   📊 {processed_weeks} weeks processed")
     print(f"   🏈 {total_games} total games")
     print(f"   👥 {len(all_player_stats)} players analyzed")
     
-    # Calculate derived metrics
+    player_skills = skills_from_raw_stats(all_player_stats)
+    return player_skills, all_player_stats
+
+
+MIN_PICKS = 20  # players with fewer scored picks are excluded from the skill table
+
+
+def skills_from_raw_stats(raw_stats):
+    """Derive the three 0-1 behavioural knobs for every player with enough data.
+
+    - skill_level: pick accuracy, spread across the league by z-score so the
+      0.6-0.7 accuracy band maps to a usable 0-1 range (raw accuracy alone
+      barely varies between players).
+    - crowd_following: fraction of picks that sided with the crowd majority.
+    - confidence_following: mean alignment between the player's assigned points
+      and the crowd's average confidence for that side.
+
+    crowd_following / confidence_following fall back to 0.5 for players with no
+    crowd data (weeks where pick_distribution didn't parse).
+    """
+    eligible = {n: s for n, s in raw_stats.items() if s['total_picks'] >= MIN_PICKS}
+    if not eligible:
+        return {}
+
+    accuracies = {n: s['total_correct'] / s['total_picks'] for n, s in eligible.items()}
+    acc_vals = list(accuracies.values())
+    acc_mean = float(np.mean(acc_vals))
+    acc_std = float(np.std(acc_vals))
+    # With a real league the accuracy spread is small (~0.03), so a z-score
+    # spreads it into a usable range. With one or two players (tests, tiny
+    # pools) there's no spread to work with - fall back to a direct monotonic
+    # map so skill_level still tracks accuracy.
+    use_zscore = len(eligible) >= 3 and acc_std > 1e-6
+
     player_skills = {}
-    
-    for name, stats in all_player_stats.items():
-        if stats['total_picks'] < 20:  # Skip players with too little data
-            continue
-        
-        accuracy = stats['total_correct'] / stats['total_picks']
-        efficiency = stats['total_points'] / stats['total_possible_points'] if stats['total_possible_points'] > 0 else 0
-        
-        # Analyze confidence behavior
-        total_conf_picks = sum(stats['confidence_distribution'].values())
-        high_conf_usage = 0  # 13-16 point picks
-        low_conf_usage = 0   # 1-4 point picks
-        
-        for conf, count in stats['confidence_distribution'].items():
-            if conf >= 13:
-                high_conf_usage += count
-            elif conf <= 4:
-                low_conf_usage += count
-        
-        high_conf_rate = high_conf_usage / total_conf_picks if total_conf_picks > 0 else 0
-        low_conf_rate = low_conf_usage / total_conf_picks if total_conf_picks > 0 else 0
-        
-        # Estimate skill level (0.3 to 0.9 range)
-        skill_level = max(0.3, min(0.9, 0.3 + accuracy * 0.6))
-        
-        # Estimate crowd following (high confidence on popular picks)
-        # This is simplified - ideally we'd compare to crowd picks
-        crowd_following = 0.5  # Default for now
-        
-        # Estimate confidence following (how much they use extreme confidence levels)
-        confidence_following = (high_conf_rate + low_conf_rate)  # 0-1 scale
-        confidence_following = max(0.1, min(0.9, confidence_following))
-        
+    for name, stats in eligible.items():
+        accuracy = accuracies[name]
+        efficiency = (stats['total_points'] / stats['total_possible_points']
+                      if stats['total_possible_points'] > 0 else 0)
+
+        if use_zscore:
+            z = (accuracy - acc_mean) / acc_std
+            skill_level = float(np.clip(0.5 + z * 0.18, 0.15, 0.95))
+        else:
+            skill_level = float(np.clip(0.15 + accuracy * 0.8, 0.15, 0.95))
+
+        if stats.get('crowd_comparable', 0) > 0:
+            crowd_following = stats['crowd_agree'] / stats['crowd_comparable']
+        else:
+            crowd_following = 0.5
+
+        if stats.get('conf_align_n', 0) > 0:
+            confidence_following = stats['conf_align_sum'] / stats['conf_align_n']
+        else:
+            confidence_following = 0.5
+        confidence_following = float(np.clip(confidence_following, 0.0, 1.0))
+
         player_skills[name] = {
             'skill_level': skill_level,
             'crowd_following': crowd_following,
@@ -266,10 +384,10 @@ def analyze_player_skills(year):
             'accuracy': accuracy,
             'efficiency': efficiency,
             'weeks_played': stats['weeks_played'],
-            'total_picks': stats['total_picks']
+            'total_picks': stats['total_picks'],
         }
-    
-    return player_skills, all_player_stats
+
+    return player_skills
 
 def main():
     """Analyze player skills and save results"""

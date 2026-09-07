@@ -256,12 +256,14 @@ class TestAnalyzePlayerSkills:
         assert raw_stats['TestPlayer']['weeks_played'] == 2
 
     def test_skill_level_calculation_range(self, sample_raw_stats):
-        """Test that calculated skill levels are within valid range (0.3-0.9)"""
+        """Test that calculated skill levels stay within the clamped 0.15-0.95 range"""
         skills = apply_realistic_skills.calculate_skills_from_stats(sample_raw_stats)
 
         for player, data in skills.items():
             skill = data['skill_level']
-            assert 0.3 <= skill <= 0.9, f"{player} skill {skill} outside valid range"
+            assert 0.15 <= skill <= 0.95, f"{player} skill {skill} outside valid range"
+            for knob in ('crowd_following', 'confidence_following'):
+                assert 0.0 <= data[knob] <= 1.0, f"{player} {knob} {data[knob]} out of range"
 
     def test_filters_players_with_insufficient_data(self, sample_raw_stats):
         """Test that players with <20 picks are filtered out"""
@@ -533,45 +535,50 @@ class TestSkillCalculation:
 
         assert high_skill > low_skill
 
-    def test_confidence_following_based_on_extreme_usage(self):
-        """Test that confidence_following reflects use of extreme values"""
-        stats_extreme = {
-            'ExtremePlayer': {
-                'total_picks': 100,
-                'total_correct': 60,
-                'total_points': 600,
-                'total_possible_points': 1000,
-                'weeks_played': 10,
-                'confidence_distribution': {
-                    '1': 10, '2': 10, '3': 5,  # Low confidence picks
-                    '14': 5, '15': 10, '16': 10  # High confidence picks
-                },
-                'pick_accuracy_by_confidence': {}
-            }
+    def test_confidence_following_reflects_crowd_alignment(self):
+        """confidence_following = how closely a player's points track crowd confidence."""
+        base = {
+            'total_picks': 100,
+            'total_correct': 60,
+            'total_points': 600,
+            'total_possible_points': 1000,
+            'weeks_played': 10,
+            'confidence_distribution': {},
+            'pick_accuracy_by_confidence': {},
+            'crowd_agree': 80,
+            'crowd_comparable': 100,
         }
+        aligned = {'AlignedPlayer': {**base, 'conf_align_sum': 90.0, 'conf_align_n': 100}}
+        misaligned = {'MisalignedPlayer': {**base, 'conf_align_sum': 40.0, 'conf_align_n': 100}}
 
-        stats_moderate = {
-            'ModeratePlayer': {
-                'total_picks': 100,
-                'total_correct': 60,
-                'total_points': 600,
-                'total_possible_points': 1000,
-                'weeks_played': 10,
-                'confidence_distribution': {
-                    '7': 20, '8': 20, '9': 10  # Moderate confidence picks
-                },
-                'pick_accuracy_by_confidence': {}
-            }
+        aligned_skills = apply_realistic_skills.calculate_skills_from_stats(aligned)
+        misaligned_skills = apply_realistic_skills.calculate_skills_from_stats(misaligned)
+
+        assert (aligned_skills['AlignedPlayer']['confidence_following']
+                > misaligned_skills['MisalignedPlayer']['confidence_following'])
+
+    def test_crowd_following_reflects_majority_agreement(self):
+        """crowd_following = fraction of picks siding with the crowd majority."""
+        base = {
+            'total_picks': 100,
+            'total_correct': 60,
+            'total_points': 600,
+            'total_possible_points': 1000,
+            'weeks_played': 10,
+            'confidence_distribution': {},
+            'pick_accuracy_by_confidence': {},
+            'conf_align_sum': 70.0,
+            'conf_align_n': 100,
         }
+        chalk = {'ChalkPlayer': {**base, 'crowd_agree': 95, 'crowd_comparable': 100}}
+        contrarian = {'ContrarianPlayer': {**base, 'crowd_agree': 55, 'crowd_comparable': 100}}
 
-        extreme_skills = apply_realistic_skills.calculate_skills_from_stats(stats_extreme)
-        moderate_skills = apply_realistic_skills.calculate_skills_from_stats(stats_moderate)
+        chalk_skills = apply_realistic_skills.calculate_skills_from_stats(chalk)
+        contrarian_skills = apply_realistic_skills.calculate_skills_from_stats(contrarian)
 
-        extreme_conf = extreme_skills['ExtremePlayer']['confidence_following']
-        moderate_conf = moderate_skills['ModeratePlayer']['confidence_following']
-
-        # Extreme player should have higher confidence_following
-        assert extreme_conf > moderate_conf
+        assert (chalk_skills['ChalkPlayer']['crowd_following']
+                > contrarian_skills['ContrarianPlayer']['crowd_following'])
+        assert chalk_skills['ChalkPlayer']['crowd_following'] == pytest.approx(0.95)
 
 
 class TestPlayerSkillsIntegration:
