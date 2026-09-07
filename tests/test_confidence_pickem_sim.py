@@ -144,6 +144,78 @@ def test_fixed_picks(simulator):
     assert kc_picks['confidence'].iloc[0] == 1
     assert kc_picks['picked_home'].all()  # KC is home team
 
+@pytest.fixture
+def big_simulator():
+    """Simulator with a 12-game slate for exercising confidence-vector validity."""
+    rng = np.random.default_rng(0)
+    n = 12
+    games = [
+        Game(
+            home_team=f"H{i}",
+            away_team=f"A{i}",
+            vegas_win_prob=0.55 + 0.03 * i,
+            crowd_home_pick_pct=0.6 + 0.03 * i,
+            crowd_home_confidence=5.0 + 0.5 * i,
+            crowd_away_confidence=5.0 - 0.15 * i,
+            week=1,
+            kickoff_time=datetime(2024, 9, 8, 13, 0),
+        )
+        for i in range(n)
+    ]
+    sim = ConfidencePickEmSimulator(num_sims=200)
+    sim.games = games
+    sim.players = [
+        Player(name="ME", skill_level=0.75, crowd_following=0.74, confidence_following=0.83),
+        Player(name="Other", skill_level=0.6, crowd_following=0.5, confidence_following=0.5),
+    ]
+    return sim
+
+
+@pytest.mark.parametrize(
+    "fixed_picks",
+    [
+        None,                                             # nothing fixed
+        {"ME": {"H0": 12}},                               # one strong pick
+        {"ME": {"H11": 12}},                              # one coin-flip pick at top confidence
+        {"ME": {"H5": 6}},                                # one mid pick, mid confidence
+        {"ME": {"H0": 12, "H1": 11, "H2": 1}},            # partial slate
+        {"ME": {f"H{i}": 12 - i for i in range(12)}},     # full slate
+    ],
+)
+def test_fixed_picks_yield_valid_confidence_vectors(big_simulator, fixed_picks):
+    """Every simulated player's per-sim confidence vector must be a permutation of 1..N.
+
+    Regression test: the fixed-picks repack used to exclude non-fixed games whose
+    pre-filled confidence collided with a fixed point value, producing duplicates/gaps
+    (and silently inflating win_pct for the fixed entry).
+    """
+    n = len(big_simulator.games)
+    picks_df = big_simulator.simulate_picks(fixed_picks=fixed_picks)
+    expected = list(range(1, n + 1))
+
+    for (sim_idx, player), grp in picks_df.groupby(["simulation", "player"]):
+        conf = sorted(int(c) for c in grp["confidence"])
+        assert conf == expected, (
+            f"player {player!r} sim {sim_idx} has invalid confidence vector {conf} "
+            f"(fixed_picks={fixed_picks})"
+        )
+
+
+def test_fixed_picks_are_respected_exactly(big_simulator):
+    """Fixed team/points land on the right game in every simulation."""
+    fixed = {"ME": {"H0": 12, "H11": 1}}
+    picks_df = big_simulator.simulate_picks(fixed_picks=fixed)
+    me = picks_df[picks_df["player"] == "ME"]
+
+    h0 = me[me["game"] == "A0@H0"]
+    assert (h0["confidence"] == 12).all()
+    assert h0["picked_home"].all()
+
+    h11 = me[me["game"] == "A11@H11"]
+    assert (h11["confidence"] == 1).all()
+    assert h11["picked_home"].all()
+
+
 def test_game_importance(simulator):
     """Test game importance calculation"""
     picks_df = simulator.simulate_picks()

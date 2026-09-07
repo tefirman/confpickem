@@ -497,7 +497,9 @@ class LiveOddsScraper:
 
         if live_odds.empty:
             print("⚠️ No live odds available, keeping Yahoo odds")
-            return yahoo_games.copy()
+            fallback = yahoo_games.copy()
+            fallback['live_odds_source'] = 'Yahoo_Fallback'
+            return fallback
 
         # Create team name mapping from Odds API (full names or abbreviations) to Yahoo (Title Case)
         team_name_mapping = {
