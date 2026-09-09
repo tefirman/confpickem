@@ -36,10 +36,10 @@ ME = "Firman's Educated Guesses"
 LEAGUE_ID = 15435
 COOKIES = "cookies.txt"
 CACHE = {2024: "PickEmCache2024", 2025: "PickEmCache2025"}
-CHECK_WEEKS = [(2024, 3), (2025, 9), (2025, 12)]
-N_SLATES = 24
-SIM_N = 12000
-K_OUTCOMES = 6000
+CHECK_WEEKS = [(2024, 3), (2025, 9)]
+N_SLATES = 16
+SIM_N = 3000
+K_OUTCOMES = 5000
 SEED = 999
 
 _SKILLS = {}

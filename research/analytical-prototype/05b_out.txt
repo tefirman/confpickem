@@ -1,0 +1,37 @@
+Known results for 14 out of 14 games.
+Results dict: {'Bal': 'Bal', 'Chi': 'Chi', 'Det': 'Min', 'GB': 'Car', 'LAC': 'LAC', 'NE': 'NE', 'SF': 'SF', 'Ind': 'Pit', 'Hou': 'Den', 'Jax': 'Jax', 'LAR': 'LAR', 'KC': 'Buf', 'Sea': 'Sea', 'Dal': 'Ari'}
+2025 wk9: n=14, 55 opp -> 3 types
+  slate  0: analytic 0.0077 (0.05s)   sim 0.0150 (14.6s)
+  slate  1: analytic 0.0167 (0.05s)   sim 0.0300 (14.5s)
+  slate  2: analytic 0.0340 (0.06s)   sim 0.0467 (15.1s)
+  slate  3: analytic 0.0291 (0.06s)   sim 0.0850 (14.7s)
+  slate  4: analytic 0.0199 (0.05s)   sim 0.0183 (14.6s)
+  slate  5: analytic 0.0106 (0.05s)   sim 0.0117 (14.0s)
+  slate  6: analytic 0.0089 (0.05s)   sim 0.0133 (13.9s)
+  slate  7: analytic 0.0171 (0.06s)   sim 0.0250 (14.8s)
+  slate  8: analytic 0.0179 (0.08s)   sim 0.0350 (14.6s)
+  slate  9: analytic 0.0077 (0.05s)   sim 0.0067 (15.5s)
+  slate 10: analytic 0.0088 (0.06s)   sim 0.0217 (14.9s)
+  slate 11: analytic 0.0096 (0.05s)   sim 0.0233 (15.1s)
+  slate 12: analytic 0.0238 (0.07s)   sim 0.0400 (17.5s)
+  slate 13: analytic 0.0107 (0.07s)   sim 0.0233 (17.2s)
+  slate 14: analytic 0.0107 (0.07s)   sim 0.0033 (17.6s)
+  slate 15: analytic 0.0349 (0.06s)   sim 0.0683 (14.9s)
+  slate 16: analytic 0.0150 (0.06s)   sim 0.0183 (15.8s)
+  slate 17: analytic 0.0171 (0.06s)   sim 0.0133 (15.8s)
+  slate 18: analytic 0.0233 (0.06s)   sim 0.0350 (15.5s)
+  slate 19: analytic 0.0085 (0.06s)   sim 0.0167 (14.5s)
+  slate 20: analytic 0.0361 (0.06s)   sim 0.0650 (14.8s)
+  slate 21: analytic 0.0291 (0.05s)   sim 0.0517 (15.1s)
+  slate 22: analytic 0.0140 (0.05s)   sim 0.0233 (14.9s)
+  slate 23: analytic 0.0401 (0.05s)   sim 0.0567 (14.8s)
+  slate 24: analytic 0.0144 (0.06s)   sim 0.0167 (16.8s)
+  slate 25: analytic 0.0058 (0.06s)   sim 0.0100 (17.0s)
+  slate 26: analytic 0.0039 (0.06s)   sim 0.0067 (16.8s)
+  slate 27: analytic 0.0139 (0.06s)   sim 0.0250 (18.1s)
+  slate 28: analytic 0.0202 (0.07s)   sim 0.0317 (19.0s)
+  slate 29: analytic 0.0170 (0.07s)   sim 0.0333 (25.6s)
+
+Spearman rho(analytic, sim) = 0.849
+analytic argmax -> sim rank 4/30  (sim 0.0567 vs sim best 0.0850)
+top-3 analytic: [23, 20, 15]  top-3 sim: [3, 15, 20]

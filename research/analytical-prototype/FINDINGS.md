@@ -83,3 +83,35 @@ This is `02_pwin_uncertain` done right. The naive version was
 
 Target: match the simulator's win_pct within ~20% on the 4 check weeks, at a cost
 low enough (<~1s/week) to wrap an optimizer around.
+
+## 5. Ranking check — PASSES (analytical objective is optimizer-ready)
+
+`05b_ranking_fast.py`, 2025 wk9, 30 candidate slates (chalk + perturbations +
+contrarian variants), each scored by sampled analytical P(win) and by the
+simulator (600 sims).
+
+- **Spearman rho(analytic, sim) = 0.849**
+- analytic's argmax slate -> simulator rank **4 / 30** (top-few)
+- top-3 overlap 2/3 (slates 15, 20 shared)
+- analytic P(win) is a consistent ~0.6x the simulator's (a fixed scale factor,
+  irrelevant to an optimizer that only needs the ordering)
+- **timing: 0.05-0.08s analytic vs 14-25s simulator per slate** (~250x)
+
+`pwin_sampled` vectorized: `vectorized_weighted_pmf` builds every outcome-drawn
+opponent score PMF in one pass (no per-draw Python loop). K=5000 outcome draws,
+opponents dedupe to 3 types.
+
+### Verdict
+
+The sampled analytical P(win) ranks slates like the simulator (rho 0.85) at
+~250x the speed with no Monte-Carlo noise. This is the objective the earlier
+lever investigation lacked. **Next: build a local-search slate optimizer on it**
+(each eval ~0.06s, so thousands of neighbor evaluations per week is trivial) and
+backtest vs greedy / leverage / the actual pool outcomes on the 10 weeks.
+
+Open items (not blockers, tune later):
+- validate rho on 2-3 more weeks (only wk9 checked at this depth)
+- opponents collapse to 2-4 types -- the field model may be too smooth; a richer
+  opponent model could widen the P(win) spread and sharpen the ranking further
+- the ~0.6x scale gap vs simulator: from the given-o cross-opponent independence
+  approximation and/or the modal-pick opponent assumption. Harmless for ranking.
