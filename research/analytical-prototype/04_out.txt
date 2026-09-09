@@ -1,0 +1,13 @@
+week            n        sim      sampled     stderr    ratio  time
+Known results for 13 out of 13 games.
+Results dict: {'Pit': 'Cle', 'Min': 'Min', 'Det': 'Det', 'Mia': 'Mia', 'TB': 'TB', 'Was': 'Dal', 'KC': 'KC', 'Hou': 'Ten', 'Den': 'Den', 'GB': 'GB', 'Ari': 'Sea', 'Phi': 'Phi', 'Bal': 'Bal'}
+2024 wk12      13     0.0014       0.0021     0.0003     1.56  0.6s (53 opp -> 3 types)
+Known results for 14 out of 14 games.
+Results dict: {'Bal': 'Bal', 'Chi': 'Chi', 'Det': 'Min', 'GB': 'Car', 'LAC': 'LAC', 'NE': 'NE', 'SF': 'SF', 'Ind': 'Pit', 'Hou': 'Den', 'Jax': 'Jax', 'LAR': 'LAR', 'KC': 'Buf', 'Sea': 'Sea', 'Dal': 'Ari'}
+2025 wk9       14     0.0124       0.0064     0.0007     0.52  0.5s (55 opp -> 3 types)
+Known results for 14 out of 14 games.
+Results dict: {'Buf': 'Hou', 'Chi': 'Chi', 'NE': 'NE', 'Det': 'Det', 'GB': 'GB', 'Sea': 'Sea', 'KC': 'KC', 'Bal': 'Bal', 'LV': 'Cle', 'Jax': 'Jax', 'Phi': 'Dal', 'NO': 'Atl', 'LAR': 'LAR', 'SF': 'SF'}
+2025 wk12      14     0.0129       0.0092     0.0007     0.71  0.7s (55 opp -> 4 types)
+Known results for 16 out of 16 games.
+Results dict: {'NYJ': 'NYJ', 'Cle': 'NYG', 'Ten': 'GB', 'Ind': 'Ind', 'Hou': 'Min', 'NO': 'Phi', 'Pit': 'Pit', 'TB': 'Den', 'LV': 'Car', 'Sea': 'Sea', 'Bal': 'Bal', 'SF': 'LAR', 'Det': 'Det', 'KC': 'KC', 'Buf': 'Buf', 'Cin': 'Was'}
+2024 wk3       16     0.0089       0.0093     0.0009     1.05  0.4s (53 opp -> 2 types)

@@ -1,0 +1,13 @@
+week            n        sim        modal    ratio   modal time
+Known results for 13 out of 13 games.
+Results dict: {'Pit': 'Cle', 'Min': 'Min', 'Det': 'Det', 'Mia': 'Mia', 'TB': 'TB', 'Was': 'Dal', 'KC': 'KC', 'Hou': 'Ten', 'Den': 'Den', 'GB': 'GB', 'Ari': 'Sea', 'Phi': 'Phi', 'Bal': 'Bal'}
+2024 wk12      13     0.0012       0.3819   327.36   0.0s
+Known results for 14 out of 14 games.
+Results dict: {'Bal': 'Bal', 'Chi': 'Chi', 'Det': 'Min', 'GB': 'Car', 'LAC': 'LAC', 'NE': 'NE', 'SF': 'SF', 'Ind': 'Pit', 'Hou': 'Den', 'Jax': 'Jax', 'LAR': 'LAR', 'KC': 'Buf', 'Sea': 'Sea', 'Dal': 'Ari'}
+2025 wk9       14     0.0150       0.5164    34.43   0.0s
+Known results for 14 out of 14 games.
+Results dict: {'Buf': 'Hou', 'Chi': 'Chi', 'NE': 'NE', 'Det': 'Det', 'GB': 'GB', 'Sea': 'Sea', 'KC': 'KC', 'Bal': 'Bal', 'LV': 'Cle', 'Jax': 'Jax', 'Phi': 'Dal', 'NO': 'Atl', 'LAR': 'LAR', 'SF': 'SF'}
+2025 wk12      14     0.0148       0.4736    31.93   0.0s
+Known results for 16 out of 16 games.
+Results dict: {'NYJ': 'NYJ', 'Cle': 'NYG', 'Ten': 'GB', 'Ind': 'Ind', 'Hou': 'Min', 'NO': 'Phi', 'Pit': 'Pit', 'TB': 'Den', 'LV': 'Car', 'Sea': 'Sea', 'Bal': 'Bal', 'SF': 'LAR', 'Det': 'Det', 'KC': 'KC', 'Buf': 'Buf', 'Cin': 'Was'}
+2024 wk3       16     0.0078       0.4257    54.34   0.1s

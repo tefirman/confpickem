@@ -1,0 +1,13 @@
+week         sim P(win)     analytic      ratio  slate (top 5)
+Known results for 16 out of 16 games.
+Results dict: {'NYJ': 'NYJ', 'Cle': 'NYG', 'Ten': 'GB', 'Ind': 'Ind', 'Hou': 'Min', 'NO': 'Phi', 'Pit': 'Pit', 'TB': 'Den', 'LV': 'Car', 'Sea': 'Sea', 'Bal': 'Bal', 'SF': 'LAR', 'Det': 'Det', 'KC': 'KC', 'Buf': 'Buf', 'Cin': 'Was'}
+2024 wk3         0.0088       0.0000       0.00  [('SF', 16), ('Cin', 15), ('TB', 14), ('Cle', 13), ('NYJ', 12)]
+Known results for 13 out of 13 games.
+Results dict: {'Pit': 'Cle', 'Min': 'Min', 'Det': 'Det', 'Mia': 'Mia', 'TB': 'TB', 'Was': 'Dal', 'KC': 'KC', 'Hou': 'Ten', 'Den': 'Den', 'GB': 'GB', 'Ari': 'Sea', 'Phi': 'Phi', 'Bal': 'Bal'}
+2024 wk12        0.0027       0.0000       0.00  [('KC', 13), ('Was', 12), ('Hou', 11), ('Det', 10), ('Mia', 9)]
+Known results for 14 out of 14 games.
+Results dict: {'Bal': 'Bal', 'Chi': 'Chi', 'Det': 'Min', 'GB': 'Car', 'LAC': 'LAC', 'NE': 'NE', 'SF': 'SF', 'Ind': 'Pit', 'Hou': 'Den', 'Jax': 'Jax', 'LAR': 'LAR', 'KC': 'Buf', 'Sea': 'Sea', 'Dal': 'Ari'}
+2025 wk9         0.0145       0.0000       0.00  [('LAR', 14), ('GB', 13), ('LAC', 12), ('Det', 11), ('Bal', 10)]
+Known results for 14 out of 14 games.
+Results dict: {'Buf': 'Hou', 'Chi': 'Chi', 'NE': 'NE', 'Det': 'Det', 'GB': 'GB', 'Sea': 'Sea', 'KC': 'KC', 'Bal': 'Bal', 'LV': 'Cle', 'Jax': 'Jax', 'Phi': 'Dal', 'NO': 'Atl', 'LAR': 'LAR', 'SF': 'SF'}
+2025 wk12        0.0090       0.0000       0.00  [('Sea', 14), ('Bal', 13), ('Det', 12), ('NE', 11), ('SF', 10)]
