@@ -171,3 +171,66 @@ Tension: analytic's ACTUAL-outcome rank (33.8) is only modestly above greedy
 you'd expect ~0.5 wins; got 0 but 3 "one game away". Consistent with a real edge
 not yet realized (small n) OR the model still overstates the edge. 2025 half
 pending.
+
+## 8. Full analytical-optimizer backtest -- FINAL (9/10, 2025 wk15 pending)
+
+| week | actual | greedy (oa) | leverage (oa) | analytic (oa) | sim_winpct chalk->analytic |
+|---|---|---|---|---|---|
+| 2024 wk3  | 49 | 16 (1) | 48 | 21 | 0.009->0.098  (11x) |
+| 2024 wk6  | 53 | 53     | 53 | 35 (1) | 0.0045->0.086 (19x) |
+| 2024 wk9  | 45 | 53     | 53 | 35 (1) | 0.013->0.138  (11x) |
+| 2024 wk12 | 43 | 27 (1) | 52 | 27 (1) | 0.0015->0.099 (66x) |
+| 2024 wk15 | 50 | 51     | 50 | 51 | 0.0015->0.093 (62x) |
+| 2025 wk2  | 47 | 56     | 56 | 56 | 0.0015->0.111 (74x) |
+| 2025 wk5  | 3  | 21 (1) | 9 (1) | 3 | 0.014->0.10 (7x) |
+| 2025 wk9  | 54 | 1 (1)  | 54 | 46 | 0.014->0.107 (8x) |
+| 2025 wk12 | 42 | 52     | 2  | 18 (1) | 0.011->0.114 (10x) |
+
+Aggregate (9 wks):
+
+| variant  | wins | one-away | mean rank |
+|----------|-----:|---------:|----------:|
+| analytic | 0    | **5**    | **32.3**  |
+| greedy   | 1    | 4        | 37.8      |
+| leverage | 0    | 2        | 40.7      |
+| actual   | 1    | -        | 43.0      |
+
+**Q2 overfit? NO.** All 9 weeks the analytic slate's SIMULATOR win_pct is 7-74x
+chalk's. The analytic gains survive the correlation-correct model. Leverage never
+did this.
+
+**Q3 blowups? NO.** Analytic's worst weeks (wk15 rk51, wk2 rk56) are weeks every
+method failed. No leverage-style "great one week, 53rd the next" volatility.
+
+**Q1 beats baselines? Yes, modestly.** Best mean rank (32.3 vs greedy 37.8), most
+"one game away" weeks (5/9 -- the designed metric). But **0 outright wins in 9
+weeks.** Greedy's 1 win (wk9, 1st) came a week analytic went 46th.
+
+### Honest read
+
+The analytic optimizer reliably builds slates modeled at ~8-10% win prob that
+consistently land "one flip from winning" but haven't converted. Over 9 weeks at
+~9% you'd expect ~0.8 wins; got 0. Within variance (P(0 wins) ~43%) but also
+consistent with the model overstating the edge ~2x. wk9: analytic's contrarian
+bet missed (46th) while greedy's near-chalk slate nailed 1st -- the approach
+trades "occasionally win big" for "usually close", the right trade for a
+weekly-prize pool IF it hits.
+
+### Recommendation
+
+**Productionize, but as an alternative not a replacement.** This is the first
+approach in the whole investigation that (a) has a noise-free, fast, validated
+objective (rho 0.67-0.95), (b) produces gains that survive the simulator, (c) is
+consistent week to week. That is a real result. But 0/9 wins means it is not
+proven superior on realized outcomes -- it needs a full-season (or multi-season)
+backtest to separate "real edge, small sample" from "model 2x optimistic".
+
+Concrete next steps:
+1. Full-season backtest (all ~17 replayable weeks/season x 2 seasons) -- the
+   9-week sample is too thin to trust the win rate.
+2. Calibrate: the ~0.6x scale gap vs simulator (section 5) plus the 0/9 wins
+   suggest tightening the opponent model (richer than 2-4 types) and/or the
+   given-o independence correction.
+3. If it survives that: move poisson_binomial.py -> src/confpickem/, add
+   optimize_picks_analytic() as a method (objective closure + hill climb),
+   tests, wire into the CLI as an opt-in mode.

@@ -55,3 +55,47 @@ Results dict: {'SF': 'LAR', 'KC': 'KC', 'Cin': 'Cin', 'Was': 'Was', 'Bal': 'Bal'
 2024 wk15 (629s): actual rk 50 | greedy rk 51 oa 0 | lev rk 50 oa 0 | ANALYTIC rk 51 oa 0 live 0  | pwin 0.0040->0.0824  sim_winpct 0.0015->0.0925
 Known results for 16 out of 16 games.
 Results dict: {'GB': 'GB', 'Cin': 'Cin', 'Dal': 'Dal', 'Det': 'Det', 'LAR': 'LAR', 'Mia': 'NE', 'SF': 'SF', 'Buf': 'Buf', 'Pit': 'Sea', 'Bal': 'Bal', 'Den': 'Ind', 'Ari': 'Ari', 'Phi': 'Phi', 'Min': 'Atl', 'Hou': 'TB', 'LAC': 'LAC'}
+Known results for 16 out of 16 games.
+Results dict: {'GB': 'GB', 'Cin': 'Cin', 'Dal': 'Dal', 'Det': 'Det', 'LAR': 'LAR', 'Mia': 'NE', 'SF': 'SF', 'Buf': 'Buf', 'Pit': 'Sea', 'Bal': 'Bal', 'Den': 'Ind', 'Ari': 'Ari', 'Phi': 'Phi', 'Min': 'Atl', 'Hou': 'TB', 'LAC': 'LAC'}
+Known results for 16 out of 16 games.
+Results dict: {'GB': 'GB', 'Cin': 'Cin', 'Dal': 'Dal', 'Det': 'Det', 'LAR': 'LAR', 'Mia': 'NE', 'SF': 'SF', 'Buf': 'Buf', 'Pit': 'Sea', 'Bal': 'Bal', 'Den': 'Ind', 'Ari': 'Ari', 'Phi': 'Phi', 'Min': 'Atl', 'Hou': 'TB', 'LAC': 'LAC'}
+Known results for 16 out of 16 games.
+Results dict: {'GB': 'GB', 'Cin': 'Cin', 'Dal': 'Dal', 'Det': 'Det', 'LAR': 'LAR', 'Mia': 'NE', 'SF': 'SF', 'Buf': 'Buf', 'Pit': 'Sea', 'Bal': 'Bal', 'Den': 'Ind', 'Ari': 'Ari', 'Phi': 'Phi', 'Min': 'Atl', 'Hou': 'TB', 'LAC': 'LAC'}
+Known results for 16 out of 16 games.
+Results dict: {'GB': 'GB', 'Cin': 'Cin', 'Dal': 'Dal', 'Det': 'Det', 'LAR': 'LAR', 'Mia': 'NE', 'SF': 'SF', 'Buf': 'Buf', 'Pit': 'Sea', 'Bal': 'Bal', 'Den': 'Ind', 'Ari': 'Ari', 'Phi': 'Phi', 'Min': 'Atl', 'Hou': 'TB', 'LAC': 'LAC'}
+2025 wk 2 (728s): actual rk 47 | greedy rk 56 oa 0 | lev rk 56 oa 0 | ANALYTIC rk 56 oa 0 live 0  | pwin 0.0026->0.0720  sim_winpct 0.0015->0.1110
+Known results for 14 out of 14 games.
+Results dict: {'LAR': 'SF', 'Min': 'Min', 'Ind': 'Ind', 'NO': 'NO', 'Dal': 'Dal', 'Phi': 'Den', 'Mia': 'Car', 'Hou': 'Hou', 'Ari': 'Ten', 'Sea': 'TB', 'Det': 'Det', 'LAC': 'Was', 'Buf': 'NE', 'KC': 'Jax'}
+Known results for 14 out of 14 games.
+Results dict: {'LAR': 'SF', 'Min': 'Min', 'Ind': 'Ind', 'NO': 'NO', 'Dal': 'Dal', 'Phi': 'Den', 'Mia': 'Car', 'Hou': 'Hou', 'Ari': 'Ten', 'Sea': 'TB', 'Det': 'Det', 'LAC': 'Was', 'Buf': 'NE', 'KC': 'Jax'}
+Known results for 14 out of 14 games.
+Results dict: {'LAR': 'SF', 'Min': 'Min', 'Ind': 'Ind', 'NO': 'NO', 'Dal': 'Dal', 'Phi': 'Den', 'Mia': 'Car', 'Hou': 'Hou', 'Ari': 'Ten', 'Sea': 'TB', 'Det': 'Det', 'LAC': 'Was', 'Buf': 'NE', 'KC': 'Jax'}
+Known results for 14 out of 14 games.
+Results dict: {'LAR': 'SF', 'Min': 'Min', 'Ind': 'Ind', 'NO': 'NO', 'Dal': 'Dal', 'Phi': 'Den', 'Mia': 'Car', 'Hou': 'Hou', 'Ari': 'Ten', 'Sea': 'TB', 'Det': 'Det', 'LAC': 'Was', 'Buf': 'NE', 'KC': 'Jax'}
+Known results for 14 out of 14 games.
+Results dict: {'LAR': 'SF', 'Min': 'Min', 'Ind': 'Ind', 'NO': 'NO', 'Dal': 'Dal', 'Phi': 'Den', 'Mia': 'Car', 'Hou': 'Hou', 'Ari': 'Ten', 'Sea': 'TB', 'Det': 'Det', 'LAC': 'Was', 'Buf': 'NE', 'KC': 'Jax'}
+2025 wk 5 (605s): actual rk  3 | greedy rk 21 oa 1 | lev rk  9 oa 1 | ANALYTIC rk  3 oa 0 live 0  | pwin 0.0066->0.0744  sim_winpct 0.0140->0.1000
+Known results for 14 out of 14 games.
+Results dict: {'Bal': 'Bal', 'Chi': 'Chi', 'Det': 'Min', 'GB': 'Car', 'LAC': 'LAC', 'NE': 'NE', 'SF': 'SF', 'Ind': 'Pit', 'Hou': 'Den', 'Jax': 'Jax', 'LAR': 'LAR', 'KC': 'Buf', 'Sea': 'Sea', 'Dal': 'Ari'}
+Known results for 14 out of 14 games.
+Results dict: {'Bal': 'Bal', 'Chi': 'Chi', 'Det': 'Min', 'GB': 'Car', 'LAC': 'LAC', 'NE': 'NE', 'SF': 'SF', 'Ind': 'Pit', 'Hou': 'Den', 'Jax': 'Jax', 'LAR': 'LAR', 'KC': 'Buf', 'Sea': 'Sea', 'Dal': 'Ari'}
+Known results for 14 out of 14 games.
+Results dict: {'Bal': 'Bal', 'Chi': 'Chi', 'Det': 'Min', 'GB': 'Car', 'LAC': 'LAC', 'NE': 'NE', 'SF': 'SF', 'Ind': 'Pit', 'Hou': 'Den', 'Jax': 'Jax', 'LAR': 'LAR', 'KC': 'Buf', 'Sea': 'Sea', 'Dal': 'Ari'}
+Known results for 14 out of 14 games.
+Results dict: {'Bal': 'Bal', 'Chi': 'Chi', 'Det': 'Min', 'GB': 'Car', 'LAC': 'LAC', 'NE': 'NE', 'SF': 'SF', 'Ind': 'Pit', 'Hou': 'Den', 'Jax': 'Jax', 'LAR': 'LAR', 'KC': 'Buf', 'Sea': 'Sea', 'Dal': 'Ari'}
+Known results for 14 out of 14 games.
+Results dict: {'Bal': 'Bal', 'Chi': 'Chi', 'Det': 'Min', 'GB': 'Car', 'LAC': 'LAC', 'NE': 'NE', 'SF': 'SF', 'Ind': 'Pit', 'Hou': 'Den', 'Jax': 'Jax', 'LAR': 'LAR', 'KC': 'Buf', 'Sea': 'Sea', 'Dal': 'Ari'}
+2025 wk 9 (555s): actual rk 54 | greedy rk  1 oa 1 | lev rk 54 oa 0 | ANALYTIC rk 46 oa 0 live 0  | pwin 0.0072->0.0824  sim_winpct 0.0140->0.1070
+Known results for 14 out of 14 games.
+Results dict: {'Buf': 'Hou', 'Chi': 'Chi', 'NE': 'NE', 'Det': 'Det', 'GB': 'GB', 'Sea': 'Sea', 'KC': 'KC', 'Bal': 'Bal', 'LV': 'Cle', 'Jax': 'Jax', 'Phi': 'Dal', 'NO': 'Atl', 'LAR': 'LAR', 'SF': 'SF'}
+Known results for 14 out of 14 games.
+Results dict: {'Buf': 'Hou', 'Chi': 'Chi', 'NE': 'NE', 'Det': 'Det', 'GB': 'GB', 'Sea': 'Sea', 'KC': 'KC', 'Bal': 'Bal', 'LV': 'Cle', 'Jax': 'Jax', 'Phi': 'Dal', 'NO': 'Atl', 'LAR': 'LAR', 'SF': 'SF'}
+Known results for 14 out of 14 games.
+Results dict: {'Buf': 'Hou', 'Chi': 'Chi', 'NE': 'NE', 'Det': 'Det', 'GB': 'GB', 'Sea': 'Sea', 'KC': 'KC', 'Bal': 'Bal', 'LV': 'Cle', 'Jax': 'Jax', 'Phi': 'Dal', 'NO': 'Atl', 'LAR': 'LAR', 'SF': 'SF'}
+Known results for 14 out of 14 games.
+Results dict: {'Buf': 'Hou', 'Chi': 'Chi', 'NE': 'NE', 'Det': 'Det', 'GB': 'GB', 'Sea': 'Sea', 'KC': 'KC', 'Bal': 'Bal', 'LV': 'Cle', 'Jax': 'Jax', 'Phi': 'Dal', 'NO': 'Atl', 'LAR': 'LAR', 'SF': 'SF'}
+Known results for 14 out of 14 games.
+Results dict: {'Buf': 'Hou', 'Chi': 'Chi', 'NE': 'NE', 'Det': 'Det', 'GB': 'GB', 'Sea': 'Sea', 'KC': 'KC', 'Bal': 'Bal', 'LV': 'Cle', 'Jax': 'Jax', 'Phi': 'Dal', 'NO': 'Atl', 'LAR': 'LAR', 'SF': 'SF'}
+2025 wk12 (658s): actual rk 42 | greedy rk 52 oa 0 | lev rk  2 oa 0 | ANALYTIC rk 18 oa 1 live 1  | pwin 0.0093->0.0824  sim_winpct 0.0110->0.1140
+Known results for 16 out of 16 games.
+Results dict: {'TB': 'Atl', 'Chi': 'Chi', 'Bal': 'Bal', 'KC': 'LAC', 'Buf': 'Buf', 'NYG': 'Was', 'Phi': 'Phi', 'Jax': 'Jax', 'Hou': 'Hou', 'GB': 'Den', 'LAR': 'LAR', 'Car': 'NO', 'SF': 'SF', 'Sea': 'Sea', 'Dal': 'Min', 'Pit': 'Pit'}
