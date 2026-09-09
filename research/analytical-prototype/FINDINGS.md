@@ -115,3 +115,29 @@ Open items (not blockers, tune later):
   opponent model could widen the P(win) spread and sharpen the ranking further
 - the ~0.6x scale gap vs simulator: from the given-o cross-opponent independence
   approximation and/or the modal-pick opponent assumption. Harmless for ranking.
+
+## 6. Multi-week rho validation + optimizer smoke test
+
+`05c_multiweek.py` on 3 more weeks (24 slates each):
+
+| week | Spearman rho | analytic argmax -> sim rank | top-3 overlap |
+|---|---|---|---|
+| 2025 wk9  | 0.849 | 4 / 30 | 2/3 |
+| 2024 wk3  | 0.665 | 1 / 24 | 2/3 |
+| 2024 wk12 | 0.873 | 1 / 24 | 2/3 |
+| 2025 wk12 | 0.946 | 1 / 24 | 3/3 |
+
+3 of 4 weeks rho > 0.84; in 3 of 4 the analytic argmax slate IS the simulator's
+#1. 2024 wk3 weaker (0.665) but argmax still sim #1. Objective is trustworthy.
+
+`06_optimize.py` smoke test (2025 wk9, HC_ITERS=1500 x 6 restarts):
+chalk analytic P(win) 0.0080 -> optimized 0.0857 (10.7x), all 14 games changed,
+584s. Reduced to HC_ITERS=400 x 4 restarts for the backtest. Added a simulator
+win_pct sanity check on the optimized slate (does the 10x analytic gain survive
+the correlation-correct simulator, or is it overfit to the analytic model?).
+
+## 7. Full analytical-optimizer backtest -- IN PROGRESS
+
+`06_optimize.py`: analytic hill-climb vs greedy vs leverage(lambda=1) vs actual,
+10 weeks, scored on real outcomes with the one-game-away metric, plus
+sim_winpct(chalk) vs sim_winpct(analytic) per week.

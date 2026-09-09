@@ -1,0 +1,31 @@
+Known results for 14 out of 14 games.
+Results dict: {'Buf': 'Hou', 'Chi': 'Chi', 'NE': 'NE', 'Det': 'Det', 'GB': 'GB', 'Sea': 'Sea', 'KC': 'KC', 'Bal': 'Bal', 'LV': 'Cle', 'Jax': 'Jax', 'Phi': 'Dal', 'NO': 'Atl', 'LAR': 'LAR', 'SF': 'SF'}
+2025 wk12: n=14, 55 opp -> 4 types
+  slate  0: analytic 0.0091 (0.11s)   sim 0.0100 (22.2s)
+  slate  1: analytic 0.0106 (0.10s)   sim 0.0100 (31.4s)
+  slate  2: analytic 0.0233 (0.16s)   sim 0.0300 (40.6s)
+  slate  3: analytic 0.0084 (0.33s)   sim 0.0100 (47.3s)
+  slate  4: analytic 0.0099 (0.23s)   sim 0.0100 (31.4s)
+  slate  5: analytic 0.0181 (0.18s)   sim 0.0233 (24.9s)
+  slate  6: analytic 0.0132 (0.11s)   sim 0.0167 (23.7s)
+  slate  7: analytic 0.0262 (0.12s)   sim 0.0500 (25.5s)
+  slate  8: analytic 0.0194 (0.14s)   sim 0.0267 (27.5s)
+  slate  9: analytic 0.0250 (0.13s)   sim 0.0233 (32.6s)
+  slate 10: analytic 0.0134 (0.16s)   sim 0.0150 (32.5s)
+  slate 11: analytic 0.0087 (0.13s)   sim 0.0117 (26.4s)
+  slate 12: analytic 0.0259 (0.14s)   sim 0.0317 (25.1s)
+  slate 13: analytic 0.0174 (0.11s)   sim 0.0167 (25.2s)
+  slate 14: analytic 0.0077 (0.13s)   sim 0.0100 (26.5s)
+  slate 15: analytic 0.0390 (0.12s)   sim 0.0533 (26.8s)
+  slate 16: analytic 0.0264 (0.14s)   sim 0.0517 (27.2s)
+  slate 17: analytic 0.0170 (0.12s)   sim 0.0167 (28.5s)
+  slate 18: analytic 0.0077 (0.13s)   sim 0.0067 (48.3s)
+  slate 19: analytic 0.0072 (0.31s)   sim 0.0083 (47.4s)
+  slate 20: analytic 0.0148 (0.13s)   sim 0.0217 (40.4s)
+  slate 21: analytic 0.0165 (0.15s)   sim 0.0200 (31.5s)
+  slate 22: analytic 0.0232 (0.14s)   sim 0.0433 (30.8s)
+  slate 23: analytic 0.0178 (0.12s)   sim 0.0467 (22.4s)
+
+Spearman rho(analytic, sim) = 0.946
+analytic argmax -> sim rank 1/24  (sim 0.0533 vs sim best 0.0533)
+top-3 analytic: [15, 16, 7]  top-3 sim: [15, 16, 7]
