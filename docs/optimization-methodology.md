@@ -145,6 +145,28 @@ Split by season:
   mid-pack all year. The analytical optimizer was still consistently *closer* to
   first. In 2025 it converted.
 
+## Midweek
+
+Once Thursday/Friday games are decided, `optimize_picks_analytic(player_data=…)`
+re-optimizes only the games left:
+
+- **Your scored games are locked** to the picks and confidence you already
+  submitted, and the free games are optimized over just your **unspent**
+  confidence values.
+- **The outcome-vector draws are pinned** to the real results on decided games,
+  so the points you've banked are fixed and only the pending games carry
+  uncertainty.
+- **Each opponent's real completed picks** are folded in as the points they've
+  already banked (a scalar per modeled type), rather than their modal slate.
+  Because knowing real picks breaks the modal collapse, the rarest distinct
+  histories past a cap (`max_opponent_types`, default 16) are merged to keep the
+  evaluation fast.
+
+A 5-week 2025 spot check (games 1–6 treated as played, optimize the rest, score
+on the real results) tracked the beginning-of-week result — analytical vs greedy:
+1 win vs 0, 2 "one game away" weeks vs 0, mean finish 35th vs 52nd — with the
+same higher-variance profile.
+
 ## Takeaways
 
 1. In a large weekly pool, "pick better" is nearly a dead end — the crowd is

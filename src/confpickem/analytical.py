@@ -103,7 +103,10 @@ def prob_a_beats_b(pmf_a: np.ndarray, pmf_b: np.ndarray,
 # Field model
 # ---------------------------------------------------------------------------
 
-OpponentType = Tuple[np.ndarray, np.ndarray, int]  # (p_home[n], points[n], count)
+# ``(p_home[n], points[n], count)`` or, midweek, ``(..., completed_points)``.
+# ``completed_points`` is the fixed score this type already banked on decided
+# games; 0 / omitted for a beginning-of-week field.
+OpponentType = Tuple[np.ndarray, np.ndarray, int]
 
 
 def modal_opponent(vegas_home: np.ndarray, crowd_home_pct: np.ndarray,
@@ -134,28 +137,82 @@ def modal_opponent(vegas_home: np.ndarray, crowd_home_pct: np.ndarray,
     return p_home, pick_home, points
 
 
+OpponentCompletedPicks = Dict[int, Tuple[bool, int]]  # game_idx -> (pick_home, points)
+
+
 def build_opponent_types(vegas_home: np.ndarray, crowd_home_pct: np.ndarray,
                          crowd_home_conf: np.ndarray, crowd_away_conf: np.ndarray,
                          opponents: Sequence[Tuple[float, float]],
+                         completed_picks: Optional[
+                             Sequence[Optional[OpponentCompletedPicks]]] = None,
+                         actual_outcomes: Optional[
+                             Sequence[Optional[bool]]] = None,
+                         max_types: Optional[int] = None,
                          ) -> List[OpponentType]:
-    """Deduplicate modeled opponents into ``(p_home, points, count)`` types.
+    """Deduplicate modeled opponents into ``(p_home, points, count[, completed])``
+    types.
 
     ``opponents`` is a sequence of ``(crowd_following, confidence_following)``
     pairs -- one per real opponent. Opponents with identical modal
     ``(pick_home, points)`` collapse to a single weighted type, which is what
     makes the analytical P(win) fast.
+
+    ``completed_picks`` (midweek): an optional sequence parallel to ``opponents``,
+    each ``None`` or ``{game_idx: (pick_home, points)}`` giving that opponent's
+    *actual* pick and confidence on already-scored games. Paired with
+    ``actual_outcomes`` (length ``n``, the real home-win booleans), each decided
+    game is collapsed to a **scalar** ``completed_points`` -- the points that
+    opponent already banked -- and dropped from the Poisson-binomial. Only the
+    still-pending modal slate feeds the convolution. The 4th tuple element is
+    that scalar; it is omitted (treated as 0) for a beginning-of-week field.
+
+    Once real completed picks are known the modal collapse is much weaker (each
+    distinct history is its own type), so ``max_types`` optionally caps the
+    result: the ``max_types`` most common types are kept and every rarer one is
+    merged into the single most-common of them (its ``count`` absorbs them).
+    This keeps ``make_pwin`` fast at a small cost in field fidelity in the tail.
     """
+    n = len(vegas_home)
+    if completed_picks is None:
+        completed_picks = [None] * len(opponents)
+    if actual_outcomes is None:
+        actual_outcomes = [None] * n
+
     buckets: Dict[Tuple, list] = {}
-    for cf, conf_foll in opponents:
+    for (cf, conf_foll), actual in zip(opponents, completed_picks):
         p_home, pick_home, points = modal_opponent(
             vegas_home, crowd_home_pct, crowd_home_conf, crowd_away_conf,
             cf, conf_foll)
-        key = (tuple(pick_home.tolist()), tuple(points.tolist()))
+        pick_home = pick_home.copy()
+        points = points.copy()
+        completed_points = 0
+        if actual:
+            for gi, (ph_i, pts_i) in actual.items():
+                if not 0 <= gi < n:
+                    raise ValueError(
+                        f"completed pick game index {gi} out of range")
+                if actual_outcomes[gi] is None:
+                    raise ValueError(
+                        f"completed pick for game {gi} but no actual outcome")
+                if bool(ph_i) == bool(actual_outcomes[gi]):
+                    completed_points += int(pts_i)
+                pick_home[gi] = bool(ph_i)
+                points[gi] = 0  # decided -> out of the Poisson-binomial
+        key = (tuple(pick_home.tolist()), tuple(points.tolist()),
+               completed_points)
         if key in buckets:
             buckets[key][2] += 1
         else:
-            buckets[key] = [p_home, points, 1]
-    return [(pc, pts, cnt) for pc, pts, cnt in buckets.values()]
+            buckets[key] = [p_home, points, 1, completed_points]
+
+    types = [(pc, pts, cnt, comp) for pc, pts, cnt, comp in buckets.values()]
+    if max_types is not None and len(types) > max_types:
+        types.sort(key=lambda t: t[2], reverse=True)
+        keep, tail = types[:max_types], types[max_types:]
+        merged_count = keep[0][2] + sum(t[2] for t in tail)
+        keep[0] = (keep[0][0], keep[0][1], merged_count, keep[0][3])
+        types = keep
+    return types
 
 
 # ---------------------------------------------------------------------------
@@ -163,9 +220,22 @@ def build_opponent_types(vegas_home: np.ndarray, crowd_home_pct: np.ndarray,
 # ---------------------------------------------------------------------------
 
 def sample_outcomes(vegas_home: np.ndarray, n_outcomes: int,
-                    rng: np.random.Generator) -> np.ndarray:
-    """``[n_outcomes, n]`` boolean draws: did the home team win each game."""
-    return rng.random((n_outcomes, len(vegas_home))) < vegas_home[None, :]
+                    rng: np.random.Generator,
+                    actual_outcomes: Optional[Sequence[Optional[bool]]] = None,
+                    ) -> np.ndarray:
+    """``[n_outcomes, n]`` boolean draws: did the home team win each game.
+
+    ``actual_outcomes`` (midweek): an optional length-``n`` sequence; where an
+    entry is not ``None`` that game is already decided, so its column is forced
+    to the real result in every draw instead of being sampled from
+    ``vegas_home``.
+    """
+    draws = rng.random((n_outcomes, len(vegas_home))) < vegas_home[None, :]
+    if actual_outcomes is not None:
+        for gi, res in enumerate(actual_outcomes):
+            if res is not None:
+                draws[:, gi] = bool(res)
+    return draws
 
 
 def make_pwin(opponent_types: Sequence[OpponentType], outcomes: np.ndarray,
@@ -183,23 +253,32 @@ def make_pwin(opponent_types: Sequence[OpponentType], outcomes: np.ndarray,
     residual per-opponent independence *given o* is assumed.
     """
     K, n = outcomes.shape
+    rows = np.arange(K)
+    # Each opponent type's score PMF/CDF depends only on the (fixed) outcome
+    # draws and that type's modal slate -- never on my picks -- so build them
+    # once here. Each pwin() call then just indexes the precomputed tables.
     prepared = []
-    for p_home, points, count in opponent_types:
+    for t in opponent_types:
+        p_home, points, count = t[0], np.asarray(t[1], dtype=int), t[2]
+        completed_points = int(t[3]) if len(t) > 3 else 0
         pc = np.where(outcomes, p_home[None, :], 1.0 - p_home[None, :])  # [K, n]
-        prepared.append((pc, np.asarray(points, dtype=int), count))
+        pmf = _batched_weighted_pmf(pc, points)                # [K, T+1]
+        cdf = np.cumsum(pmf, axis=1)
+        prepared.append((pmf, cdf, pmf.shape[1], count, completed_points))
 
     def pwin(my_pick_home: np.ndarray, my_points: np.ndarray) -> float:
         my_scores = (my_points[None, :]
                      * (my_pick_home[None, :] == outcomes)).sum(axis=1)  # [K]
         log_beat = np.zeros(K)
-        for pc, points, count in prepared:
-            pmf = _batched_weighted_pmf(pc, points)            # [K, T+1]
-            cdf = np.cumsum(pmf, axis=1)
-            width = pmf.shape[1]
-            le_idx = np.clip(my_scores - 1, 0, width - 1)
-            p_le = np.where(my_scores >= 1, cdf[np.arange(K), le_idx], 0.0)
-            eq_idx = np.clip(my_scores, 0, width - 1)
-            p_eq = np.where(my_scores < width, pmf[np.arange(K), eq_idx], 0.0)
+        for pmf, cdf, width, count, completed_points in prepared:
+            # this type's pending score must clear my lead over what it already
+            # banked on decided games
+            target = my_scores - completed_points
+            le_idx = np.clip(target - 1, 0, width - 1)
+            p_le = np.where(target >= 1, cdf[rows, le_idx], 0.0)
+            eq_idx = np.clip(target, 0, width - 1)
+            p_eq = np.where((target >= 0) & (target < width),
+                            pmf[rows, eq_idx], 0.0)
             log_beat += count * np.log(np.maximum(p_le + 0.5 * p_eq, 1e-300))
         return float(np.exp(log_beat).mean())
 

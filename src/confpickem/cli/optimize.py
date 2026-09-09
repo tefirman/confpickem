@@ -494,6 +494,8 @@ Examples:
                     iterations=args.an_iterations,
                     restarts=args.an_restarts,
                     n_outcomes=args.an_outcomes,
+                    available_points=your_remaining_confidence if args.mode == 'midweek' else None,
+                    player_data=yahoo.players if args.mode == 'midweek' else None,
                     verbose=True,
                 )
             elif args.hill_climb:
