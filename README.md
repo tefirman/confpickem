@@ -106,8 +106,22 @@ print(stats['win_pct'])
 - beautifulsoup4
 - scipy
 
+## Methodology
+
+The pick optimizer computes your probability of winning the week **analytically**
+(the weekly score is a Poisson-binomial distribution) rather than by Monte Carlo
+simulation. This matters: a naive hill climb on *simulated* win probability
+optimizes noise, not strategy, and never beats "pick the favorites." The
+analytical objective is noise-free, ~250× faster to evaluate, and in a 29-week
+backtest produced 2 outright weekly wins vs. the greedy optimizer's 1, at a mean
+finish of 34th vs. 43rd.
+
+See **[docs/optimization-methodology.md](docs/optimization-methodology.md)** for
+the full write-up.
+
 ## Documentation
 
+- **[Optimization Methodology](docs/optimization-methodology.md)** - How the optimizer works and why
 - **[CLI Tools Guide](CLI_README.md)** - Comprehensive guide for command-line tools
 - **[CLI Tools (in package)](src/confpickem/cli/README.md)** - Detailed CLI documentation
 - **[GitHub Repository](https://github.com/tefirman/confpickem)** - Source code and issues
