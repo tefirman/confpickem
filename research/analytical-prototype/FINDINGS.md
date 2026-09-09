@@ -234,3 +234,75 @@ Concrete next steps:
 3. If it survives that: move poisson_binomial.py -> src/confpickem/, add
    optimize_picks_analytic() as a method (objective closure + hill climb),
    tests, wire into the CLI as an opt-in mode.
+
+## 8. Full-season backtest -- FINAL (29 weeks: 16 of 2024, 13 of 2025)
+
+`07_fullseason.py`. Analytic hill-climb vs greedy vs actual, real outcomes,
+one-game-away metric, simulator win_pct sanity check on every optimized slate.
+(3 weeks skipped -- 2025 wk8/13/16 -- bad cached pick_distribution HTML.)
+
+| variant  | wins | top5 | top10 | one-away | mean rank | median behind |
+|----------|-----:|-----:|------:|---------:|----------:|--------------:|
+| analytic | **2** | 3 | 4 | **12** | **34.2** | **25** |
+| greedy   | 1    | 3 | 4 | 6        | 42.9      | 43            |
+| actual   | 0    | 1 | 1 | -        | 43.7      | 32            |
+
+Split by season:
+
+| | 2024 (16w) analytic / greedy | 2025 (13w) analytic / greedy |
+|---|---|---|
+| wins      | 0 / 0 | **2 / 1** |
+| top-5     | 0 / 0 | 3 / 3 |
+| one-away  | 8 / 2 | 4 / 4 |
+| mean rank | 38.5 / 46.2 | **28.8 / 38.9** |
+| median behind | 26 / 46 | **19 / 34** |
+
+### The four questions
+
+**Q: overfit to the analytic model?**  NO. Analytic slate's SIMULATOR win_pct
+beats chalk's **29/29 weeks**, median 14x (0.077-0.144 vs chalk's ~0.003-0.03).
+The gains are real under the correlation-correct model.
+
+**Q: model win rate optimistic?**  NO -- it's calibrated. Mean modeled analytic
+P(win) = 0.073 -> expected 2.1 wins over 29 weeks. **Actual: 2 wins.** The ~0.6x
+analytic/sim scale gap from section 5 washes out at the decision level.
+
+**Q: blowups like leverage?**  Almost none. **2 weeks in 29** analytic was >10
+ranks worse than greedy (2024 wk3: 21 vs 6; 2025 wk14: 26 vs 2). Leverage had
+3-4 in 10 weeks. Analytic is stable.
+
+**Q: beats greedy?**  Yes, clearly. +2 vs +1 wins, DOUBLE the one-game-away
+weeks (12 vs 6), mean rank 8.7 better, median points-behind-first ~18 lower.
+2024 (a bad-variance season where nobody won) analytic was consistently closer;
+2025 it converted.
+
+### FINAL VERDICT: productionize.
+
+This is the approach that works. Rationale:
+- noise-free, fast (0.06s/eval), validated objective (rho 0.67-0.95 across 4 wks)
+- calibrated (2 modeled ~= 2 actual wins over 29 weeks)
+- gains survive the simulator every single week (29/29)
+- stable (2 blowups / 29 vs leverage's 3-4 / 10)
+- clearly beats greedy on wins, one-away, mean rank, and closeness
+
+It does NOT need opponent-model calibration first -- the 2-4 type collapse and
+0.6x scale gap were feared to matter but the backtest shows they don't at the
+decision level. Calibration is a nice-to-have refinement, not a blocker.
+
+### Productionize plan
+
+1. `src/confpickem/analytical.py`:
+   - `weighted_pmf`, `pmf_via_fft`, `prob_a_beats_b` (from poisson_binomial.py)
+   - `build_opponent_types(games_df, player_skills)` -> deduped modal (p_home,
+     points, count) list
+   - `sampled_pwin(my_ph, my_pts, opp_types, vegas, n_outcomes=6000, seed=...)`
+2. `ConfidencePickEmSimulator.optimize_picks_analytic(player_name, fixed_picks=None,
+   iters=400, restarts=4, n_outcomes=6000, seed=51)` -- random-restart hill climb
+   on `sampled_pwin`, same signature style as `optimize_picks`.
+3. `tests/test_analytical.py`: PMF vs brute force; `sampled_pwin` monotonicity
+   (better slate -> higher); optimizer returns a valid 1..N permutation; beats
+   chalk P(win) on a fixture week.
+4. CLI: `--optimizer {greedy,hillclimb,analytic}` in cli/optimize.py, default
+   greedy, analytic opt-in.
+5. Follow-up (not blocking): richer opponent model, calibrate the scale gap,
+   multi-season backtest as regression.

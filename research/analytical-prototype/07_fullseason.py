@@ -262,9 +262,15 @@ def main():
             print("{} wk{}: checkpointed".format(year, week), flush=True)
             continue
         t0 = time.time()
-        y = YahooPickEm(week=week, league_id=LEAGUE_ID, cookies_file=COOKIES,
-                        cache_dir=CACHE[year])
-        gdf = convert_yahoo_to_simulator_format(y, ignore_results=False)
+        try:
+            y = YahooPickEm(week=week, league_id=LEAGUE_ID, cookies_file=COOKIES,
+                            cache_dir=CACHE[year])
+            gdf = convert_yahoo_to_simulator_format(y, ignore_results=False)
+            if "home_favorite" in y.games.columns and len(y.games) == 0:
+                raise ValueError("empty games")
+        except Exception as e:
+            print("{} wk{:>2}: SKIP ({})".format(year, week, e), flush=True)
+            continue
         n = len(gdf)
         home = gdf["home_team"].tolist()
         away = gdf["away_team"].tolist()
