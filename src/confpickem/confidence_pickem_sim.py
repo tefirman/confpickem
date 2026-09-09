@@ -925,6 +925,150 @@ class ConfidencePickEmSimulator:
 
         return neighbor
 
+    def _leverage_score(self, picks: Dict[str, int]) -> float:
+        """Differentiation reward for a pick set, in roughly the same 0-1 scale as win_pct.
+
+        A confidence pool is won by getting high-confidence upsets right, not by
+        matching the field on chalk. This term rewards points placed on a side
+        the *crowd underrates* relative to the simulator's own probability:
+
+            edge = P_sim(picked side wins) - crowd_pick_pct(picked side)
+
+        Only positive edges count (backing a side you are more confident in than
+        the field). Each game contributes ``confidence * edge``; the sum is
+        normalized by the total points on the board so the term does not scale
+        with slate size.
+        """
+        by_home = {}
+        by_away = {}
+        for g in self.games:
+            by_home[g.home_team] = g
+            by_away[g.away_team] = g
+
+        total_points = sum(range(1, len(self.games) + 1)) or 1
+        score = 0.0
+        for team, conf in picks.items():
+            game = by_home.get(team) or by_away.get(team)
+            if game is None:
+                continue
+            if team == game.home_team:
+                p_sim = game.vegas_win_prob
+                crowd = game.crowd_home_pick_pct
+            else:
+                p_sim = 1.0 - game.vegas_win_prob
+                crowd = 1.0 - game.crowd_home_pick_pct
+            edge = p_sim - crowd
+            if edge > 0:
+                score += conf * edge
+        return score / total_points
+
+    def optimize_picks_leverage(self, player_name: str,
+                                fixed_picks: Dict[str, Dict[str, int]] = None,
+                                lambda_lev: float = 0.5,
+                                iterations: int = 120, restarts: int = 3,
+                                search_sims: int = 60,
+                                min_gain: float = 1e-3,
+                                flat_patience: int = 25,
+                                available_points: set = None,
+                                player_data: pd.DataFrame = None,
+                                seed: int = 51) -> Dict[str, int]:
+        """Optimize picks against ``win_pct + lambda_lev * leverage``.
+
+        Random-restart hill climb like :meth:`optimize_picks_hill_climb`, but the
+        objective adds a differentiation term (see :meth:`_leverage_score`) so the
+        search trades a little raw win probability for a slate that separates from
+        the field. ``lambda_lev = 0`` reduces to a pure win-probability climb.
+
+        Speed knobs (win_pct is the expensive, noisy part of the objective;
+        leverage is deterministic and free):
+
+        - ``search_sims`` runs the climb on a cheaper/noisier win_pct estimate.
+          The final chosen slate is re-scored at ``self.num_sims`` and the best
+          of {greedy seed, climbed slate} at full fidelity is returned.
+        - ``min_gain`` requires a neighbour to beat the current objective by a
+          margin before it is accepted, so Monte-Carlo noise alone can't drive
+          the walk.
+        - ``flat_patience`` stops a restart after that many non-improving steps.
+
+        Returns a dict mapping team -> confidence points (fixed picks included).
+        """
+        np.random.seed(seed)
+        self._optimization_player_data = player_data
+
+        if player_name not in [p.name for p in self.players]:
+            raise ValueError(f"Unknown player: {player_name}")
+
+        fixed_picks = fixed_picks or {}
+        player_fixed = fixed_picks.get(player_name, {})
+        used_points = set(player_fixed.values())
+        if len(player_fixed) != len(used_points):
+            raise ValueError("Fixed picks cannot have duplicate confidence points")
+
+        if available_points is None:
+            available_points = set(range(1, len(self.games) + 1)) - used_points
+        else:
+            available_points = available_points - used_points
+
+        games_to_pick = [g for g in self.games
+                         if g.actual_outcome is None
+                         and g.home_team not in player_fixed
+                         and g.away_team not in player_fixed]
+
+        if len(games_to_pick) == 0:
+            return dict(player_fixed)
+        if len(available_points) < len(games_to_pick):
+            raise ValueError(
+                f"Not enough confidence points ({len(available_points)}) "
+                f"for games ({len(games_to_pick)})")
+
+        full_sims = self.num_sims
+
+        def objective(picks: Dict[str, int], sims: int) -> float:
+            self.num_sims = sims
+            try:
+                wp = self._evaluate_picks(player_name, picks, fixed_picks)
+            finally:
+                self.num_sims = full_sims
+            return wp + lambda_lev * self._leverage_score(picks)
+
+        greedy_seed = self._generate_greedy_picks(
+            player_name, player_fixed, games_to_pick,
+            set(available_points), fixed_picks)
+        greedy_seed.update(player_fixed)
+
+        best_search = dict(greedy_seed)
+        best_search_obj = objective(greedy_seed, search_sims)
+
+        for restart in range(restarts):
+            if restart == 0:
+                current = dict(greedy_seed)
+            else:
+                current = self._generate_random_picks(
+                    games_to_pick, set(available_points))
+                current.update(player_fixed)
+            current_obj = objective(current, search_sims)
+
+            no_improve = 0
+            for _ in range(iterations):
+                neighbor = self._get_neighbor_solution(
+                    current, games_to_pick, player_fixed)
+                neighbor_obj = objective(neighbor, search_sims)
+                if neighbor_obj > current_obj + min_gain:
+                    current, current_obj = neighbor, neighbor_obj
+                    no_improve = 0
+                else:
+                    no_improve += 1
+                    if no_improve >= flat_patience:
+                        break
+
+            if current_obj > best_search_obj:
+                best_search_obj, best_search = current_obj, dict(current)
+
+        # Re-score the finalists at full fidelity and keep the better one.
+        if objective(greedy_seed, full_sims) >= objective(best_search, full_sims):
+            return dict(greedy_seed)
+        return dict(best_search)
+
     def assess_remaining_game_importance(self, player_name: str, current_standings: dict,
                                        player_picks: dict) -> pd.DataFrame:
         """
