@@ -99,3 +99,19 @@ Results dict: {'Buf': 'Hou', 'Chi': 'Chi', 'NE': 'NE', 'Det': 'Det', 'GB': 'GB',
 2025 wk12 (658s): actual rk 42 | greedy rk 52 oa 0 | lev rk  2 oa 0 | ANALYTIC rk 18 oa 1 live 1  | pwin 0.0093->0.0824  sim_winpct 0.0110->0.1140
 Known results for 16 out of 16 games.
 Results dict: {'TB': 'Atl', 'Chi': 'Chi', 'Bal': 'Bal', 'KC': 'LAC', 'Buf': 'Buf', 'NYG': 'Was', 'Phi': 'Phi', 'Jax': 'Jax', 'Hou': 'Hou', 'GB': 'Den', 'LAR': 'LAR', 'Car': 'NO', 'SF': 'SF', 'Sea': 'Sea', 'Dal': 'Min', 'Pit': 'Pit'}
+Known results for 16 out of 16 games.
+Results dict: {'TB': 'Atl', 'Chi': 'Chi', 'Bal': 'Bal', 'KC': 'LAC', 'Buf': 'Buf', 'NYG': 'Was', 'Phi': 'Phi', 'Jax': 'Jax', 'Hou': 'Hou', 'GB': 'Den', 'LAR': 'LAR', 'Car': 'NO', 'SF': 'SF', 'Sea': 'Sea', 'Dal': 'Min', 'Pit': 'Pit'}
+Known results for 16 out of 16 games.
+Results dict: {'TB': 'Atl', 'Chi': 'Chi', 'Bal': 'Bal', 'KC': 'LAC', 'Buf': 'Buf', 'NYG': 'Was', 'Phi': 'Phi', 'Jax': 'Jax', 'Hou': 'Hou', 'GB': 'Den', 'LAR': 'LAR', 'Car': 'NO', 'SF': 'SF', 'Sea': 'Sea', 'Dal': 'Min', 'Pit': 'Pit'}
+Known results for 16 out of 16 games.
+Results dict: {'TB': 'Atl', 'Chi': 'Chi', 'Bal': 'Bal', 'KC': 'LAC', 'Buf': 'Buf', 'NYG': 'Was', 'Phi': 'Phi', 'Jax': 'Jax', 'Hou': 'Hou', 'GB': 'Den', 'LAR': 'LAR', 'Car': 'NO', 'SF': 'SF', 'Sea': 'Sea', 'Dal': 'Min', 'Pit': 'Pit'}
+Known results for 16 out of 16 games.
+Results dict: {'TB': 'Atl', 'Chi': 'Chi', 'Bal': 'Bal', 'KC': 'LAC', 'Buf': 'Buf', 'NYG': 'Was', 'Phi': 'Phi', 'Jax': 'Jax', 'Hou': 'Hou', 'GB': 'Den', 'LAR': 'LAR', 'Car': 'NO', 'SF': 'SF', 'Sea': 'Sea', 'Dal': 'Min', 'Pit': 'Pit'}
+2025 wk15 (678s): actual rk 43 | greedy rk 28 oa 1 | lev rk  2 oa 1 | ANALYTIC rk  9 oa 0 live 0  | pwin 0.0167->0.0733  sim_winpct 0.0250->0.1050
+
+=== SUMMARY (n=10) ===
+variant     wins  one-away  mean live median behind  mean rank
+greedy         1         5        0.8            30       35.8
+leverage       0         2        0.2            37       37.9
+analytic       0         4        0.4            18       30.1
+actual         0         -          -            30       42.9
