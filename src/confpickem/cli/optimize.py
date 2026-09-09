@@ -95,6 +95,16 @@ Examples:
                        help='Hill climbing random restarts (default: 10)')
     parser.add_argument('--hc-top-n', type=int, default=1000,
                        help='Number of top combinations to analyze for summary stats (default: 1000)')
+    parser.add_argument('--analytic', action='store_true',
+                       help='Use the analytical Poisson-binomial P(win) optimizer '
+                            '(noise-free objective; best backtest results). '
+                            'See docs/optimization-methodology.md')
+    parser.add_argument('--an-iterations', type=int, default=400,
+                       help='Analytic optimizer hill-climb steps per restart (default: 400)')
+    parser.add_argument('--an-restarts', type=int, default=4,
+                       help='Analytic optimizer random restarts (default: 4)')
+    parser.add_argument('--an-outcomes', type=int, default=6000,
+                       help='Outcome-vector draws for the analytic P(win) estimate (default: 6000)')
 
     args = parser.parse_args()
 
@@ -127,7 +137,9 @@ Examples:
     mode_str = "MID-WEEK" if args.mode == 'midweek' else "BEGINNING-OF-WEEK"
     odds_str = " + LIVE ODDS" if args.live_odds else ""
     fast_str = " (FAST MODE)" if args.fast else ""
-    algo_str = " | HILL CLIMB" if args.hill_climb else " | GREEDY"
+    algo_str = (" | ANALYTIC" if args.analytic
+                else " | HILL CLIMB" if args.hill_climb
+                else " | GREEDY")
 
     print(f"🎯 NFL PICK OPTIMIZATION - {mode_str}{odds_str}{fast_str}{algo_str}")
     print(f"📅 Week {args.week} | League {args.league_id}")
@@ -474,7 +486,17 @@ Examples:
             # Initialize summary_stats to None (only hill climb returns this)
             summary_stats = None
 
-            if args.hill_climb:
+            if args.analytic:
+                # Analytical Poisson-binomial P(win) optimizer - returns just picks
+                optimal_picks = simulator.optimize_picks_analytic(
+                    player_name=selected,
+                    fixed_picks=fixed_formatted,
+                    iterations=args.an_iterations,
+                    restarts=args.an_restarts,
+                    n_outcomes=args.an_outcomes,
+                    verbose=True,
+                )
+            elif args.hill_climb:
                 # Use hill climbing optimizer - returns (picks, summary_stats)
                 optimal_picks, summary_stats = simulator.optimize_picks_hill_climb(
                     player_name=selected,

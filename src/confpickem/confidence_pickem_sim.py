@@ -495,9 +495,89 @@ class ConfidencePickEmSimulator:
             available_points.remove(best_points)
 
             print(f"  Chose {best_pick} with {best_points} points for win probability {best_win_prob:.4f}")
-        
+
         return optimal
-    
+
+    def optimize_picks_analytic(self, player_name: str,
+                                fixed_picks: Dict[str, Dict[str, int]] = None,
+                                iterations: int = 400, restarts: int = 4,
+                                n_outcomes: int = 6000, seed: int = 51,
+                                verbose: bool = False) -> Dict[str, int]:
+        """Optimize picks against an exact analytical ``P(win)``.
+
+        A weekly confidence score is a Poisson-binomial (weighted sum of
+        Bernoullis), so ``P(you finish 1st)`` against a modeled field can be
+        computed without Monte-Carlo noise -- see ``confpickem.analytical`` and
+        ``docs/optimization-methodology.md``. This runs a random-restart hill
+        climb on that objective, which in backtest beats the greedy
+        :meth:`optimize_picks` on wins, "one game from winning" weeks, and mean
+        finish.
+
+        Args:
+            player_name: player to optimize for (must be in ``self.players``).
+            fixed_picks: ``{player: {TEAM: confidence}}``; this player's entries
+                are locked and everything else is optimized around them.
+            iterations: hill-climb steps per restart.
+            restarts: random restarts.
+            n_outcomes: outcome-vector draws for the analytical P(win) estimate.
+            seed: RNG seed (deterministic given identical inputs).
+            verbose: print the chalk vs. optimized P(win).
+
+        Returns:
+            ``{TEAM: confidence}`` -- a full valid 1..N assignment.
+        """
+        from . import analytical as _an
+
+        if player_name not in [p.name for p in self.players]:
+            raise ValueError(f"Unknown player: {player_name}")
+
+        games = self.games
+        n = len(games)
+        if n == 0:
+            raise ValueError("No games loaded")
+
+        vegas_home = np.array([g.vegas_win_prob for g in games])
+        crowd_home_pct = np.array([g.crowd_home_pick_pct for g in games])
+        crowd_home_conf = np.array([g.crowd_home_confidence for g in games])
+        crowd_away_conf = np.array([g.crowd_away_confidence for g in games])
+
+        opponents = [(p.crowd_following, p.confidence_following)
+                     for p in self.players if p.name != player_name]
+        opp_types = _an.build_opponent_types(
+            vegas_home, crowd_home_pct, crowd_home_conf, crowd_away_conf,
+            opponents)
+
+        rng = np.random.default_rng(seed)
+        outcomes = _an.sample_outcomes(vegas_home, n_outcomes, rng)
+        pwin = _an.make_pwin(opp_types, outcomes)
+
+        # translate this player's fixed picks into locked (pick_home, points)
+        fixed_picks = fixed_picks or {}
+        mine = fixed_picks.get(player_name, {})
+        pick_home_fixed = np.zeros(n, dtype=bool)
+        points_fixed = np.zeros(n, dtype=int)
+        for i, g in enumerate(games):
+            if g.home_team in mine:
+                pick_home_fixed[i] = True
+                points_fixed[i] = int(mine[g.home_team])
+            elif g.away_team in mine:
+                pick_home_fixed[i] = False
+                points_fixed[i] = int(mine[g.away_team])
+
+        ph, pts, val = _an.optimize_slate(
+            pwin, vegas_home,
+            pick_home_fixed=pick_home_fixed if points_fixed.any() else None,
+            points_fixed=points_fixed if points_fixed.any() else None,
+            iterations=iterations, restarts=restarts, rng=rng)
+
+        if verbose:
+            cph, cpts = _an.chalk_slate(vegas_home)
+            print(f"analytical P(win): chalk {pwin(cph, cpts):.4f} "
+                  f"-> optimized {val:.4f}")
+
+        return {(games[i].home_team if ph[i] else games[i].away_team): int(pts[i])
+                for i in range(n)}
+
     def assess_game_importance(self, player_name: str, picks_df: pd.DataFrame = None,
                             fixed_picks: Dict[str, Dict[str, int]] = None,
                             player_data: pd.DataFrame = None) -> pd.DataFrame:
