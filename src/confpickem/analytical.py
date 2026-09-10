@@ -274,6 +274,12 @@ def make_pwin(opponent_types: Sequence[OpponentType], outcomes: np.ndarray,
              P(my score > that type's score | o) ** count_t
     -- i.e. correlation across entries is captured by conditioning on o, and
     residual per-opponent independence *given o* is assumed.
+
+    The returned callable also carries ``.per_outcome(my_pick_home, my_points)``,
+    which returns the ``[K]`` vector of ``P(win | draw k)`` before the mean --
+    ``pwin(...) == per_outcome(...).mean()``. Averaging that vector over any
+    subset of the draws gives ``P(win | that subset)`` for free, which is how
+    game importance is computed (partition the draws by one game's outcome bit).
     """
     K, n = outcomes.shape
     rows = np.arange(K)
@@ -289,7 +295,7 @@ def make_pwin(opponent_types: Sequence[OpponentType], outcomes: np.ndarray,
         cdf = np.cumsum(pmf, axis=1)
         prepared.append((pmf, cdf, pmf.shape[1], count, completed_points))
 
-    def pwin(my_pick_home: np.ndarray, my_points: np.ndarray) -> float:
+    def per_outcome(my_pick_home: np.ndarray, my_points: np.ndarray) -> np.ndarray:
         my_scores = (my_points[None, :]
                      * (my_pick_home[None, :] == outcomes)).sum(axis=1)  # [K]
         log_beat = np.zeros(K)
@@ -303,9 +309,47 @@ def make_pwin(opponent_types: Sequence[OpponentType], outcomes: np.ndarray,
             p_eq = np.where((target >= 0) & (target < width),
                             pmf[rows, eq_idx], 0.0)
             log_beat += count * np.log(np.maximum(p_le + 0.5 * p_eq, 1e-300))
-        return float(np.exp(log_beat).mean())
+        return np.exp(log_beat)
 
+    def pwin(my_pick_home: np.ndarray, my_points: np.ndarray) -> float:
+        return float(per_outcome(my_pick_home, my_points).mean())
+
+    pwin.per_outcome = per_outcome  # type: ignore[attr-defined]
     return pwin
+
+
+def game_importance(pwin: Callable[[np.ndarray, np.ndarray], float],
+                    outcomes: np.ndarray,
+                    my_pick_home: np.ndarray, my_points: np.ndarray,
+                    ) -> Tuple[np.ndarray, np.ndarray, float]:
+    """How much each game swings ``P(you finish 1st)``, noise-free.
+
+    Uses ``pwin.per_outcome`` (from :func:`make_pwin`) to get the ``[K]`` vector
+    of ``P(win | draw)`` for the fixed slate ``(my_pick_home, my_points)``, then
+    for each game ``i`` partitions the draws by outcome bit ``i``:
+
+        ``p_home_wins[i] = mean(per_outcome[outcomes[:, i]])``
+        ``p_away_wins[i] = mean(per_outcome[~outcomes[:, i]])``
+
+    No forced re-simulation -- the same draws are just sliced two ways.
+
+    Returns ``(p_home_wins[n], p_away_wins[n], base)`` where ``base`` is the
+    unconditioned ``P(win)``. A game whose outcome is fixed in every draw
+    (already decided, or Vegas 0/1) has no live partition; both conditionals are
+    reported as ``base`` for it, so its home-vs-away swing is 0.
+    """
+    per = pwin.per_outcome(my_pick_home, my_points)  # type: ignore[attr-defined]
+    base = float(per.mean())
+    K, n = outcomes.shape
+    p_home_wins = np.full(n, base)
+    p_away_wins = np.full(n, base)
+    for i in range(n):
+        home = outcomes[:, i]
+        if home.all() or not home.any():
+            continue  # decided / degenerate -> no swing
+        p_home_wins[i] = float(per[home].mean())
+        p_away_wins[i] = float(per[~home].mean())
+    return p_home_wins, p_away_wins, base
 
 
 # ---------------------------------------------------------------------------

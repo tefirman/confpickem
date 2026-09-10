@@ -13,6 +13,7 @@ from src.confpickem.analytical import (
     build_opponent_types,
     sample_outcomes,
     make_pwin,
+    game_importance,
     chalk_slate,
     optimize_slate,
 )
@@ -345,6 +346,154 @@ def test_optimize_picks_analytic_respects_fixed_picks(analytic_simulator):
 def test_optimize_picks_analytic_unknown_player(analytic_simulator):
     with pytest.raises(ValueError):
         analytic_simulator.optimize_picks_analytic("Nobody")
+
+
+# ---------------------------------------------------------------------------
+# game_importance (analytical)
+# ---------------------------------------------------------------------------
+
+
+def test_make_pwin_per_outcome_averages_to_pwin(week_data):
+    pwin = _pwin_for(week_data)
+    ph, pts = chalk_slate(week_data["vegas_home"])
+    per = pwin.per_outcome(ph, pts)
+    assert per.shape == (3000,)
+    assert (per >= 0).all() and (per <= 1).all()
+    assert abs(per.mean() - pwin(ph, pts)) < 1e-12
+
+
+def test_game_importance_partition_identity(week_data):
+    """importance = P(win|home) - P(win|away), and each conditional is a plain
+    mean over the draws sliced on that game's outcome bit -- so the base is the
+    outcome-probability-weighted blend of the two."""
+    n = week_data["n"]
+    vh = week_data["vegas_home"]
+    types = build_opponent_types(
+        vh,
+        week_data["crowd_home_pct"],
+        week_data["crowd_home_conf"],
+        week_data["crowd_away_conf"],
+        [(0.55, 0.5)] * 20,
+    )
+    outcomes = sample_outcomes(vh, 8000, np.random.default_rng(2))
+    pwin = make_pwin(types, outcomes)
+    ph, pts = chalk_slate(vh)
+
+    p_home, p_away, base = game_importance(pwin, outcomes, ph, pts)
+    assert p_home.shape == (n,) and p_away.shape == (n,)
+    for i in range(n):
+        frac_home = outcomes[:, i].mean()
+        blended = frac_home * p_home[i] + (1 - frac_home) * p_away[i]
+        assert abs(blended - base) < 1e-9
+
+
+def test_game_importance_decided_game_has_zero_swing(week_data):
+    vh = week_data["vegas_home"].copy()
+    types = build_opponent_types(
+        vh,
+        week_data["crowd_home_pct"],
+        week_data["crowd_home_conf"],
+        week_data["crowd_away_conf"],
+        [(0.5, 0.5)] * 10,
+    )
+    # force game 3 decided (home win) in every draw
+    ao = [None] * len(vh)
+    ao[3] = True
+    outcomes = sample_outcomes(vh, 4000, np.random.default_rng(0), actual_outcomes=ao)
+    pwin = make_pwin(types, outcomes)
+    ph, pts = chalk_slate(vh)
+    p_home, p_away, base = game_importance(pwin, outcomes, ph, pts)
+    assert p_home[3] == base and p_away[3] == base  # no live partition
+
+
+def test_game_importance_no_new_simulation(week_data, monkeypatch):
+    """The analytical path must not call sample_outcomes again per game."""
+    import src.confpickem.analytical as an
+
+    vh = week_data["vegas_home"]
+    types = build_opponent_types(
+        vh,
+        week_data["crowd_home_pct"],
+        week_data["crowd_home_conf"],
+        week_data["crowd_away_conf"],
+        [(0.5, 0.5)] * 8,
+    )
+    outcomes = sample_outcomes(vh, 3000, np.random.default_rng(1))
+    pwin = make_pwin(types, outcomes)
+    ph, pts = chalk_slate(vh)
+
+    calls = {"n": 0}
+    real = an.sample_outcomes
+    monkeypatch.setattr(
+        an,
+        "sample_outcomes",
+        lambda *a, **k: (calls.__setitem__("n", calls["n"] + 1), real(*a, **k))[1],
+    )
+    game_importance(pwin, outcomes, ph, pts)
+    assert calls["n"] == 0
+
+
+def test_assess_game_importance_analytic_contract(analytic_simulator):
+    sim = analytic_simulator
+    fixed = {"Me": {"SF": 4, "KC": 3, "BAL": 1, "BUF": 2}}
+    df = sim.assess_game_importance("Me", fixed_picks=fixed, n_outcomes=2000, seed=3)
+
+    assert len(df) == len(sim.games)
+    for col in (
+        "game",
+        "points_bid",
+        "pick",
+        "win_probability",
+        "loss_probability",
+        "win_delta",
+        "loss_delta",
+        "total_impact",
+        "is_fixed",
+    ):
+        assert col in df.columns
+    assert (df.win_probability.between(0, 1)).all()
+    assert (df.loss_probability.between(0, 1)).all()
+    # picking your side right never hurts vs picking it wrong, for a lone slate
+    assert (df.total_impact >= -1e-9).all()
+    # points_bid reflects the fixed slate
+    assert dict(zip(df.game.str.split("@").str[1], df.points_bid))["SF"] == 4
+    assert df.is_fixed.all()
+    # sorted by |impact| desc
+    assert list(df.total_impact.abs()) == sorted(df.total_impact.abs(), reverse=True)
+
+
+def test_assess_game_importance_analytic_deterministic(analytic_simulator):
+    sim = analytic_simulator
+    fixed = {"Me": {"SF": 4, "KC": 3, "BAL": 1, "BUF": 2}}
+    a = sim.assess_game_importance("Me", fixed_picks=fixed, n_outcomes=1500, seed=9)
+    b = sim.assess_game_importance("Me", fixed_picks=fixed, n_outcomes=1500, seed=9)
+    pd.testing.assert_frame_equal(a.reset_index(drop=True), b.reset_index(drop=True))
+
+
+def test_assess_game_importance_matches_direct_pwin_delta(analytic_simulator):
+    """The reported win/loss probabilities equal a direct two-call P(win)
+    evaluation with that game's outcome pinned each way -- i.e. the partition
+    trick is exact, not an approximation."""
+    import numpy as np
+    from src.confpickem import analytical as an
+
+    sim = analytic_simulator
+    fixed = {"Me": {"SF": 4, "KC": 3, "BAL": 1, "BUF": 2}}
+    df = sim.assess_game_importance("Me", fixed_picks=fixed, n_outcomes=3000, seed=2)
+
+    field = sim._build_analytic_field("Me", 3000, 2)
+    outcomes, pwin = field["outcomes"], field["pwin"]
+    games = field["games"]
+    ph = np.array([{"SF": True, "KC": True, "BAL": True, "BUF": True}[g.home_team] for g in games])
+    pts = np.array([fixed["Me"][g.home_team] for g in games])
+    per = pwin.per_outcome(ph, pts)
+
+    for i, g in enumerate(games):
+        home = outcomes[:, i]
+        row = df[df.game == f"{g.away_team}@{g.home_team}"].iloc[0]
+        # this player's pick is home in the fixture, so win == home-win conditional
+        assert abs(row.win_probability - per[home].mean()) < 1e-9
+        assert abs(row.loss_probability - per[~home].mean()) < 1e-9
 
 
 # ---------------------------------------------------------------------------
