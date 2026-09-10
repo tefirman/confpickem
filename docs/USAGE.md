@@ -84,6 +84,25 @@ mode:
 It figures out which games are locked from kickoff times vs. now, so just run it
 whenever — Sunday morning, at halftime, Monday afternoon.
 
+### Once every pick is locked — just watch the standings
+
+After the first Sunday kickoff there is nothing left to pick, so `--mode midweek`
+has nothing to optimize. To follow the race instead:
+
+```bash
+confpickem-win-probability --week 10
+```
+
+It scores every entrant's locked slate against the games still to play (pick
+"Sunday 10am kickoff" or "current state" when prompted) and prints live win
+probabilities plus, per player, which remaining games move their number most.
+
+The Python equivalent is `ConfidencePickEmSimulator.standings_analytic(yahoo.players)`
+— noise-free, milliseconds for a full league, and it also returns a league-wide
+`top_swing` per undecided game (the biggest shift in anyone's title odds that
+game causes). See step 7 of
+[`examples/yahoo_pickem_demo.ipynb`](../examples/yahoo_pickem_demo.ipynb).
+
 ---
 
 ## Reading the output
