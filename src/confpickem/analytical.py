@@ -137,7 +137,9 @@ def modal_opponent(vegas_home: np.ndarray, crowd_home_pct: np.ndarray,
     return p_home, pick_home, points
 
 
-OpponentCompletedPicks = Dict[int, Tuple[bool, int]]  # game_idx -> (pick_home, points)
+# game_idx -> (pick_home, points)
+OpponentCompletedPicks = Dict[int, Tuple[bool, int]]
+OpponentLockedPicks = Dict[int, Tuple[bool, int]]
 
 
 def build_opponent_types(vegas_home: np.ndarray, crowd_home_pct: np.ndarray,
@@ -147,6 +149,8 @@ def build_opponent_types(vegas_home: np.ndarray, crowd_home_pct: np.ndarray,
                              Sequence[Optional[OpponentCompletedPicks]]] = None,
                          actual_outcomes: Optional[
                              Sequence[Optional[bool]]] = None,
+                         locked_picks: Optional[
+                             Sequence[Optional[OpponentLockedPicks]]] = None,
                          max_types: Optional[int] = None,
                          ) -> List[OpponentType]:
     """Deduplicate modeled opponents into ``(p_home, points, count[, completed])``
@@ -157,37 +161,54 @@ def build_opponent_types(vegas_home: np.ndarray, crowd_home_pct: np.ndarray,
     ``(pick_home, points)`` collapse to a single weighted type, which is what
     makes the analytical P(win) fast.
 
-    ``completed_picks`` (midweek): an optional sequence parallel to ``opponents``,
-    each ``None`` or ``{game_idx: (pick_home, points)}`` giving that opponent's
-    *actual* pick and confidence on already-scored games. Paired with
-    ``actual_outcomes`` (length ``n``, the real home-win booleans), each decided
-    game is collapsed to a **scalar** ``completed_points`` -- the points that
-    opponent already banked -- and dropped from the Poisson-binomial. Only the
-    still-pending modal slate feeds the convolution. The 4th tuple element is
-    that scalar; it is omitted (treated as 0) for a beginning-of-week field.
+    Two optional sequences, each parallel to ``opponents`` and each entry
+    ``None`` or ``{game_idx: (pick_home, points)}`` with that opponent's real
+    submitted pick + confidence, handle games the pool has already locked:
 
-    Once real completed picks are known the modal collapse is much weaker (each
-    distinct history is its own type), so ``max_types`` optionally caps the
-    result: the ``max_types`` most common types are kept and every rarer one is
-    merged into the single most-common of them (its ``count`` absorbs them).
-    This keeps ``make_pwin`` fast at a small cost in field fidelity in the tail.
+    * ``completed_picks`` -- games that have *finished*. Paired with
+      ``actual_outcomes`` (length ``n`` home-win booleans), each is collapsed to
+      a **scalar** ``completed_points`` (the points that opponent banked) and
+      dropped from the Poisson-binomial -- the outcome is known, so it carries
+      no variance. The 4th tuple element is that scalar; omitted / 0 otherwise.
+    * ``locked_picks`` -- games that have *kicked off but not finished* (picks
+      frozen, result still unknown). The opponent's ``p_home`` there is pinned
+      to their real pick (1.0 / 0.0) and their real points kept, but the game
+      **stays in the convolution** because its outcome is still sampled.
+
+    Once real picks are known the modal collapse weakens (each distinct history
+    is its own type), so ``max_types`` optionally caps the result: the
+    ``max_types`` most common types are kept and every rarer one merged into the
+    single most-common of them (its ``count`` absorbs them). Keeps ``make_pwin``
+    fast at a small cost in tail fidelity.
     """
     n = len(vegas_home)
     if completed_picks is None:
         completed_picks = [None] * len(opponents)
+    if locked_picks is None:
+        locked_picks = [None] * len(opponents)
     if actual_outcomes is None:
         actual_outcomes = [None] * n
 
     buckets: Dict[Tuple, list] = {}
-    for (cf, conf_foll), actual in zip(opponents, completed_picks):
+    for (cf, conf_foll), done, locked in zip(
+            opponents, completed_picks, locked_picks):
         p_home, pick_home, points = modal_opponent(
             vegas_home, crowd_home_pct, crowd_home_conf, crowd_away_conf,
             cf, conf_foll)
+        p_home = p_home.copy()
         pick_home = pick_home.copy()
         points = points.copy()
         completed_points = 0
-        if actual:
-            for gi, (ph_i, pts_i) in actual.items():
+        if locked:
+            for gi, (ph_i, pts_i) in locked.items():
+                if not 0 <= gi < n:
+                    raise ValueError(
+                        f"locked pick game index {gi} out of range")
+                pick_home[gi] = bool(ph_i)
+                points[gi] = int(pts_i)
+                p_home[gi] = 1.0 if ph_i else 0.0  # real pick, outcome still live
+        if done:
+            for gi, (ph_i, pts_i) in done.items():
                 if not 0 <= gi < n:
                     raise ValueError(
                         f"completed pick game index {gi} out of range")

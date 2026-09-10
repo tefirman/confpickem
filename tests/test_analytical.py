@@ -455,7 +455,8 @@ def test_make_pwin_accounts_for_banked_completed_points():
 
 @pytest.fixture
 def midweek_simulator():
-    """4-game slate, games 0 and 1 already decided."""
+    """4-game slate, games 0 and 1 already decided; every player has a real
+    pick on all four (so game 2 or 3 can also be treated as frozen-but-live)."""
     sim = ConfidencePickEmSimulator(num_sims=100)
     sim.games = [
         Game(
@@ -488,10 +489,10 @@ def midweek_simulator():
                 "game_1_confidence": 4,
                 "game_2_pick": "DEN" if p.name == "Me" else "KC",
                 "game_2_confidence": 2,
-                "game_3_pick": np.nan,
-                "game_3_confidence": np.nan,
-                "game_4_pick": np.nan,
-                "game_4_confidence": np.nan,
+                "game_3_pick": "BAL" if p.name == "Me" else "CIN",
+                "game_3_confidence": 1,
+                "game_4_pick": "BUF",
+                "game_4_confidence": 3,
             }
         )
     sim.player_data = pd.DataFrame(rows)
@@ -558,3 +559,68 @@ def test_optimize_picks_analytic_midweek_detects_conflicting_lock(midweek_simula
             player_data=sim.player_data,
             fixed_picks={"Me": {"BAL": 4}},
         )
+
+
+def test_build_opponent_types_locked_pick_stays_in_convolution():
+    vh = np.array([0.85, 0.65, 0.55, 0.70])
+    chp = np.array([0.90, 0.72, 0.60, 0.78])
+    chc = np.array([14.0, 10.0, 8.0, 11.0])
+    cac = np.array([2.0, 6.0, 8.5, 5.0])
+    opps = [(0.5, 0.5)] * 4
+    # game 1 kicked off but is not final: two opponents locked the away side w/ 5
+    locked = [None, {1: (False, 5)}, {1: (False, 5)}, None]
+    types = build_opponent_types(vh, chp, chc, cac, opps, locked_picks=locked)
+    assert len(types) == 2  # 2 with the locked away pick, 2 modal
+    assert sorted(t[2] for t in types) == [2, 2]
+    locked_type = [t for t in types if t[1][1] == 5][0]
+    ph_prob, pts, _cnt, banked = locked_type
+    assert ph_prob[1] == 0.0  # pinned to the real (away) pick
+    assert pts[1] == 5  # real confidence kept
+    assert pts[1] != 0  # NOT dropped from the Poisson-binomial
+    assert banked == 0  # nothing banked -- outcome still unknown
+
+
+def test_optimize_picks_analytic_freezes_kicked_off_games_via_as_of(midweek_simulator):
+    sim = midweek_simulator
+    # game index 3 (BUF@MIA) kicks off 2024-09-08 13:00; as_of just after locks it
+    as_of = datetime(2024, 9, 8, 13, 30)
+    optimal = sim.optimize_picks_analytic(
+        "Me",
+        iterations=60,
+        restarts=2,
+        n_outcomes=1500,
+        seed=5,
+        player_data=sim.player_data,
+        as_of=as_of,
+    )
+    n = len(sim.games)
+    # frozen: game 0 (final), game 1 (final), game 3 (kicked off) -> Me's real picks
+    assert optimal["SF"] == 4  # completed
+    assert optimal["DEN"] == 2  # completed
+    assert optimal["BUF"] == 3  # kicked off, pick frozen at real confidence
+    # only game 2 (BAL@CIN, 20:20 kickoff) is still free -> gets the last value
+    assert sorted(optimal.values()) == list(range(1, n + 1))
+    free = {t: v for t, v in optimal.items() if t not in ("SF", "DEN", "BUF")}
+    assert set(free.values()) == {1}
+
+
+def test_optimize_picks_analytic_as_of_before_kickoff_is_a_noop(midweek_simulator):
+    sim = midweek_simulator
+    early = sim.optimize_picks_analytic(
+        "Me",
+        iterations=40,
+        restarts=1,
+        n_outcomes=1000,
+        seed=7,
+        player_data=sim.player_data,
+        as_of=datetime(2024, 9, 8, 6, 0),
+    )
+    plain = sim.optimize_picks_analytic(
+        "Me",
+        iterations=40,
+        restarts=1,
+        n_outcomes=1000,
+        seed=7,
+        player_data=sim.player_data,
+    )
+    assert early == plain
