@@ -175,6 +175,24 @@ rest frozen-live" case. Analytical won a week in all three and kept the same
 higher-variance profile. Fewer decided games, if anything, helps — the field is
 less fragmented and there's more room to differentiate.
 
+## Game importance
+
+`assess_game_importance` ranks each game by how much its result swings your
+`P(win)`, and it reuses the same machinery. Hold your slate fixed, evaluate
+`P(win | draw)` once over the sampled outcome vectors, then for each game
+partition those draws by that game's outcome bit:
+
+```
+importance(i) = P(win | game i home win) − P(win | game i away win)
+```
+
+Both conditionals are a plain mean over a slice of the *same* draws — no forced
+re-simulation, no Monte-Carlo noise, one pass for the whole slate (~0.07 s for
+16 games). A game already decided, or a Vegas 0/1, has no live partition, so its
+importance is 0. Note the metric is a **win-probability** swing, not a points
+swing: a heavy favorite the whole crowd is on can carry large importance even at
+low confidence, because an upset there re-orders the entire field at once.
+
 ## Takeaways
 
 1. In a large weekly pool, "pick better" is nearly a dead end — the crowd is

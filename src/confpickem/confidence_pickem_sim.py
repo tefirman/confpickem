@@ -514,6 +514,106 @@ class ConfidencePickEmSimulator:
             return None
         return (pick == game.home_team), conf
 
+    def _build_analytic_field(self, player_name: str, n_outcomes: int, seed: int,
+                              player_data: pd.DataFrame = None,
+                              as_of: datetime = None,
+                              max_opponent_types: int = 16):
+        """Shared setup for the analytical ``P(win)`` methods.
+
+        Builds the modeled-opponent field, the sampled outcome draws and the
+        ``pwin`` closure, and reports which games are frozen (finished or
+        kicked-off-but-live) plus this player's real pick/confidence on them.
+
+        Returns a dict with keys: ``games``, ``n``, ``vegas_home``, ``rng``,
+        ``outcomes``, ``pwin``, ``completed`` (bool list), ``frozen`` (bool
+        list), ``my_frozen`` (``{game_idx: (pick_home, points)}``).
+        """
+        from . import analytical as _an
+
+        if player_name not in [p.name for p in self.players]:
+            raise ValueError(f"Unknown player: {player_name}")
+
+        games = self.games
+        n = len(games)
+        if n == 0:
+            raise ValueError("No games loaded")
+
+        vegas_home = np.array([g.vegas_win_prob for g in games])
+        crowd_home_pct = np.array([g.crowd_home_pick_pct for g in games])
+        crowd_home_conf = np.array([g.crowd_home_confidence for g in games])
+        crowd_away_conf = np.array([g.crowd_away_confidence for g in games])
+
+        completed = [g.actual_outcome is not None for g in games]
+
+        def _kicked_off(g):
+            """Has ``g`` started as of ``as_of``? Robust to naive/aware and
+            pandas.Timestamp kickoff times."""
+            if as_of is None or g.kickoff_time is None:
+                return False
+            kt = g.kickoff_time
+            try:
+                return kt.timestamp() <= as_of.timestamp()
+            except (TypeError, ValueError, OverflowError, OSError):
+                kt_naive = kt.replace(tzinfo=None)
+                as_naive = as_of.replace(tzinfo=None)
+                return kt_naive <= as_naive
+
+        locked_pending = [
+            (not completed[i]) and (g.picks_locked or _kicked_off(g))
+            for i, g in enumerate(games)]
+        frozen = [completed[i] or locked_pending[i] for i in range(n)]
+
+        def _row_for(name):
+            if player_data is None:
+                return None
+            match = player_data[player_data['player_name'] == name]
+            return match.iloc[0] if not match.empty else None
+
+        opp_names = [p.name for p in self.players if p.name != player_name]
+        opponents = [(p.crowd_following, p.confidence_following)
+                     for p in self.players if p.name != player_name]
+        opp_completed = opp_locked = None
+        if any(frozen) and player_data is not None:
+            opp_completed, opp_locked = [], []
+            for name in opp_names:
+                row = _row_for(name)
+                done, live = {}, {}
+                if row is not None:
+                    for i, g in enumerate(games):
+                        if not frozen[i]:
+                            continue
+                        got = self._player_game_pick(row, i, g)
+                        if got is None:
+                            continue
+                        (done if completed[i] else live)[i] = got
+                opp_completed.append(done or None)
+                opp_locked.append(live or None)
+
+        actual_outcomes = ([g.actual_outcome for g in games]
+                           if any(completed) else None)
+        opp_types = _an.build_opponent_types(
+            vegas_home, crowd_home_pct, crowd_home_conf, crowd_away_conf,
+            opponents, completed_picks=opp_completed,
+            actual_outcomes=actual_outcomes, locked_picks=opp_locked,
+            max_types=max_opponent_types if any(frozen) else None)
+        rng = np.random.default_rng(seed)
+        outcomes = _an.sample_outcomes(vegas_home, n_outcomes, rng,
+                                       actual_outcomes=actual_outcomes)
+        pwin = _an.make_pwin(opp_types, outcomes)
+
+        my_frozen = {}
+        my_row = _row_for(player_name)
+        if my_row is not None:
+            for i, g in enumerate(games):
+                if frozen[i]:
+                    got = self._player_game_pick(my_row, i, g)
+                    if got is not None:
+                        my_frozen[i] = got
+
+        return dict(games=games, n=n, vegas_home=vegas_home, rng=rng,
+                    outcomes=outcomes, pwin=pwin, completed=completed,
+                    frozen=frozen, my_frozen=my_frozen)
+
     def optimize_picks_analytic(self, player_name: str,
                                 fixed_picks: Dict[str, Dict[str, int]] = None,
                                 iterations: int = 400, restarts: int = 4,
@@ -582,79 +682,12 @@ class ConfidencePickEmSimulator:
         """
         from . import analytical as _an
 
-        if player_name not in [p.name for p in self.players]:
-            raise ValueError(f"Unknown player: {player_name}")
-
-        games = self.games
-        n = len(games)
-        if n == 0:
-            raise ValueError("No games loaded")
-
-        vegas_home = np.array([g.vegas_win_prob for g in games])
-        crowd_home_pct = np.array([g.crowd_home_pick_pct for g in games])
-        crowd_home_conf = np.array([g.crowd_home_confidence for g in games])
-        crowd_away_conf = np.array([g.crowd_away_confidence for g in games])
-
-        completed = [g.actual_outcome is not None for g in games]
-
-        def _kicked_off(g):
-            """Has ``g`` started as of ``as_of``? Robust to naive/aware and
-            pandas.Timestamp kickoff times."""
-            if as_of is None or g.kickoff_time is None:
-                return False
-            kt = g.kickoff_time
-            try:
-                return kt.timestamp() <= as_of.timestamp()
-            except (TypeError, ValueError, OverflowError, OSError):
-                # last resort: compare naive wall clocks
-                kt_naive = kt.replace(tzinfo=None)
-                as_naive = as_of.replace(tzinfo=None)
-                return kt_naive <= as_naive
-
-        # frozen but not final: picks locked (flag or kickoff passed) yet undecided
-        locked_pending = [
-            (not completed[i]) and (g.picks_locked or _kicked_off(g))
-            for i, g in enumerate(games)]
-        frozen = [completed[i] or locked_pending[i] for i in range(n)]
-
-        def _row_for(name):
-            if player_data is None:
-                return None
-            match = player_data[player_data['player_name'] == name]
-            return match.iloc[0] if not match.empty else None
-
-        # --- opponent field model: fold in real frozen picks -----------------
-        opp_names = [p.name for p in self.players if p.name != player_name]
-        opponents = [(p.crowd_following, p.confidence_following)
-                     for p in self.players if p.name != player_name]
-        opp_completed = opp_locked = None
-        if any(frozen) and player_data is not None:
-            opp_completed, opp_locked = [], []
-            for name in opp_names:
-                row = _row_for(name)
-                done, live = {}, {}
-                if row is not None:
-                    for i, g in enumerate(games):
-                        if not frozen[i]:
-                            continue
-                        got = self._player_game_pick(row, i, g)
-                        if got is None:
-                            continue
-                        (done if completed[i] else live)[i] = got
-                opp_completed.append(done or None)
-                opp_locked.append(live or None)
-
-        actual_outcomes = ([g.actual_outcome for g in games]
-                           if any(completed) else None)
-        opp_types = _an.build_opponent_types(
-            vegas_home, crowd_home_pct, crowd_home_conf, crowd_away_conf,
-            opponents, completed_picks=opp_completed,
-            actual_outcomes=actual_outcomes, locked_picks=opp_locked,
-            max_types=max_opponent_types if any(frozen) else None)
-        rng = np.random.default_rng(seed)
-        outcomes = _an.sample_outcomes(vegas_home, n_outcomes, rng,
-                                       actual_outcomes=actual_outcomes)
-        pwin = _an.make_pwin(opp_types, outcomes)
+        field = self._build_analytic_field(
+            player_name, n_outcomes, seed, player_data=player_data,
+            as_of=as_of, max_opponent_types=max_opponent_types)
+        games, n = field['games'], field['n']
+        vegas_home, rng = field['vegas_home'], field['rng']
+        pwin, frozen, my_frozen = field['pwin'], field['frozen'], field['my_frozen']
 
         # --- this player's locked slots: fixed picks + every frozen game -----
         fixed_picks = fixed_picks or {}
@@ -662,12 +695,8 @@ class ConfidencePickEmSimulator:
         pick_home_fixed = np.zeros(n, dtype=bool)
         points_fixed = np.zeros(n, dtype=int)
 
-        my_row = _row_for(player_name)
-        for i, g in enumerate(games):
-            if frozen[i] and my_row is not None:
-                got = self._player_game_pick(my_row, i, g)
-                if got is not None:
-                    pick_home_fixed[i], points_fixed[i] = got[0], got[1]
+        for i, (ph_i, pts_i) in my_frozen.items():
+            pick_home_fixed[i], points_fixed[i] = ph_i, pts_i
         for i, g in enumerate(games):
             if g.home_team in mine:
                 pick_home_fixed[i] = True
@@ -704,87 +733,118 @@ class ConfidencePickEmSimulator:
 
     def assess_game_importance(self, player_name: str, picks_df: pd.DataFrame = None,
                             fixed_picks: Dict[str, Dict[str, int]] = None,
-                            player_data: pd.DataFrame = None) -> pd.DataFrame:
+                            player_data: pd.DataFrame = None,
+                            n_outcomes: int = 6000, seed: int = 51,
+                            as_of: datetime = None) -> pd.DataFrame:
         """
-        Assess the relative importance of each game by calculating win probability
-        changes between winning and losing each matchup.
+        Rank each game by how much its result swings your probability of
+        finishing first, computed **analytically** -- no forced re-simulation.
+
+        The player's slate (which team, how many points on each game) comes from
+        ``picks_df`` if given, else from ``fixed_picks[player_name]`` plus any
+        completed/locked games, else from one quick simulation. Holding that
+        slate fixed, ``P(win | draw)`` is evaluated once over ``n_outcomes``
+        importance-sampled game-outcome vectors (see ``confpickem.analytical``),
+        and each game's importance is
+
+            ``P(win | game i home win) - P(win | game i away win)``
+
+        obtained by slicing those same draws on game ``i``'s outcome bit. A game
+        already decided (or Vegas 0/1) has no live split -> importance 0.
 
         Args:
-            player_name: Name of the player to analyze game importance for
-            picks_df: DataFrame containing picks (optional - will simulate if not provided)
-            fixed_picks: Dictionary mapping player names to their fixed picks.
-                Structure: {
-                    'Player Name': {
-                        'SF': 16,  # Team abbreviation -> confidence points
-                        'KC': 15,
-                        # etc...
-                    }
-                }
-                If player name is not in fixed_picks, all their picks will be simulated.
-                For players in fixed_picks, any teams not specified will be simulated.
-            player_data: DataFrame with actual player picks for completed games
+            player_name: player to analyze (must be in ``self.players``).
+            picks_df: optional simulator picks DataFrame; its first simulation
+                supplies this player's slate.
+            fixed_picks: ``{player: {TEAM: confidence}}``; used for the slate
+                when ``picks_df`` is not given, and to flag ``is_fixed``.
+            player_data: ``yahoo.players`` -- lets completed/locked games be
+                pinned and opponents' real picks fold into the field model.
+            n_outcomes: outcome-vector draws for the analytical estimate.
+            seed: RNG seed (deterministic given identical inputs).
+            as_of: optional timestamp; not-yet-final games that kicked off by it
+                count as locked (see :meth:`optimize_picks_analytic`).
 
         Returns:
-            DataFrame containing impact metrics for each game
+            DataFrame with one row per game and columns ``game``, ``points_bid``,
+            ``pick``, ``win_probability`` (P(win) if this game's pick hits),
+            ``loss_probability`` (if it misses), ``win_delta`` / ``loss_delta``
+            (vs. the unconditioned base), ``total_impact``
+            (``win_probability - loss_probability``) and ``is_fixed``, sorted by
+            ``|total_impact|`` descending.
         """
-        # Generate picks if not provided
-        if picks_df is None:
-            picks_df = self.simulate_picks(fixed_picks if fixed_picks else {}, player_data)
+        from . import analytical as _an
 
-        # Get base simulation results
-        outcomes = self.simulate_outcomes()
-        base_stats = self.analyze_results(picks_df, outcomes)
-        base_win_pct = base_stats['win_pct'][player_name]
-        
-        # Analyze each game
-        game_impacts = []
-        for game_idx, game in enumerate(self.games):
-            game_id = f"{game.away_team}@{game.home_team}"
-            
-            # Get this player's pick for this game
-            player_pick = picks_df[
-                (picks_df.player == player_name) & 
-                (picks_df.game == game_id)
-            ].iloc[0]
-            
-            # Create forced outcome array
-            forced_win = outcomes.copy()
-            forced_win[:, game_idx] = player_pick.picked_home
-            forced_loss = outcomes.copy()
-            forced_loss[:, game_idx] = not player_pick.picked_home
-            
-            # Calculate win probabilities under each scenario
-            win_stats = self.analyze_results(picks_df, forced_win)
-            loss_stats = self.analyze_results(picks_df, forced_loss)
-            
-            win_prob = win_stats['win_pct'][player_name]
-            loss_prob = loss_stats['win_pct'][player_name]
+        field = self._build_analytic_field(
+            player_name, n_outcomes, seed, player_data=player_data, as_of=as_of)
+        games, n = field['games'], field['n']
+        outcomes, pwin, my_frozen = field['outcomes'], field['pwin'], field['my_frozen']
 
-            # Check if this game has fixed picks
-            is_fixed = False
-            if fixed_picks and player_name in fixed_picks:
-                player_fixed = fixed_picks[player_name]
-                if game.home_team in player_fixed or game.away_team in player_fixed:
-                    is_fixed = True
-            
-            game_impacts.append({
-                'game': game_id,
-                'points_bid': player_pick.confidence,
-                'pick': game.home_team if player_pick.picked_home else game.away_team,
-                'win_probability': win_prob,
-                'loss_probability': loss_prob,
-                'win_delta': win_prob - base_win_pct,
-                'loss_delta': loss_prob - base_win_pct,
-                'total_impact': win_prob - loss_prob,
-                'is_fixed': is_fixed
+        # --- resolve this player's slate: pick_home + points per game --------
+        pick_home = np.zeros(n, dtype=bool)
+        points = np.zeros(n, dtype=int)
+        got_all = False
+        fp = (fixed_picks or {}).get(player_name, {})
+
+        if picks_df is not None:
+            first_sim = picks_df['simulation'].min() if 'simulation' in picks_df else None
+            for i, game in enumerate(games):
+                game_id = f"{game.away_team}@{game.home_team}"
+                sel = picks_df[(picks_df.player == player_name)
+                               & (picks_df.game == game_id)]
+                if first_sim is not None:
+                    sel = sel[sel.simulation == first_sim]
+                if sel.empty:
+                    break
+                row = sel.iloc[0]
+                pick_home[i] = bool(row.picked_home)
+                points[i] = int(row.confidence)
+            else:
+                got_all = True
+
+        if not got_all:
+            for i, game in enumerate(games):
+                if game.home_team in fp:
+                    pick_home[i], points[i] = True, int(fp[game.home_team])
+                elif game.away_team in fp:
+                    pick_home[i], points[i] = False, int(fp[game.away_team])
+                elif i in my_frozen:
+                    pick_home[i], points[i] = my_frozen[i]
+            if not points.all():  # slate still incomplete -> simulate one
+                sim_df = self.simulate_picks(fixed_picks or {}, player_data)
+                s0 = sim_df['simulation'].min()
+                for i, game in enumerate(games):
+                    if points[i]:
+                        continue
+                    game_id = f"{game.away_team}@{game.home_team}"
+                    row = sim_df[(sim_df.player == player_name)
+                                 & (sim_df.game == game_id)
+                                 & (sim_df.simulation == s0)].iloc[0]
+                    pick_home[i] = bool(row.picked_home)
+                    points[i] = int(row.confidence)
+
+        p_home_wins, p_away_wins, base = _an.game_importance(
+            pwin, outcomes, pick_home, points)
+
+        rows = []
+        for i, game in enumerate(games):
+            win_prob = p_home_wins[i] if pick_home[i] else p_away_wins[i]
+            loss_prob = p_away_wins[i] if pick_home[i] else p_home_wins[i]
+            is_fixed = bool(fp) and (game.home_team in fp or game.away_team in fp)
+            rows.append({
+                'game': f"{game.away_team}@{game.home_team}",
+                'points_bid': int(points[i]),
+                'pick': game.home_team if pick_home[i] else game.away_team,
+                'win_probability': float(win_prob),
+                'loss_probability': float(loss_prob),
+                'win_delta': float(win_prob - base),
+                'loss_delta': float(loss_prob - base),
+                'total_impact': float(win_prob - loss_prob),
+                'is_fixed': is_fixed,
             })
-        
-        results = pd.DataFrame(game_impacts)
-        
-        # Sort by absolute impact
-        results = results.sort_values('total_impact', ascending=False, key=abs)
-        
-        return results
+
+        results = pd.DataFrame(rows)
+        return results.sort_values('total_impact', ascending=False, key=abs)
     
     def optimize_picks_hill_climb(self, player_name: str, fixed_picks: Dict[str, Dict[str, int]] = None,
                                    iterations: int = 1000, restarts: int = 10,
