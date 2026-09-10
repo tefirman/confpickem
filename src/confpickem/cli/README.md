@@ -47,7 +47,7 @@ python src/confpickem/cli/optimize.py --week 10 --mode beginning --greedy --fast
 **Full Options:**
 ```
 --week, -w         NFL week number (required)
---league-id, -l    Yahoo league ID (default: 15435)
+--league-id, -l    Yahoo league ID (default: 11465)
 --mode, -m         'beginning' or 'midweek' (required)
 --live-odds        Use live Vegas odds
 --odds-api-key, -k The Odds API key
@@ -87,7 +87,7 @@ python src/confpickem/cli/win_probability.py --week 10 --num-sims 10000
 **Full Options:**
 ```
 --week, -w         NFL week number (required)
---league-id, -l    Yahoo league ID (default: 15435)
+--league-id, -l    Yahoo league ID (default: 11465)
 --live-odds        Use live Vegas odds
 --odds-api-key, -k The Odds API key
 --num-sims, -n     Number of simulations (default: 5000)
@@ -120,16 +120,16 @@ python src/confpickem/cli/player_skills.py update --years 2024,2025
 ```
 analyze:
   --weeks, -w      Comma-separated week numbers (required)
-  --league-id, -l  Yahoo league ID (default: 15435)
+  --league-id, -l  Yahoo league ID (default: 11465)
 
 apply:
   --week, -w       NFL week number (required)
-  --league-id, -l  Yahoo league ID (default: 15435)
+  --league-id, -l  Yahoo league ID (default: 11465)
 
 update:
   --weeks          Weeks to analyze (required)
   --week, -w       Week to apply to (required)
-  --league-id, -l  Yahoo league ID (default: 15435)
+  --league-id, -l  Yahoo league ID (default: 11465)
 ```
 
 ---

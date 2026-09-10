@@ -234,7 +234,7 @@ def create_realistic_simulator(year=None):
         import shutil
         shutil.rmtree(cache_dir)
     
-    yahoo = YahooPickEm(week=2, league_id=15435, cookies_file="cookies.txt")
+    yahoo = YahooPickEm(week=2, league_id=11465, cookies_file="cookies.txt")
     current_player_names = [p['player_name'] for _, p in yahoo.players.iterrows()]
     
     print(f"👥 Current league has {len(current_player_names)} players")

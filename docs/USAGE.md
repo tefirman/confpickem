@@ -46,7 +46,7 @@ combines them into `current_player_skills.json`. Refresh it every few weeks as
 more of the season is cached. Without the file the optimizer falls back to
 average skills for everyone — still usable, just a rougher field model.
 
-Default league is `15435`; pass `--league-id` for your own.
+Default league is `11465`; pass `--league-id` for your own.
 
 ---
 
