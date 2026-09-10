@@ -845,7 +845,96 @@ class ConfidencePickEmSimulator:
 
         results = pd.DataFrame(rows)
         return results.sort_values('total_impact', ascending=False, key=abs)
-    
+
+    def standings_analytic(self, player_data: pd.DataFrame,
+                           n_outcomes: int = 6000, seed: int = 51):
+        """Live league standings once every pick is locked -- no optimization.
+
+        After the first Sunday kickoff a confidence pool locks *every* entry, so
+        there is nothing left to choose: each entrant's slate is known and only
+        the game outcomes are uncertain. This scores every entrant's real slate
+        (from ``player_data`` == ``yahoo.players``) against ``n_outcomes``
+        importance-sampled outcome vectors -- with the games already decided
+        (``game.actual_outcome``) pinned to their real results -- and returns the
+        current win probabilities plus how much each remaining game swings them.
+        No opponent model, no Monte-Carlo pick sampling.
+
+        Args:
+            player_data: ``yahoo.players`` DataFrame -- every entrant must have a
+                pick + confidence on every game (that is the point of the
+                fully-locked state).
+            n_outcomes: outcome-vector draws.
+            seed: RNG seed (deterministic given identical inputs).
+
+        Returns:
+            ``(standings, importance)``:
+
+            * ``standings`` -- one row per entrant: ``player``, ``locked_points``
+              (already banked on decided games), ``win_pct``, ``expected_points``,
+              sorted by ``win_pct`` descending.
+            * ``importance`` -- one row per *undecided* game: ``game``,
+              ``vegas_home_win_pct``, and ``top_swing`` = the largest
+              ``|P(win | home) - P(win | away)|`` over all entrants (how much
+              first place hinges on that game), sorted descending.
+        """
+        from . import analytical as _an
+
+        games = self.games
+        n = len(games)
+        if n == 0:
+            raise ValueError("No games loaded")
+
+        names = player_data['player_name'].tolist()
+        N = len(names)
+        pick_home = np.zeros((N, n), dtype=bool)
+        points = np.zeros((N, n), dtype=int)
+        for e, name in enumerate(names):
+            row = player_data.iloc[e]
+            for i, g in enumerate(games):
+                got = self._player_game_pick(row, i, g)
+                if got is None:
+                    raise ValueError(
+                        f"{name!r} has no locked pick for "
+                        f"{g.away_team}@{g.home_team}; standings_analytic needs "
+                        f"every entrant's full slate")
+                pick_home[e, i], points[e, i] = got
+
+        vegas_home = np.array([g.vegas_win_prob for g in games])
+        completed = [g.actual_outcome is not None for g in games]
+        actual_outcomes = [g.actual_outcome for g in games] if any(completed) else None
+        rng = np.random.default_rng(seed)
+        outcomes = _an.sample_outcomes(vegas_home, n_outcomes, rng,
+                                       actual_outcomes=actual_outcomes)
+
+        win_pct, exp_pts, swing = _an.locked_board_standings(
+            pick_home, points, outcomes)
+
+        locked_points = np.array([
+            sum(points[e, i] for i in range(n)
+                if completed[i] and pick_home[e, i] == bool(games[i].actual_outcome))
+            for e in range(N)])
+
+        standings = pd.DataFrame({
+            'player': names,
+            'locked_points': locked_points,
+            'win_pct': win_pct,
+            'expected_points': exp_pts,
+        }).sort_values('win_pct', ascending=False, ignore_index=True)
+
+        imp_rows = []
+        for i, g in enumerate(games):
+            if completed[i]:
+                continue
+            imp_rows.append({
+                'game': f"{g.away_team}@{g.home_team}",
+                'vegas_home_win_pct': float(vegas_home[i]),
+                'top_swing': float(np.abs(swing[:, i]).max()),
+            })
+        importance = pd.DataFrame(imp_rows).sort_values(
+            'top_swing', ascending=False, ignore_index=True)
+
+        return standings, importance
+
     def optimize_picks_hill_climb(self, player_name: str, fixed_picks: Dict[str, Dict[str, int]] = None,
                                    iterations: int = 1000, restarts: int = 10,
                                    available_points: set = None, player_data: pd.DataFrame = None,

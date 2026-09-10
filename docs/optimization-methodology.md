@@ -193,6 +193,18 @@ importance is 0. Note the metric is a **win-probability** swing, not a points
 swing: a heavy favorite the whole crowd is on can carry large importance even at
 low confidence, because an upset there re-orders the entire field at once.
 
+## Fully-locked board
+
+Once the first Sunday game kicks off the pool locks **every** entry, so nothing
+is left to optimize — you just want the live standings. `standings_analytic`
+skips the opponent model entirely: it scores each entrant's *real* slate (from
+`yahoo.players`) against `n_outcomes` outcome draws — decided games pinned to
+their results — and counts firsts. Because the field is the actual field, not a
+model, the win probabilities are a true distribution (they sum to 1). It also
+returns, per still-live game, the largest `|P(win | home) − P(win | away)|`
+across all entrants — how much first place hinges on that game. Milliseconds for
+a full league.
+
 ## Takeaways
 
 1. In a large weekly pool, "pick better" is nearly a dead end — the crowd is
