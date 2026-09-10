@@ -12,7 +12,7 @@ python src/confpickem/cli/optimize.py --week 10 --mode midweek --live-odds
 python src/confpickem/cli/win_probability.py --week 10 --live-odds
 
 # Update player skills
-python src/confpickem/cli/player_skills.py update --weeks 3,4,5,6,7,8,9 --week 10
+python src/confpickem/cli/player_skills.py update --years 2024,2025
 ```
 
 ## Available Commands
@@ -113,7 +113,7 @@ python src/confpickem/cli/player_skills.py analyze --weeks 3,4,5,6
 python src/confpickem/cli/player_skills.py apply --week 10
 
 # Do both in one command
-python src/confpickem/cli/player_skills.py update --weeks 3,4,5,6,7,8,9 --week 10
+python src/confpickem/cli/player_skills.py update --years 2024,2025
 ```
 
 **Full Options:**
@@ -169,7 +169,7 @@ python src/confpickem/cli/optimize.py --week 10 --mode midweek --live-odds
 **Beginning of Week:**
 ```bash
 # 1. Update player skills (once per season, or when you want to refresh)
-python src/confpickem/cli/player_skills.py update --weeks 3,4,5,6,7,8,9 --week 10
+python src/confpickem/cli/player_skills.py update --years 2024,2025
 
 # 2. Get your optimal picks (analytical optimizer by default, runs in seconds)
 python src/confpickem/cli/optimize.py --week 10 --mode beginning
@@ -219,7 +219,7 @@ analytical default is already fast, so this is rarely needed.
 ### 4. Update Player Skills Periodically
 Refresh player skills every few weeks with recent historical data:
 ```bash
-player_skills.py update --weeks 7,8,9,10,11,12 --week 13
+player_skills.py update --years 2024,2025
 ```
 
 ### 5. Use Environment Variables

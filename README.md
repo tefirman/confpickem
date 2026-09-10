@@ -27,15 +27,21 @@ pip install confpickem
 The easiest way to use confpickem is through the command-line tools:
 
 ```bash
-# Optimize your picks for mid-week with live odds
-confpickem --week 10 --mode midweek --live-odds
+# Optimize your picks (analytical optimizer, runs in seconds)
+confpickem --week 10 --mode beginning
+
+# Re-optimize once games start -- locks what's finished or kicked off
+confpickem --week 10 --mode midweek
 
 # Check win probabilities for all players
 confpickem-win-probability --week 10 --live-odds
 
 # Update player skills from historical data
-confpickem-player-skills update --weeks 3,4,5,6,7,8,9 --week 10
+confpickem-player-skills update --years 2024,2025
 ```
+
+New here? **[docs/USAGE.md](docs/USAGE.md)** walks through a full week end to end
+(getting `cookies.txt`, the weekly run, reading the output).
 
 **Installation:** Install the package to get these commands:
 ```bash
@@ -46,27 +52,31 @@ See the [CLI Documentation](CLI_README.md) for full details.
 
 ### Python API
 
-You can also use the package programmatically:
-
 ```python
-from confpickem import YahooPickEm, ConfidencePickEmSimulator, run_simulation
+import json
+from confpickem import YahooPickEm, ConfidencePickEmSimulator, Player
+from confpickem.yahoo_pickem_integration import convert_yahoo_to_simulator_format
 
-# Initialize scraper with your league info
-yahoo = YahooPickEm(
-    week=1,
-    league_id=YOUR_LEAGUE_ID,
-    cookies_file='cookies.txt'
-)
+yahoo = YahooPickEm(week=10, league_id=YOUR_LEAGUE_ID, cookies_file='cookies.txt')
 
-# Run simulation with actual picks
-simulator, stats = run_simulation(yahoo)
+sim = ConfidencePickEmSimulator(num_sims=2000)
+sim.add_games_from_dataframe(convert_yahoo_to_simulator_format(yahoo, ignore_results=True))
 
-# Print expected points and win percentages
-print("\nExpected Points by Player:")
-print(stats['expected_points'])
-print("\nWin Percentages:")
-print(stats['win_pct'])
+skills = json.load(open('current_player_skills.json'))   # or {} for average skills
+sim.players = [
+    Player(nm,
+           skills.get(nm, {}).get('skill_level', 0.6),
+           skills.get(nm, {}).get('crowd_following', 0.5),
+           skills.get(nm, {}).get('confidence_following', 0.5))
+    for nm in yahoo.players['player_name']
+]
+
+picks = sim.optimize_picks_analytic("Your Yahoo Name", verbose=True)
+print(picks)   # {TEAM: confidence}, a full 1..N assignment
 ```
+
+See **[examples/yahoo_pickem_demo.ipynb](examples/yahoo_pickem_demo.ipynb)** for
+the full flow (sanity checks, game importance, mid-week re-optimization).
 
 ## Features
 
@@ -92,10 +102,10 @@ print(stats['win_pct'])
 - Automatic fallback to Yahoo data when API unavailable
 
 ### 🧠 Strategy Optimization
-- Evaluate different picking strategies
+- Analytical Poisson-binomial `P(win)` optimizer (default; noise-free, runs in seconds)
 - Optimize confidence point assignments
-- Mid-week re-optimization with completed game results
-- Fast mode for quick decisions (~85% accuracy, 10x speed)
+- Mid-week / mid-Sunday re-optimization — locks games already finished or kicked off
+- `--greedy` / `--hill-climb` for the older simulation-based optimizers
 
 ## Dependencies
 
@@ -126,8 +136,10 @@ the full write-up.
 
 ## Documentation
 
+- **[Usage Walkthrough](docs/USAGE.md)** - A full week end to end, from the command line
+- **[Python API Demo](examples/yahoo_pickem_demo.ipynb)** - The same flow from Python
 - **[Optimization Methodology](docs/optimization-methodology.md)** - How the optimizer works and why
-- **[CLI Tools Guide](CLI_README.md)** - Comprehensive guide for command-line tools
+- **[CLI Tools Guide](CLI_README.md)** - Full flag reference for the command-line tools
 - **[CLI Tools (in package)](src/confpickem/cli/README.md)** - Detailed CLI documentation
 - **[GitHub Repository](https://github.com/tefirman/confpickem)** - Source code and issues
 

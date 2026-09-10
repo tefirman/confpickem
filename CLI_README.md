@@ -23,7 +23,7 @@ confpickem --week 10 --mode midweek --live-odds
 confpickem-win-probability --week 10 --live-odds
 
 # Update player skills
-confpickem-player-skills update --weeks 3,4,5,6,7,8,9 --week 10
+confpickem-player-skills update --years 2024,2025
 ```
 
 ## Available Commands
@@ -204,7 +204,7 @@ python src/confpickem/cli/optimize.py --week 10 --mode midweek --live-odds
 **Beginning of Week:**
 ```bash
 # 1. Update player skills (optional, do once per season or periodically)
-confpickem-player-skills update --weeks 3,4,5,6,7,8,9 --week 10
+confpickem-player-skills update --years 2024,2025
 
 # 2. Get your optimal picks
 confpickem --week 10 --mode beginning --live-odds
