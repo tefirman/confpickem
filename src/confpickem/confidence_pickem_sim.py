@@ -498,10 +498,30 @@ class ConfidencePickEmSimulator:
 
         return optimal
 
+    def _player_game_pick(self, player_row: pd.Series, game_idx: int,
+                          game: Game) -> Optional[Tuple[bool, int]]:
+        """``(pick_home, points)`` for one player on one game from ``yahoo.players``
+        row data, or ``None`` if they have no recorded pick there."""
+        pick = player_row.get(f'game_{game_idx + 1}_pick')
+        conf = player_row.get(f'game_{game_idx + 1}_confidence')
+        if pick is None or conf is None or pd.isna(pick) or pd.isna(conf):
+            return None
+        try:
+            conf = int(conf)
+        except (TypeError, ValueError):
+            return None
+        if conf <= 0:
+            return None
+        return (pick == game.home_team), conf
+
     def optimize_picks_analytic(self, player_name: str,
                                 fixed_picks: Dict[str, Dict[str, int]] = None,
                                 iterations: int = 400, restarts: int = 4,
                                 n_outcomes: int = 6000, seed: int = 51,
+                                available_points: set = None,
+                                player_data: pd.DataFrame = None,
+                                as_of: datetime = None,
+                                max_opponent_types: int = 16,
                                 verbose: bool = False) -> Dict[str, int]:
         """Optimize picks against an exact analytical ``P(win)``.
 
@@ -513,6 +533,25 @@ class ConfidencePickEmSimulator:
         :meth:`optimize_picks` on wins, "one game from winning" weeks, and mean
         finish.
 
+        Midweek (some ``self.games`` are decided or already kicked off): pass
+        ``player_data`` (``yahoo.players``) so that
+
+        * every game whose picks are frozen -- finished, or kicked off but not
+          yet final -- is locked to this player's real pick and confidence, and
+          the free games are optimized over exactly the **unspent** confidence
+          values;
+        * the sampled outcome vectors are pinned to the real results on
+          *finished* games (kicked-off-but-live games stay random);
+        * each opponent's *actual* frozen picks are folded into the field model
+          instead of their modal slate -- finished games as the points they
+          banked, live games as a pinned pick still awaiting an outcome.
+
+        A game counts as frozen if ``game.actual_outcome`` is set, if
+        ``game.picks_locked`` is true, or if ``as_of`` is given and the game's
+        ``kickoff_time`` is at or before it (the pool locks *all* picks once the
+        first Sunday game starts, so mid-Sunday only a game or two is usually
+        finished while the rest are frozen-but-live).
+
         Args:
             player_name: player to optimize for (must be in ``self.players``).
             fixed_picks: ``{player: {TEAM: confidence}}``; this player's entries
@@ -521,6 +560,21 @@ class ConfidencePickEmSimulator:
             restarts: random restarts.
             n_outcomes: outcome-vector draws for the analytical P(win) estimate.
             seed: RNG seed (deterministic given identical inputs).
+            available_points: optional set of confidence values the free games
+                may use. If given it is validated against the values left
+                unspent after completed games + fixed picks; normally you can
+                leave it ``None`` and let ``player_data`` imply it.
+            player_data: ``yahoo.players`` DataFrame -- required for midweek to
+                know spent confidence and opponents' real picks.
+            as_of: optional timestamp; any not-yet-final game that kicked off at
+                or before it is treated as frozen (picks locked, outcome still
+                live). Use ``datetime.now()`` for a live mid-Sunday run.
+            max_opponent_types: midweek only -- cap on distinct modeled
+                opponent types after folding in real frozen picks (each
+                distinct history is otherwise its own type and ``P(win)`` slows
+                by the same factor). The rarest histories past the cap are
+                merged; 16 keeps evaluation fast with negligible effect on the
+                chosen slate.
             verbose: print the chalk vs. optimized P(win).
 
         Returns:
@@ -541,21 +595,79 @@ class ConfidencePickEmSimulator:
         crowd_home_conf = np.array([g.crowd_home_confidence for g in games])
         crowd_away_conf = np.array([g.crowd_away_confidence for g in games])
 
+        completed = [g.actual_outcome is not None for g in games]
+
+        def _kicked_off(g):
+            """Has ``g`` started as of ``as_of``? Robust to naive/aware and
+            pandas.Timestamp kickoff times."""
+            if as_of is None or g.kickoff_time is None:
+                return False
+            kt = g.kickoff_time
+            try:
+                return kt.timestamp() <= as_of.timestamp()
+            except (TypeError, ValueError, OverflowError, OSError):
+                # last resort: compare naive wall clocks
+                kt_naive = kt.replace(tzinfo=None)
+                as_naive = as_of.replace(tzinfo=None)
+                return kt_naive <= as_naive
+
+        # frozen but not final: picks locked (flag or kickoff passed) yet undecided
+        locked_pending = [
+            (not completed[i]) and (g.picks_locked or _kicked_off(g))
+            for i, g in enumerate(games)]
+        frozen = [completed[i] or locked_pending[i] for i in range(n)]
+
+        def _row_for(name):
+            if player_data is None:
+                return None
+            match = player_data[player_data['player_name'] == name]
+            return match.iloc[0] if not match.empty else None
+
+        # --- opponent field model: fold in real frozen picks -----------------
+        opp_names = [p.name for p in self.players if p.name != player_name]
         opponents = [(p.crowd_following, p.confidence_following)
                      for p in self.players if p.name != player_name]
+        opp_completed = opp_locked = None
+        if any(frozen) and player_data is not None:
+            opp_completed, opp_locked = [], []
+            for name in opp_names:
+                row = _row_for(name)
+                done, live = {}, {}
+                if row is not None:
+                    for i, g in enumerate(games):
+                        if not frozen[i]:
+                            continue
+                        got = self._player_game_pick(row, i, g)
+                        if got is None:
+                            continue
+                        (done if completed[i] else live)[i] = got
+                opp_completed.append(done or None)
+                opp_locked.append(live or None)
+
+        actual_outcomes = ([g.actual_outcome for g in games]
+                           if any(completed) else None)
         opp_types = _an.build_opponent_types(
             vegas_home, crowd_home_pct, crowd_home_conf, crowd_away_conf,
-            opponents)
-
+            opponents, completed_picks=opp_completed,
+            actual_outcomes=actual_outcomes, locked_picks=opp_locked,
+            max_types=max_opponent_types if any(frozen) else None)
         rng = np.random.default_rng(seed)
-        outcomes = _an.sample_outcomes(vegas_home, n_outcomes, rng)
+        outcomes = _an.sample_outcomes(vegas_home, n_outcomes, rng,
+                                       actual_outcomes=actual_outcomes)
         pwin = _an.make_pwin(opp_types, outcomes)
 
-        # translate this player's fixed picks into locked (pick_home, points)
+        # --- this player's locked slots: fixed picks + every frozen game -----
         fixed_picks = fixed_picks or {}
         mine = fixed_picks.get(player_name, {})
         pick_home_fixed = np.zeros(n, dtype=bool)
         points_fixed = np.zeros(n, dtype=int)
+
+        my_row = _row_for(player_name)
+        for i, g in enumerate(games):
+            if frozen[i] and my_row is not None:
+                got = self._player_game_pick(my_row, i, g)
+                if got is not None:
+                    pick_home_fixed[i], points_fixed[i] = got[0], got[1]
         for i, g in enumerate(games):
             if g.home_team in mine:
                 pick_home_fixed[i] = True
@@ -563,6 +675,18 @@ class ConfidencePickEmSimulator:
             elif g.away_team in mine:
                 pick_home_fixed[i] = False
                 points_fixed[i] = int(mine[g.away_team])
+
+        locked_vals = points_fixed[points_fixed > 0].tolist()
+        if len(locked_vals) != len(set(locked_vals)):
+            raise ValueError("Locked picks (frozen games + fixed picks) reuse "
+                             "a confidence value")
+        unspent = set(range(1, n + 1)) - set(locked_vals)
+        if available_points is not None:
+            requested = set(available_points) - set(locked_vals)
+            if requested != unspent:
+                raise ValueError(
+                    f"available_points {sorted(requested)} does not match the "
+                    f"unspent confidence values {sorted(unspent)}")
 
         ph, pts, val = _an.optimize_slate(
             pwin, vegas_home,

@@ -487,13 +487,20 @@ Examples:
             summary_stats = None
 
             if args.analytic:
-                # Analytical Poisson-binomial P(win) optimizer - returns just picks
+                # Analytical Poisson-binomial P(win) optimizer - returns just picks.
+                # Midweek: pass player_data + as_of=now so the method locks every
+                # frozen game (finished OR kicked off) and derives the unspent
+                # confidence itself -- once the first Sunday game starts, all
+                # picks are locked and your_remaining_confidence (completed-only)
+                # would understate what's spent.
                 optimal_picks = simulator.optimize_picks_analytic(
                     player_name=selected,
                     fixed_picks=fixed_formatted,
                     iterations=args.an_iterations,
                     restarts=args.an_restarts,
                     n_outcomes=args.an_outcomes,
+                    player_data=yahoo.players if args.mode == 'midweek' else None,
+                    as_of=datetime.now() if args.mode == 'midweek' else None,
                     verbose=True,
                 )
             elif args.hill_climb:

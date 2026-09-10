@@ -145,6 +145,36 @@ Split by season:
   mid-pack all year. The analytical optimizer was still consistently *closer* to
   first. In 2025 it converted.
 
+## Midweek
+
+Once any game is locked, `optimize_picks_analytic(player_data=…, as_of=…)`
+re-optimizes only what's still open. A pool locks *every* entry the moment the
+first Sunday game kicks off, so a live mid-Sunday run typically has just a game
+or two **finished** and the rest **frozen but not yet decided**. Three states:
+
+- **Free** — pick open, outcome unknown. Optimized.
+- **Finished** — your pick and confidence are locked to what you submitted; the
+  outcome-vector draws are pinned to the real result; each opponent's real pick
+  collapses to a scalar (the points they banked) and drops out of the
+  Poisson-binomial, since it carries no variance.
+- **Frozen but live** (kicked off per `as_of`, or `Game.picks_locked`) — your
+  pick and confidence are locked, and opponents' real picks pin their side of
+  that game, but it **stays in the convolution** because the outcome is still
+  sampled.
+
+The open games are optimized over the confidence you haven't spent on *any*
+frozen game. Knowing opponents' real picks breaks the modal collapse, so the
+rarest distinct histories past a cap (`max_opponent_types`, default 16) are
+merged to keep evaluation fast.
+
+A 5-week × 3-scenario 2025 spot check (finished / frozen-live / free split
+varied per scenario) tracked the beginning-of-week result in every case —
+analytical vs greedy mean finish: 35th vs 47th with 6 games decided, 40th vs
+52nd with only 2 decided, 41st vs 52nd in the realistic mid-Sunday "2 finished,
+rest frozen-live" case. Analytical won a week in all three and kept the same
+higher-variance profile. Fewer decided games, if anything, helps — the field is
+less fragmented and there's more room to differentiate.
+
 ## Takeaways
 
 1. In a large weekly pool, "pick better" is nearly a dead end — the crowd is

@@ -3,6 +3,7 @@
 """Tests for the analytical (Poisson-binomial) win-probability model."""
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from src.confpickem.analytical import (
@@ -344,3 +345,282 @@ def test_optimize_picks_analytic_respects_fixed_picks(analytic_simulator):
 def test_optimize_picks_analytic_unknown_player(analytic_simulator):
     with pytest.raises(ValueError):
         analytic_simulator.optimize_picks_analytic("Nobody")
+
+
+# ---------------------------------------------------------------------------
+# Midweek: forced outcomes + folded-in opponent picks
+# ---------------------------------------------------------------------------
+
+
+def test_sample_outcomes_forces_decided_games():
+    vh = np.array([0.6, 0.4, 0.7, 0.55])
+    draws = sample_outcomes(
+        vh, 500, np.random.default_rng(0), actual_outcomes=[True, None, False, None]
+    )
+    assert draws[:, 0].all()  # home win forced
+    assert not draws[:, 2].any()  # away win forced
+    assert 0 < draws[:, 1].mean() < 1  # still sampled
+    assert 0 < draws[:, 3].mean() < 1
+
+
+def test_build_opponent_types_collapses_completed_games_to_scalar():
+    vh = np.array([0.85, 0.65, 0.55, 0.70])
+    chp = np.array([0.90, 0.72, 0.60, 0.78])
+    chc = np.array([14.0, 10.0, 8.0, 11.0])
+    cac = np.array([2.0, 6.0, 8.5, 5.0])
+    opps = [(0.5, 0.5)] * 6
+    # game 0 decided: home won. Two opponents took the (losing) underdog w/ 3 pts,
+    # the other four took the (winning) home team with 3 pts.
+    outcomes = [True, None, None, None]
+    completed = [
+        {0: (True, 3)},
+        {0: (True, 3)},
+        {0: (True, 3)},
+        {0: (True, 3)},
+        {0: (False, 3)},
+        {0: (False, 3)},
+    ]
+    types = build_opponent_types(
+        vh,
+        chp,
+        chc,
+        cac,
+        opps,
+        completed_picks=completed,
+        actual_outcomes=outcomes,
+    )
+    # split by banked points: 4 with 3, 2 with 0
+    by_count = {t[2]: t for t in types}
+    assert sorted(by_count) == [2, 4]
+    assert by_count[4][3] == 3  # picked the winner -> banked 3
+    assert by_count[2][3] == 0  # picked the loser -> banked 0
+    # the decided game is dropped from the Poisson-binomial for both
+    for t in types:
+        assert t[1][0] == 0
+
+
+def test_build_opponent_types_no_completed_picks_is_backward_compatible():
+    vh = np.array([0.85, 0.65, 0.55, 0.70])
+    chp = np.array([0.90, 0.72, 0.60, 0.78])
+    chc = np.array([14.0, 10.0, 8.0, 11.0])
+    cac = np.array([2.0, 6.0, 8.5, 5.0])
+    types = build_opponent_types(vh, chp, chc, cac, [(0.5, 0.5)] * 5)
+    assert len(types) == 1
+    assert types[0][2] == 5
+    assert types[0][3] == 0  # nothing banked
+
+
+def test_build_opponent_types_rejects_bad_game_index():
+    vh = np.array([0.6, 0.4, 0.7])
+    with pytest.raises(ValueError):
+        build_opponent_types(
+            vh,
+            vh,
+            vh * 10,
+            vh * 10,
+            [(0.5, 0.5)],
+            completed_picks=[{9: (True, 1)}],
+            actual_outcomes=[True, None, None],
+        )
+
+
+def test_build_opponent_types_rejects_completed_pick_without_outcome():
+    vh = np.array([0.6, 0.4, 0.7])
+    with pytest.raises(ValueError):
+        build_opponent_types(
+            vh,
+            vh,
+            vh * 10,
+            vh * 10,
+            [(0.5, 0.5)],
+            completed_picks=[{0: (True, 1)}],
+            actual_outcomes=[None, None, None],
+        )
+
+
+def test_make_pwin_accounts_for_banked_completed_points():
+    """A type that already banked a big lead on decided games should be much
+    harder to beat than the same modal pending slate with nothing banked."""
+    vh = np.array([0.6, 0.55, 0.5, 0.45])
+    outcomes = sample_outcomes(vh, 4000, np.random.default_rng(0))
+    # identical pending model; one banked 10 pts on decided games, one banked 0
+    p_home = vh.copy()
+    pending_pts = np.array([4, 3, 2, 1])
+    behind = make_pwin([(p_home, pending_pts, 1, 10)], outcomes)
+    even = make_pwin([(p_home, pending_pts, 1, 0)], outcomes)
+    my_ph = np.ones(4, dtype=bool)
+    my_pts = np.array([4, 3, 2, 1])
+    assert behind(my_ph, my_pts) < even(my_ph, my_pts)
+
+
+@pytest.fixture
+def midweek_simulator():
+    """4-game slate, games 0 and 1 already decided; every player has a real
+    pick on all four (so game 2 or 3 can also be treated as frozen-but-live)."""
+    sim = ConfidencePickEmSimulator(num_sims=100)
+    sim.games = [
+        Game(
+            "SF", "ARI", 0.85, 0.90, 14.0, 2.0, 1, datetime(2024, 9, 8, 13, 0), actual_outcome=True
+        ),
+        Game(
+            "KC",
+            "DEN",
+            0.65,
+            0.72,
+            10.0,
+            6.0,
+            1,
+            datetime(2024, 9, 8, 16, 25),
+            actual_outcome=False,
+        ),
+        Game("BAL", "CIN", 0.55, 0.60, 8.0, 8.5, 1, datetime(2024, 9, 8, 20, 20)),
+        Game("BUF", "MIA", 0.70, 0.78, 11.0, 5.0, 1, datetime(2024, 9, 8, 13, 0)),
+    ]
+    sim.players = [Player("Me", 0.75, 0.74, 0.83)] + [
+        Player(f"P{i}", 0.6, 0.5, 0.5) for i in range(1, 12)
+    ]
+    # yahoo.players-style frame: game_N_pick / game_N_confidence
+    rows = []
+    for p in sim.players:
+        rows.append(
+            {
+                "player_name": p.name,
+                "game_1_pick": "SF",
+                "game_1_confidence": 4,
+                "game_2_pick": "DEN" if p.name == "Me" else "KC",
+                "game_2_confidence": 2,
+                "game_3_pick": "BAL" if p.name == "Me" else "CIN",
+                "game_3_confidence": 1,
+                "game_4_pick": "BUF",
+                "game_4_confidence": 3,
+            }
+        )
+    sim.player_data = pd.DataFrame(rows)
+    return sim
+
+
+def test_optimize_picks_analytic_midweek_locks_completed_games(midweek_simulator):
+    sim = midweek_simulator
+    optimal = sim.optimize_picks_analytic(
+        "Me",
+        iterations=60,
+        restarts=2,
+        n_outcomes=1500,
+        seed=3,
+        player_data=sim.player_data,
+    )
+    n = len(sim.games)
+    # completed games keep Me's real pick + confidence
+    assert optimal["SF"] == 4
+    assert optimal["DEN"] == 2
+    # still a full valid 1..n permutation
+    assert sorted(optimal.values()) == list(range(1, n + 1))
+    # free games only use the unspent values {1, 3}
+    free_vals = sorted(v for t, v in optimal.items() if t not in ("SF", "DEN"))
+    assert free_vals == [1, 3]
+
+
+def test_optimize_picks_analytic_midweek_available_points_crosscheck(midweek_simulator):
+    sim = midweek_simulator
+    # {1, 3} is the true unspent set (2 -> DEN, 4 -> SF already spent)
+    ok = sim.optimize_picks_analytic(
+        "Me",
+        iterations=40,
+        restarts=1,
+        n_outcomes=1000,
+        seed=1,
+        player_data=sim.player_data,
+        available_points={1, 3},
+    )
+    assert sorted(ok.values()) == [1, 2, 3, 4]
+    # a caller-supplied set that genuinely disagrees is rejected
+    with pytest.raises(ValueError):
+        sim.optimize_picks_analytic(
+            "Me",
+            iterations=40,
+            restarts=1,
+            n_outcomes=1000,
+            seed=1,
+            player_data=sim.player_data,
+            available_points={1},
+        )
+
+
+def test_optimize_picks_analytic_midweek_detects_conflicting_lock(midweek_simulator):
+    sim = midweek_simulator
+    # fixed pick reuses confidence 4, already spent on the completed SF game
+    with pytest.raises(ValueError):
+        sim.optimize_picks_analytic(
+            "Me",
+            iterations=40,
+            restarts=1,
+            n_outcomes=1000,
+            seed=1,
+            player_data=sim.player_data,
+            fixed_picks={"Me": {"BAL": 4}},
+        )
+
+
+def test_build_opponent_types_locked_pick_stays_in_convolution():
+    vh = np.array([0.85, 0.65, 0.55, 0.70])
+    chp = np.array([0.90, 0.72, 0.60, 0.78])
+    chc = np.array([14.0, 10.0, 8.0, 11.0])
+    cac = np.array([2.0, 6.0, 8.5, 5.0])
+    opps = [(0.5, 0.5)] * 4
+    # game 1 kicked off but is not final: two opponents locked the away side w/ 5
+    locked = [None, {1: (False, 5)}, {1: (False, 5)}, None]
+    types = build_opponent_types(vh, chp, chc, cac, opps, locked_picks=locked)
+    assert len(types) == 2  # 2 with the locked away pick, 2 modal
+    assert sorted(t[2] for t in types) == [2, 2]
+    locked_type = [t for t in types if t[1][1] == 5][0]
+    ph_prob, pts, _cnt, banked = locked_type
+    assert ph_prob[1] == 0.0  # pinned to the real (away) pick
+    assert pts[1] == 5  # real confidence kept
+    assert pts[1] != 0  # NOT dropped from the Poisson-binomial
+    assert banked == 0  # nothing banked -- outcome still unknown
+
+
+def test_optimize_picks_analytic_freezes_kicked_off_games_via_as_of(midweek_simulator):
+    sim = midweek_simulator
+    # game index 3 (BUF@MIA) kicks off 2024-09-08 13:00; as_of just after locks it
+    as_of = datetime(2024, 9, 8, 13, 30)
+    optimal = sim.optimize_picks_analytic(
+        "Me",
+        iterations=60,
+        restarts=2,
+        n_outcomes=1500,
+        seed=5,
+        player_data=sim.player_data,
+        as_of=as_of,
+    )
+    n = len(sim.games)
+    # frozen: game 0 (final), game 1 (final), game 3 (kicked off) -> Me's real picks
+    assert optimal["SF"] == 4  # completed
+    assert optimal["DEN"] == 2  # completed
+    assert optimal["BUF"] == 3  # kicked off, pick frozen at real confidence
+    # only game 2 (BAL@CIN, 20:20 kickoff) is still free -> gets the last value
+    assert sorted(optimal.values()) == list(range(1, n + 1))
+    free = {t: v for t, v in optimal.items() if t not in ("SF", "DEN", "BUF")}
+    assert set(free.values()) == {1}
+
+
+def test_optimize_picks_analytic_as_of_before_kickoff_is_a_noop(midweek_simulator):
+    sim = midweek_simulator
+    early = sim.optimize_picks_analytic(
+        "Me",
+        iterations=40,
+        restarts=1,
+        n_outcomes=1000,
+        seed=7,
+        player_data=sim.player_data,
+        as_of=datetime(2024, 9, 8, 6, 0),
+    )
+    plain = sim.optimize_picks_analytic(
+        "Me",
+        iterations=40,
+        restarts=1,
+        n_outcomes=1000,
+        seed=7,
+        player_data=sim.player_data,
+    )
+    assert early == plain
