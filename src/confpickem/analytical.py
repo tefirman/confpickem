@@ -264,9 +264,11 @@ def make_pwin(opponent_types: Sequence[OpponentType], outcomes: np.ndarray,
     """Build ``pwin(my_pick_home, my_points) -> P(you finish 1st)``.
 
     ``outcomes`` is the ``[K, n]`` boolean array from :func:`sample_outcomes`.
-    The returned closure precomputes each opponent type's per-outcome
-    correctness probabilities, so each call is a handful of vectorized
-    convolutions (~0.05s for a full field).
+    Each opponent type's score PMF/CDF depends only on ``outcomes`` and that
+    type's modal slate -- never on the candidate ``my_pick_home`` /
+    ``my_points`` -- so the returned closure precomputes them once. Every
+    ``pwin`` call is then just an index into those tables plus a reduction,
+    which is what makes a hill climb over thousands of candidates affordable.
 
     P(win) = mean over outcome draws o of  prod over opponent types t of
              P(my score > that type's score | o) ** count_t

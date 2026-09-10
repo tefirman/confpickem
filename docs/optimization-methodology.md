@@ -147,25 +147,33 @@ Split by season:
 
 ## Midweek
 
-Once Thursday/Friday games are decided, `optimize_picks_analytic(player_data=…)`
-re-optimizes only the games left:
+Once any game is locked, `optimize_picks_analytic(player_data=…, as_of=…)`
+re-optimizes only what's still open. A pool locks *every* entry the moment the
+first Sunday game kicks off, so a live mid-Sunday run typically has just a game
+or two **finished** and the rest **frozen but not yet decided**. Three states:
 
-- **Your scored games are locked** to the picks and confidence you already
-  submitted, and the free games are optimized over just your **unspent**
-  confidence values.
-- **The outcome-vector draws are pinned** to the real results on decided games,
-  so the points you've banked are fixed and only the pending games carry
-  uncertainty.
-- **Each opponent's real completed picks** are folded in as the points they've
-  already banked (a scalar per modeled type), rather than their modal slate.
-  Because knowing real picks breaks the modal collapse, the rarest distinct
-  histories past a cap (`max_opponent_types`, default 16) are merged to keep the
-  evaluation fast.
+- **Free** — pick open, outcome unknown. Optimized.
+- **Finished** — your pick and confidence are locked to what you submitted; the
+  outcome-vector draws are pinned to the real result; each opponent's real pick
+  collapses to a scalar (the points they banked) and drops out of the
+  Poisson-binomial, since it carries no variance.
+- **Frozen but live** (kicked off per `as_of`, or `Game.picks_locked`) — your
+  pick and confidence are locked, and opponents' real picks pin their side of
+  that game, but it **stays in the convolution** because the outcome is still
+  sampled.
 
-A 5-week 2025 spot check (games 1–6 treated as played, optimize the rest, score
-on the real results) tracked the beginning-of-week result — analytical vs greedy:
-1 win vs 0, 2 "one game away" weeks vs 0, mean finish 35th vs 52nd — with the
-same higher-variance profile.
+The open games are optimized over the confidence you haven't spent on *any*
+frozen game. Knowing opponents' real picks breaks the modal collapse, so the
+rarest distinct histories past a cap (`max_opponent_types`, default 16) are
+merged to keep evaluation fast.
+
+A 5-week × 3-scenario 2025 spot check (finished / frozen-live / free split
+varied per scenario) tracked the beginning-of-week result in every case —
+analytical vs greedy mean finish: 35th vs 47th with 6 games decided, 40th vs
+52nd with only 2 decided, 41st vs 52nd in the realistic mid-Sunday "2 finished,
+rest frozen-live" case. Analytical won a week in all three and kept the same
+higher-variance profile. Fewer decided games, if anything, helps — the field is
+less fragmented and there's more room to differentiate.
 
 ## Takeaways
 
