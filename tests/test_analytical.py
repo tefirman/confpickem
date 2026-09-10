@@ -14,6 +14,7 @@ from src.confpickem.analytical import (
     sample_outcomes,
     make_pwin,
     game_importance,
+    locked_board_standings,
     chalk_slate,
     optimize_slate,
 )
@@ -346,6 +347,115 @@ def test_optimize_picks_analytic_respects_fixed_picks(analytic_simulator):
 def test_optimize_picks_analytic_unknown_player(analytic_simulator):
     with pytest.raises(ValueError):
         analytic_simulator.optimize_picks_analytic("Nobody")
+
+
+# ---------------------------------------------------------------------------
+# locked_board_standings (fully-locked field, no opponent model)
+# ---------------------------------------------------------------------------
+
+
+def test_locked_board_standings_is_a_distribution():
+    rng = np.random.default_rng(0)
+    n, N = 6, 8
+    vh = rng.uniform(0.35, 0.8, n)
+    pick_home = rng.random((N, n)) < 0.5
+    points = np.stack([rng.permutation(n) + 1 for _ in range(N)])
+    outcomes = sample_outcomes(vh, 5000, rng)
+
+    win_pct, exp_pts, swing = locked_board_standings(pick_home, points, outcomes)
+    assert win_pct.shape == (N,) and exp_pts.shape == (N,)
+    assert swing.shape == (N, n)
+    assert abs(win_pct.sum() - 1.0) < 1e-9  # someone wins every draw
+    assert (win_pct >= 0).all()
+    # expected points in [0, sum of that entrant's confidence]
+    assert (exp_pts <= points.sum(axis=1) + 1e-9).all()
+
+
+def test_locked_board_standings_favours_the_better_slate():
+    # two entrants, 3 games, everyone home-favoured; A puts big points on the
+    # locks, B inverts -> A should win more often
+    vh = np.array([0.9, 0.75, 0.6])
+    outcomes = sample_outcomes(vh, 8000, np.random.default_rng(1))
+    pick_home = np.array([[True, True, True], [True, True, True]])
+    points = np.array([[3, 2, 1], [1, 2, 3]])
+    win_pct, _, _ = locked_board_standings(pick_home, points, outcomes)
+    assert win_pct[0] > win_pct[1]
+
+
+def test_locked_board_standings_decided_game_zero_swing():
+    vh = np.array([0.7, 0.55, 0.6])
+    ao = [True, None, None]  # game 0 already decided
+    outcomes = sample_outcomes(vh, 4000, np.random.default_rng(2), actual_outcomes=ao)
+    pick_home = np.array([[True, True, False], [False, True, True]])
+    points = np.array([[3, 2, 1], [2, 3, 1]])
+    _, _, swing = locked_board_standings(pick_home, points, outcomes)
+    assert np.allclose(swing[:, 0], 0.0)  # no live partition
+
+
+def test_locked_board_standings_ties_split_credit():
+    # identical slates -> identical win_pct, and they sum to 1
+    vh = np.array([0.6, 0.5, 0.4])
+    outcomes = sample_outcomes(vh, 3000, np.random.default_rng(3))
+    pick_home = np.array([[True, False, True]] * 3)
+    points = np.array([[3, 2, 1]] * 3)
+    win_pct, _, _ = locked_board_standings(pick_home, points, outcomes)
+    assert np.allclose(win_pct, 1 / 3)
+
+
+def test_standings_analytic_end_to_end(analytic_simulator):
+    sim = analytic_simulator
+    n = len(sim.games)
+    # game 0 (SF) already decided; the rest locked-but-live
+    sim.games[0].actual_outcome = True
+
+    names = ["Me"] + [f"P{i}" for i in range(1, 12)]
+    rows = []
+    for k, nm in enumerate(names):
+        # rotate everyone's picks/points a little so slates differ
+        rows.append(
+            {
+                "player_name": nm,
+                **{
+                    f"game_{i+1}_pick": (
+                        sim.games[i].home_team if (i + k) % 3 else sim.games[i].away_team
+                    )
+                    for i in range(n)
+                },
+                **{f"game_{i+1}_confidence": ((i + k) % n) + 1 for i in range(n)},
+            }
+        )
+    pdata = pd.DataFrame(rows)
+
+    standings, importance = sim.standings_analytic(pdata, n_outcomes=3000, seed=1)
+
+    assert list(standings.columns) == ["player", "locked_points", "win_pct", "expected_points"]
+    assert len(standings) == len(names)
+    assert abs(standings.win_pct.sum() - 1.0) < 1e-9
+    # sorted descending by win_pct
+    assert list(standings.win_pct) == sorted(standings.win_pct, reverse=True)
+    # importance: one row per *undecided* game (SF dropped), sorted by top_swing
+    assert len(importance) == n - 1
+    assert "SF" not in importance.game.str.cat(sep="@")
+    assert list(importance.top_swing) == sorted(importance.top_swing, reverse=True)
+
+
+def test_standings_analytic_requires_full_slates(analytic_simulator):
+    sim = analytic_simulator
+    n = len(sim.games)
+    rows = [
+        {
+            "player_name": "Me",
+            **{f"game_{i+1}_pick": sim.games[i].home_team for i in range(n)},
+            **{f"game_{i+1}_confidence": i + 1 for i in range(n)},
+        },
+        {
+            "player_name": "P1",  # missing game 2
+            **{f"game_{i+1}_pick": sim.games[i].home_team for i in range(n) if i != 1},
+            **{f"game_{i+1}_confidence": i + 1 for i in range(n) if i != 1},
+        },
+    ]
+    with pytest.raises(ValueError):
+        sim.standings_analytic(pd.DataFrame(rows))
 
 
 # ---------------------------------------------------------------------------

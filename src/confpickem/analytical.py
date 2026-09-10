@@ -353,6 +353,61 @@ def game_importance(pwin: Callable[[np.ndarray, np.ndarray], float],
 
 
 # ---------------------------------------------------------------------------
+# Fully-locked board: score everyone's real slate, no field model
+# ---------------------------------------------------------------------------
+
+def _win_credit(scores: np.ndarray) -> np.ndarray:
+    """``[K, N]`` -> ``[K, N]`` where row k sums to 1: each draw's win split
+    evenly among the players tied for the highest score."""
+    top = scores.max(axis=1, keepdims=True)
+    is_top = scores == top
+    return is_top / is_top.sum(axis=1, keepdims=True)
+
+
+def locked_board_standings(pick_home: np.ndarray, points: np.ndarray,
+                           outcomes: np.ndarray,
+                           ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Score a fully-locked board against sampled outcomes -- no opponent model.
+
+    Every entrant's pick and confidence is already known, so there is nothing to
+    model: ``pick_home`` / ``points`` are ``[N, n]`` (entrant x game), ``outcomes``
+    is the ``[K, n]`` boolean draw array from :func:`sample_outcomes` (with the
+    already-decided games pinned via its ``actual_outcomes`` argument). This just
+    scores each entrant on every draw and counts firsts.
+
+    Returns ``(win_pct[N], expected_points[N], per_game_swing[N, n])`` where
+    ``per_game_swing[k, i] = P(entrant k finishes 1st | game i home win)
+    - P(... | game i away win)`` -- the same draw-partition trick as
+    :func:`game_importance`, applied to every entrant at once. A decided or
+    degenerate game gets a 0 column.
+    """
+    pick_home = np.asarray(pick_home, dtype=bool)
+    points = np.asarray(points, dtype=float)
+    if pick_home.shape != points.shape:
+        raise ValueError("pick_home and points must have the same shape")
+    N, n = pick_home.shape
+    K = outcomes.shape[0]
+    if outcomes.shape[1] != n:
+        raise ValueError("outcomes second axis must match the number of games")
+
+    # correct[k, e, i] : entrant e right on game i under draw k
+    correct = pick_home[None, :, :] == outcomes[:, None, :]        # [K, N, n]
+    scores = (correct * points[None, :, :]).sum(axis=2)            # [K, N]
+    credit = _win_credit(scores)                                  # [K, N]
+
+    win_pct = credit.mean(axis=0)
+    expected_points = scores.mean(axis=0)
+
+    swing = np.zeros((N, n))
+    for i in range(n):
+        home = outcomes[:, i]
+        if home.all() or not home.any():
+            continue
+        swing[:, i] = credit[home].mean(axis=0) - credit[~home].mean(axis=0)
+    return win_pct, expected_points, swing
+
+
+# ---------------------------------------------------------------------------
 # Slate helpers + optimizer
 # ---------------------------------------------------------------------------
 
