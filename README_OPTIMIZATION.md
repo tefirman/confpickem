@@ -77,7 +77,7 @@ Edit the script to adjust:
 
 **"Failed to fetch Yahoo data"**
 - Check your internet connection
-- Verify the league ID (15435) is correct
+- Verify the league ID (11465) is correct
 - Make sure it's actually Week 1 and games haven't started yet
 
 **Optimization taking too long**

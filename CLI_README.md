@@ -23,7 +23,7 @@ confpickem --week 10 --mode midweek --live-odds
 confpickem-win-probability --week 10 --live-odds
 
 # Update player skills
-confpickem-player-skills update --weeks 3,4,5,6,7,8,9 --week 10
+confpickem-player-skills update --years 2024,2025
 ```
 
 ## Available Commands
@@ -44,7 +44,7 @@ confpickem --week WEEK --mode MODE [OPTIONS]
 **Options:**
 ```
 --week, -w         NFL week number (required)
---league-id, -l    Yahoo league ID (default: 15435)
+--league-id, -l    Yahoo league ID (default: 11465)
 --mode, -m         'beginning' or 'midweek' (required)
 --live-odds        Use live Vegas odds
 --odds-api-key, -k The Odds API key
@@ -110,7 +110,7 @@ confpickem-win-probability --week WEEK [OPTIONS]
 **Options:**
 ```
 --week, -w         NFL week number (required)
---league-id, -l    Yahoo league ID (default: 15435)
+--league-id, -l    Yahoo league ID (default: 11465)
 --live-odds        Use live Vegas odds
 --odds-api-key, -k The Odds API key
 --num-sims, -n     Number of simulations (default: 5000)
@@ -148,16 +148,16 @@ confpickem-player-skills COMMAND [OPTIONS]
 ```
 analyze:
   --year, -y       Year to analyze (default: 2024)
-  --league-id, -l  Yahoo league ID (default: 15435)
+  --league-id, -l  Yahoo league ID (default: 11465)
 
 apply:
   --year, -y       Year to use (default: combine all available years)
-  --league-id, -l  Yahoo league ID (default: 15435)
+  --league-id, -l  Yahoo league ID (default: 11465)
 
 update:
   --years, -y      Years to analyze, comma-separated (e.g., 2024,2025)
                    If not specified, skips analysis and applies all available
-  --league-id, -l  Yahoo league ID (default: 15435)
+  --league-id, -l  Yahoo league ID (default: 11465)
 ```
 
 **Examples:**
@@ -204,7 +204,7 @@ python src/confpickem/cli/optimize.py --week 10 --mode midweek --live-odds
 **Beginning of Week:**
 ```bash
 # 1. Update player skills (optional, do once per season or periodically)
-confpickem-player-skills update --weeks 3,4,5,6,7,8,9 --week 10
+confpickem-player-skills update --years 2024,2025
 
 # 2. Get your optimal picks
 confpickem --week 10 --mode beginning --live-odds

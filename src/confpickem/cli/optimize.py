@@ -62,8 +62,8 @@ Examples:
     # Required arguments
     parser.add_argument('--week', '-w', type=int, default=3,
                        help='NFL week number (default: 3)')
-    parser.add_argument('--league-id', '-l', type=int, default=15435,
-                       help='Yahoo league ID (default: 15435)')
+    parser.add_argument('--league-id', '-l', type=int, default=11465,
+                       help='Yahoo league ID (default: 11465)')
 
     # Mode selection
     parser.add_argument('--mode', '-m', choices=['beginning', 'midweek'], required=True,

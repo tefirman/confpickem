@@ -12,7 +12,7 @@ python src/confpickem/cli/optimize.py --week 10 --mode midweek --live-odds
 python src/confpickem/cli/win_probability.py --week 10 --live-odds
 
 # Update player skills
-python src/confpickem/cli/player_skills.py update --weeks 3,4,5,6,7,8,9 --week 10
+python src/confpickem/cli/player_skills.py update --years 2024,2025
 ```
 
 ## Available Commands
@@ -47,7 +47,7 @@ python src/confpickem/cli/optimize.py --week 10 --mode beginning --greedy --fast
 **Full Options:**
 ```
 --week, -w         NFL week number (required)
---league-id, -l    Yahoo league ID (default: 15435)
+--league-id, -l    Yahoo league ID (default: 11465)
 --mode, -m         'beginning' or 'midweek' (required)
 --live-odds        Use live Vegas odds
 --odds-api-key, -k The Odds API key
@@ -87,7 +87,7 @@ python src/confpickem/cli/win_probability.py --week 10 --num-sims 10000
 **Full Options:**
 ```
 --week, -w         NFL week number (required)
---league-id, -l    Yahoo league ID (default: 15435)
+--league-id, -l    Yahoo league ID (default: 11465)
 --live-odds        Use live Vegas odds
 --odds-api-key, -k The Odds API key
 --num-sims, -n     Number of simulations (default: 5000)
@@ -113,23 +113,23 @@ python src/confpickem/cli/player_skills.py analyze --weeks 3,4,5,6
 python src/confpickem/cli/player_skills.py apply --week 10
 
 # Do both in one command
-python src/confpickem/cli/player_skills.py update --weeks 3,4,5,6,7,8,9 --week 10
+python src/confpickem/cli/player_skills.py update --years 2024,2025
 ```
 
 **Full Options:**
 ```
 analyze:
   --weeks, -w      Comma-separated week numbers (required)
-  --league-id, -l  Yahoo league ID (default: 15435)
+  --league-id, -l  Yahoo league ID (default: 11465)
 
 apply:
   --week, -w       NFL week number (required)
-  --league-id, -l  Yahoo league ID (default: 15435)
+  --league-id, -l  Yahoo league ID (default: 11465)
 
 update:
   --weeks          Weeks to analyze (required)
   --week, -w       Week to apply to (required)
-  --league-id, -l  Yahoo league ID (default: 15435)
+  --league-id, -l  Yahoo league ID (default: 11465)
 ```
 
 ---
@@ -169,7 +169,7 @@ python src/confpickem/cli/optimize.py --week 10 --mode midweek --live-odds
 **Beginning of Week:**
 ```bash
 # 1. Update player skills (once per season, or when you want to refresh)
-python src/confpickem/cli/player_skills.py update --weeks 3,4,5,6,7,8,9 --week 10
+python src/confpickem/cli/player_skills.py update --years 2024,2025
 
 # 2. Get your optimal picks (analytical optimizer by default, runs in seconds)
 python src/confpickem/cli/optimize.py --week 10 --mode beginning
@@ -219,7 +219,7 @@ analytical default is already fast, so this is rarely needed.
 ### 4. Update Player Skills Periodically
 Refresh player skills every few weeks with recent historical data:
 ```bash
-player_skills.py update --weeks 7,8,9,10,11,12 --week 13
+player_skills.py update --years 2024,2025
 ```
 
 ### 5. Use Environment Variables

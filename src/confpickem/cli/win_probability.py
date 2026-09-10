@@ -163,8 +163,8 @@ Examples:
 
     parser.add_argument('--week', '-w', type=int, default=3,
                        help='NFL week number (default: 3)')
-    parser.add_argument('--league-id', '-l', type=int, default=15435,
-                       help='Yahoo league ID (default: 15435)')
+    parser.add_argument('--league-id', '-l', type=int, default=11465,
+                       help='Yahoo league ID (default: 11465)')
     parser.add_argument('--live-odds', action='store_true',
                        help='Use live Vegas odds (requires --odds-api-key or ODDS_API_KEY env var)')
     parser.add_argument('--odds-api-key', '-k', type=str,

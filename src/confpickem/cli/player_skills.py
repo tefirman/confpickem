@@ -62,23 +62,23 @@ Examples:
     analyze_parser = subparsers.add_parser('analyze', help='Analyze historical performance')
     analyze_parser.add_argument('--year', '-y', type=int, default=2024,
                                help='Year to analyze (default: 2024)')
-    analyze_parser.add_argument('--league-id', '-l', type=int, default=15435,
-                               help='Yahoo league ID (default: 15435)')
+    analyze_parser.add_argument('--league-id', '-l', type=int, default=11465,
+                               help='Yahoo league ID (default: 11465)')
 
     # Apply command
     apply_parser = subparsers.add_parser('apply', help='Apply saved skills to simulator')
     apply_parser.add_argument('--year', '-y', type=int, default=None,
                              help='Year to use (default: combine all available years)')
-    apply_parser.add_argument('--league-id', '-l', type=int, default=15435,
-                             help='Yahoo league ID (default: 15435)')
+    apply_parser.add_argument('--league-id', '-l', type=int, default=11465,
+                             help='Yahoo league ID (default: 11465)')
 
     # Update command (analyze + apply)
     update_parser = subparsers.add_parser('update', help='Analyze and apply skills')
     update_parser.add_argument('--years', '-y', type=str, default=None,
                               help='Year(s) to analyze, comma-separated (e.g., --years 2024,2025). '
                                    'If not specified, skips analysis and applies all available years.')
-    update_parser.add_argument('--league-id', '-l', type=int, default=15435,
-                              help='Yahoo league ID (default: 15435)')
+    update_parser.add_argument('--league-id', '-l', type=int, default=11465,
+                              help='Yahoo league ID (default: 11465)')
 
     args = parser.parse_args()
 
