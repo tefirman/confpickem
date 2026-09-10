@@ -4,22 +4,22 @@ Unified NFL Confidence Pick'Em Optimization CLI
 
 Consolidates all optimization functionality into a single interface:
 - Beginning-of-week vs mid-week optimization
+- Analytical Poisson-binomial P(win) optimizer by default (--greedy / --hill-climb opt out)
 - Live Vegas odds integration
-- Fast mode for quick decisions
 - Player skill integration
 
 Usage:
   # Beginning of week (all games pending)
   optimize.py --week 10 --mode beginning
 
-  # Mid-week (some games completed)
+  # Mid-week (some games completed / kicked off)
   optimize.py --week 10 --mode midweek
 
   # With live Vegas odds
   optimize.py --week 10 --mode midweek --live-odds --odds-api-key YOUR_KEY
 
-  # Fast mode (~85% accuracy, 10x speed)
-  optimize.py --week 10 --mode beginning --fast
+  # Old greedy optimizer (with --fast for a quicker, rougher pass)
+  optimize.py --week 10 --mode beginning --greedy --fast
 """
 
 import sys
@@ -45,17 +45,17 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Beginning of week optimization
+  # Beginning of week (analytical optimizer, the default)
   %(prog)s --week 10 --mode beginning
 
-  # Mid-week with completed games
+  # Mid-week -- locks games already finished or kicked off
   %(prog)s --week 10 --mode midweek
 
   # With live Vegas odds
   %(prog)s --week 10 --mode midweek --live-odds
 
-  # Fast mode (10x faster, ~85%% accuracy)
-  %(prog)s --week 10 --mode beginning --fast
+  # Old greedy optimizer, quick pass
+  %(prog)s --week 10 --mode beginning --greedy --fast
         """
     )
 
@@ -75,7 +75,9 @@ Examples:
     parser.add_argument('--odds-api-key', '-k', type=str,
                        help='The Odds API key for live odds')
     parser.add_argument('--fast', action='store_true',
-                       help='Fast mode: ~85%% accuracy but 10x faster (only for beginning mode)')
+                       help='Quicker, rougher pass for the --greedy optimizer '
+                            '(beginning mode only; the default analytical '
+                            'optimizer is already fast so --fast is a no-op there)')
     parser.add_argument('--num-sims', '-n', type=int,
                        help='Number of simulations (overrides defaults)')
     parser.add_argument('--no-cache', action='store_true',
@@ -86,19 +88,25 @@ Examples:
                        help='Use N synthetic average opponents instead of real league players. '
                             'Useful for optimizing against a small private group.')
 
-    # Optimization algorithm selection
-    parser.add_argument('--hill-climb', action='store_true',
-                       help='Use hill climbing optimization instead of greedy (better results, slower)')
+    # Optimization algorithm selection. Default is the analytical
+    # Poisson-binomial P(win) optimizer (noise-free, best backtest results --
+    # see docs/optimization-methodology.md). --greedy / --hill-climb opt out.
+    algo_group = parser.add_mutually_exclusive_group()
+    algo_group.add_argument('--greedy', action='store_true',
+                       help='Use the greedy sequential optimizer instead of the '
+                            'default analytical one (faster, weaker in backtest)')
+    algo_group.add_argument('--hill-climb', action='store_true',
+                       help='Use the simulation hill-climb optimizer instead of '
+                            'the default analytical one (slow; reports per-team '
+                            'robustness across the top-N solutions)')
+    parser.add_argument('--analytic', action='store_true',
+                       help=argparse.SUPPRESS)  # deprecated: analytic is the default
     parser.add_argument('--hc-iterations', type=int, default=1000,
                        help='Hill climbing iterations per restart (default: 1000)')
     parser.add_argument('--hc-restarts', type=int, default=10,
                        help='Hill climbing random restarts (default: 10)')
     parser.add_argument('--hc-top-n', type=int, default=1000,
                        help='Number of top combinations to analyze for summary stats (default: 1000)')
-    parser.add_argument('--analytic', action='store_true',
-                       help='Use the analytical Poisson-binomial P(win) optimizer '
-                            '(noise-free objective; best backtest results). '
-                            'See docs/optimization-methodology.md')
     parser.add_argument('--an-iterations', type=int, default=400,
                        help='Analytic optimizer hill-climb steps per restart (default: 400)')
     parser.add_argument('--an-restarts', type=int, default=4,
@@ -108,9 +116,22 @@ Examples:
 
     args = parser.parse_args()
 
+    # --analytic is now the default; accept it for back-compat but note it.
+    if args.analytic and not (args.greedy or args.hill_climb):
+        print("ℹ️  --analytic is now the default; the flag is no longer needed.")
+
+    # Resolve which optimizer to run.
+    algo = 'greedy' if args.greedy else 'hill_climb' if args.hill_climb else 'analytic'
+
     # Validate arguments
     if args.fast and args.mode == 'midweek':
         print("❌ Error: --fast mode is only available for beginning-of-week optimization")
+        return 1
+
+    # --fast only tunes the greedy simulation path.
+    if args.fast and algo != 'greedy':
+        print("❌ Error: --fast mode only applies to --greedy "
+              "(the default analytical optimizer is already fast).")
         return 1
 
     if args.num_opponents is not None and args.mode == 'midweek':
@@ -137,9 +158,12 @@ Examples:
     mode_str = "MID-WEEK" if args.mode == 'midweek' else "BEGINNING-OF-WEEK"
     odds_str = " + LIVE ODDS" if args.live_odds else ""
     fast_str = " (FAST MODE)" if args.fast else ""
-    algo_str = (" | ANALYTIC" if args.analytic
-                else " | HILL CLIMB" if args.hill_climb
-                else " | GREEDY")
+    algo_str = {'analytic': " | ANALYTIC",
+                'hill_climb': " | HILL CLIMB",
+                'greedy': " | GREEDY"}[algo]
+    algo_label = {'analytic': "Analytical P(win)",
+                  'hill_climb': "Hill Climbing",
+                  'greedy': "Greedy Sequential"}[algo]
 
     print(f"🎯 NFL PICK OPTIMIZATION - {mode_str}{odds_str}{fast_str}{algo_str}")
     print(f"📅 Week {args.week} | League {args.league_id}")
@@ -466,18 +490,26 @@ Examples:
         # Run optimization
         print(f"\n🚀 STARTING OPTIMIZATION:")
         print(f"   Mode: {mode_str}")
-        print(f"   Algorithm: {'Hill Climbing' if args.hill_climb else 'Greedy Sequential'}")
+        print(f"   Algorithm: {algo_label}")
         if args.live_odds:
             print(f"   Live Odds: {live_updates} games updated")
-        print(f"   Simulations: {num_sims:,} per evaluation")
+        if algo == 'analytic':
+            print(f"   P(win) draws: {args.an_outcomes:,} | "
+                  f"hill-climb: {args.an_iterations} iters × {args.an_restarts} restarts")
+            estimated_minutes = 0.1 if args.mode == 'beginning' else 0.2
+        else:
+            print(f"   Simulations: {num_sims:,} per evaluation")
         print(f"   Games to optimize: {games_to_optimize}")
         if args.fast:
             print(f"   ⚡ Fast mode: ~85% accuracy, 10x speed")
-        if args.hill_climb:
+        if algo == 'hill_climb':
             print(f"   🔍 Hill climb: {args.hc_iterations} iterations × {args.hc_restarts} restarts")
             # Adjust time estimate for hill climbing
             estimated_minutes = games_to_optimize * time_per_game * args.hc_iterations * args.hc_restarts / 100
-        print(f"   ⏱️  Estimated time: {estimated_minutes:.0f}-{estimated_minutes*1.5:.0f} minutes")
+        if estimated_minutes >= 1:
+            print(f"   ⏱️  Estimated time: {estimated_minutes:.0f}-{estimated_minutes*1.5:.0f} minutes")
+        else:
+            print(f"   ⏱️  Estimated time: a few seconds")
         print()
 
         try:
@@ -486,7 +518,7 @@ Examples:
             # Initialize summary_stats to None (only hill climb returns this)
             summary_stats = None
 
-            if args.analytic:
+            if algo == 'analytic':
                 # Analytical Poisson-binomial P(win) optimizer - returns just picks.
                 # Midweek: pass player_data + as_of=now so the method locks every
                 # frozen game (finished OR kicked off) and derives the unspent
@@ -503,7 +535,7 @@ Examples:
                     as_of=datetime.now() if args.mode == 'midweek' else None,
                     verbose=True,
                 )
-            elif args.hill_climb:
+            elif algo == 'hill_climb':
                 # Use hill climbing optimizer - returns (picks, summary_stats)
                 optimal_picks, summary_stats = simulator.optimize_picks_hill_climb(
                     player_name=selected,
@@ -753,7 +785,9 @@ Examples:
                 mode_suffix = "MidWeek" if args.mode == 'midweek' else "BeginningWeek"
                 odds_suffix = "_LiveOdds" if args.live_odds else ""
                 fast_suffix = "_Fast" if args.fast else ""
-                algo_suffix = "_HillClimb" if args.hill_climb else "_Greedy"
+                algo_suffix = {'analytic': "_Analytic",
+                               'hill_climb': "_HillClimb",
+                               'greedy': "_Greedy"}[algo]
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
                 safe_name = selected.replace(' ', '_').replace('/', '_')
                 filename = f"NFL_Week{args.week}_{mode_suffix}{odds_suffix}{fast_suffix}{algo_suffix}_{safe_name}_{timestamp}.txt"
@@ -763,10 +797,14 @@ Examples:
                     f.write(f"Player: {selected}\n")
                     f.write(f"Generated: {datetime.now()}\n")
                     f.write(f"Mode: {mode_str}{odds_suffix}{fast_suffix}\n")
-                    f.write(f"Algorithm: {'Hill Climbing' if args.hill_climb else 'Greedy Sequential'}\n")
-                    if args.hill_climb:
+                    f.write(f"Algorithm: {algo_label}\n")
+                    if algo == 'analytic':
+                        f.write(f"Analytic params: {args.an_outcomes} P(win) draws, "
+                                f"{args.an_iterations} iterations × {args.an_restarts} restarts\n")
+                    elif algo == 'hill_climb':
                         f.write(f"Hill climb params: {args.hc_iterations} iterations × {args.hc_restarts} restarts\n")
-                    f.write(f"Simulations: {num_sims:,}\n")
+                    if algo != 'analytic':
+                        f.write(f"Simulations: {num_sims:,}\n")
                     if args.live_odds:
                         f.write(f"Live odds updates: {live_updates}/{len(enhanced_games)} games\n")
                     f.write(f"Win probability: {opt_win:.1%}\n")

@@ -39,7 +39,7 @@ confpickem --week WEEK --mode MODE [OPTIONS]
 
 **Modes:**
 - `beginning` - All games are pending (start of week)
-- `midweek` - Some games completed (mid-week optimization)
+- `midweek` - Some games finished or kicked off (mid-week optimization)
 
 **Options:**
 ```
@@ -48,34 +48,44 @@ confpickem --week WEEK --mode MODE [OPTIONS]
 --mode, -m         'beginning' or 'midweek' (required)
 --live-odds        Use live Vegas odds
 --odds-api-key, -k The Odds API key
---fast             Fast mode (~85% accuracy, 10x speed)
---num-sims, -n     Number of simulations
+--num-sims, -n     Number of simulations (--greedy / --hill-climb only)
 --no-cache         Clear cache before loading
---hill-climb       Use hill climbing instead of greedy (better results, slower)
+--greedy           Use the old greedy sequential optimizer
+--fast             Quicker, rougher pass -- --greedy + beginning mode only
+--hill-climb       Use the simulation hill-climb optimizer (slow; robustness report)
 --hc-iterations    Iterations per restart (default: 1000)
 --hc-restarts      Random restarts (default: 10)
 --hc-top-n         Top combinations for robustness analysis (default: 1000)
+--an-iterations    Analytic hill-climb steps per restart (default: 400)
+--an-restarts      Analytic random restarts (default: 4)
+--an-outcomes      Outcome-vector draws for the analytic P(win) (default: 6000)
 ```
 
 **Examples:**
 ```bash
-# Mid-week with live odds (most accurate)
+# Beginning of week -- analytical optimizer (the default), runs in seconds
+confpickem --week 10 --mode beginning
+
+# Mid-week with live odds -- locks games already finished or kicked off
 confpickem --week 10 --mode midweek --live-odds
 
-# Beginning of week, fast mode
-confpickem --week 10 --mode beginning --fast
+# Old greedy optimizer, quick pass
+confpickem --week 10 --mode beginning --greedy --fast
 
-# Custom simulations
-confpickem --week 10 --mode beginning --num-sims 10000
-
-# Hill climbing with recommended starting parameters
+# Simulation hill climbing with recommended starting parameters
 confpickem --week 18 --mode midweek --live-odds --hill-climb \
   --hc-iterations 100 --hc-restarts 5 --num-sims 500 --hc-top-n 250
 ```
 
-**Hill Climbing vs Greedy:**
-- **Greedy (default):** Fast, picks the best option at each step. Good for quick decisions.
-- **Hill Climbing:** Explores more of the solution space via random restarts. Better results but slower. The robustness analysis shows how often each team appears across top solutions, helping identify "lock" picks vs. volatile ones.
+**Which optimizer:**
+- **Analytical (default):** Computes P(win) in closed form (Poisson-binomial) and
+  hill-climbs that noise-free objective. Best backtest results, runs in seconds.
+  See [docs/optimization-methodology.md](docs/optimization-methodology.md).
+- **`--greedy`:** Old sequential optimizer -- assigns the highest confidence to
+  the pick that most raises simulated win probability, descending. Fast, weaker.
+- **`--hill-climb`:** Simulation-based random-restart hill climb. Slow; its
+  robustness report shows how often each team appears across the top solutions,
+  flagging "lock" picks vs. volatile ones.
 
 **Interactive Features:**
 
@@ -223,21 +233,26 @@ Live Vegas odds are more accurate than Yahoo spreads:
 ```
 
 ### 2. Mid-Week Re-Optimization
-After Thursday/Friday games, re-optimize with `--mode midweek` to account for completed results.
+After Thursday/Friday games — or mid-Sunday, once the early games kick off and
+Yahoo locks every entry — re-run with `--mode midweek`. The analytical optimizer
+locks each game that's already finished or started to your submitted pick and
+optimizes only what's left, over the confidence you haven't spent.
 
-### 3. Fast Mode for Quick Decisions
-Use `--fast` when you need results quickly (~85% accuracy):
+### 3. Old Greedy Optimizer
+`--greedy` runs the previous sequential optimizer; add `--fast` for a quicker,
+rougher pass (beginning mode only). The analytical default is already fast, so
+there's rarely a reason to.
 ```bash
---mode beginning --fast
+confpickem --week 10 --mode beginning --greedy --fast
 ```
 
-### 4. Use Hill Climbing for Better Results
-When accuracy matters more than speed, use hill climbing:
+### 4. Hill-Climb Robustness Report
+`--hill-climb` runs the slow simulation search whose robustness analysis shows
+which picks are "locks" (appear in 90%+ of top solutions) vs. uncertain:
 ```bash
 confpickem --week 10 --mode midweek --live-odds --hill-climb \
   --hc-iterations 100 --hc-restarts 5 --num-sims 500 --hc-top-n 250
 ```
-The robustness analysis helps identify which picks are "locks" (appear in 90%+ of top solutions) vs. uncertain.
 
 ### 5. Update Player Skills Periodically
 Refresh player skills when new season data is available:
@@ -283,6 +298,7 @@ Ensure `cookies.txt` exists in project root with valid Yahoo session cookies.
 Check your API key and rate limits at [The Odds API](https://the-odds-api.com/).
 
 ### Slow Performance
-- Use `--fast` mode for optimization
-- Reduce `--num-sims` (trade accuracy for speed)
+- Stay on the default analytical optimizer (the greedy/hill-climb paths are the
+  slow ones); if you're on `--greedy`, add `--fast` or reduce `--num-sims`
+- Lower `--an-outcomes` / `--an-iterations` if the analytical run itself is slow
 - Use cached data (don't use `--no-cache`)

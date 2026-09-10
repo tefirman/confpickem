@@ -116,6 +116,11 @@ analytical objective is noise-free, ~250× faster to evaluate, and in a 29-week
 backtest produced 2 outright weekly wins vs. the greedy optimizer's 1, at a mean
 finish of 34th vs. 43rd.
 
+This is the **default** optimizer (`confpickem --week N --mode beginning`). It
+handles mid-week runs too — games already finished or kicked off are locked to
+your submitted picks and the rest optimized around them. Pass `--greedy` for the
+old sequential optimizer or `--hill-climb` for the slower simulation search.
+
 See **[docs/optimization-methodology.md](docs/optimization-methodology.md)** for
 the full write-up.
 
