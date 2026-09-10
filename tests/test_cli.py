@@ -105,6 +105,35 @@ class TestOptimizeCLI:
             with pytest.raises(SystemExit):
                 optimize.main()
 
+    def test_fast_requires_greedy(self):
+        """--fast without --greedy is rejected (analytical default is already fast)"""
+        test_args = ['optimize.py', '--week', '10', '--mode', 'beginning', '--fast']
+        with patch('sys.argv', test_args):
+            with patch('builtins.print') as mock_print:
+                result = optimize.main()
+        assert result == 1
+        msgs = " ".join(str(c) for c in mock_print.call_args_list).lower()
+        assert 'fast mode' in msgs and 'greedy' in msgs
+
+    def test_greedy_and_hill_climb_are_mutually_exclusive(self):
+        """argparse rejects --greedy --hill-climb together"""
+        test_args = ['optimize.py', '--week', '10', '--mode', 'beginning',
+                     '--greedy', '--hill-climb']
+        with patch('sys.argv', test_args):
+            with pytest.raises(SystemExit):
+                optimize.main()
+
+    def test_analytic_flag_still_accepted(self):
+        """--analytic is a deprecated no-op, not an error"""
+        parser_args = ['optimize.py', '--week', '10', '--mode', 'beginning', '--analytic']
+        with patch('sys.argv', parser_args):
+            with patch('src.confpickem.cli.optimize.Path') as mock_path:
+                mock_path.return_value.exists.return_value = False  # bail at cookies
+                with patch('builtins.print'):
+                    result = optimize.main()
+        # reaches the cookies check and returns 1 -- did not SystemExit on parsing
+        assert result == 1
+
     @patch('src.confpickem.cli.optimize.Path')
     def test_missing_cookies_file_error(self, mock_path):
         """Test error handling when cookies.txt is missing"""

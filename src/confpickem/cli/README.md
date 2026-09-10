@@ -37,11 +37,11 @@ Optimizes your confidence pick assignments using Monte Carlo simulation.
 # Mid-week with live odds (most accurate)
 python src/confpickem/cli/optimize.py --week 10 --mode midweek --live-odds
 
-# Beginning of week, fast mode
-python src/confpickem/cli/optimize.py --week 10 --mode beginning --fast
+# Beginning of week (analytical optimizer, the default)
+python src/confpickem/cli/optimize.py --week 10 --mode beginning
 
-# Custom simulations
-python src/confpickem/cli/optimize.py --week 10 --mode beginning --num-sims 10000
+# Old greedy optimizer, quick pass
+python src/confpickem/cli/optimize.py --week 10 --mode beginning --greedy --fast
 ```
 
 **Full Options:**
@@ -51,10 +51,14 @@ python src/confpickem/cli/optimize.py --week 10 --mode beginning --num-sims 1000
 --mode, -m         'beginning' or 'midweek' (required)
 --live-odds        Use live Vegas odds
 --odds-api-key, -k The Odds API key
---fast             Fast mode (~85% accuracy, 10x speed)
---num-sims, -n     Number of simulations
+--greedy           Use the old greedy optimizer instead of the analytical default
+--hill-climb       Use the simulation hill-climb optimizer (slow; robustness report)
+--fast             Quicker, rougher pass -- --greedy + beginning mode only
+--num-sims, -n     Number of simulations (--greedy / --hill-climb only)
 --no-cache         Clear cache before loading
 ```
+The default optimizer is the analytical Poisson-binomial P(win) search -- see
+`docs/optimization-methodology.md`.
 
 ---
 
@@ -167,8 +171,8 @@ python src/confpickem/cli/optimize.py --week 10 --mode midweek --live-odds
 # 1. Update player skills (once per season, or when you want to refresh)
 python src/confpickem/cli/player_skills.py update --weeks 3,4,5,6,7,8,9 --week 10
 
-# 2. Get your optimal picks (fast mode for quick decisions)
-python src/confpickem/cli/optimize.py --week 10 --mode beginning --fast
+# 2. Get your optimal picks (analytical optimizer by default, runs in seconds)
+python src/confpickem/cli/optimize.py --week 10 --mode beginning
 ```
 
 **Mid-Week (After Thursday Night Football):**
@@ -204,13 +208,13 @@ Live Vegas odds are more accurate than Yahoo spreads:
 ```
 
 ### 2. Mid-Week Re-Optimization
-After Thursday/Friday games, re-optimize with `--mode midweek` to account for completed results.
+After Thursday/Friday games — or mid-Sunday once the early games lock every
+entry — re-run with `--mode midweek`. Games already finished or started are
+locked to your submitted picks and only the rest is optimized.
 
-### 3. Fast Mode for Quick Decisions
-Use `--fast` when you need results quickly and can accept ~85% accuracy:
-```bash
---mode beginning --fast
-```
+### 3. Old Greedy Optimizer
+`--greedy` (optionally `--fast`) runs the previous sequential optimizer. The
+analytical default is already fast, so this is rarely needed.
 
 ### 4. Update Player Skills Periodically
 Refresh player skills every few weeks with recent historical data:
@@ -239,8 +243,9 @@ Ensure `cookies.txt` exists in project root with valid Yahoo session cookies.
 Check your API key and rate limits at [The Odds API](https://the-odds-api.com/).
 
 ### Slow Performance
-- Use `--fast` mode for optimization
-- Reduce `--num-sims` (trade accuracy for speed)
+- Stay on the default analytical optimizer; the `--greedy` / `--hill-climb`
+  paths are the slow ones (`--fast` / lower `--num-sims` help there)
+- Lower `--an-outcomes` / `--an-iterations` if the analytical run itself is slow
 - Use cached data (don't use `--no-cache`)
 
 ---
