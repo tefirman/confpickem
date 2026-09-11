@@ -171,6 +171,7 @@ faster or more thorough; the defaults are fine for a normal week.
 | symptom | fix |
 |---|---|
 | `No games found` / HTML parse errors | `cookies.txt` is stale — re-export it |
+| Still empty/wrong after re-exporting cookies | a page from *before* the update is cached for a day. Clear it: `rm -rf .cache` (CLI) or `rm -rf examples/.cache` (notebook — it runs from `examples/`, a separate cache dir) |
 | `current_player_skills.json not found` | optional; run `confpickem-player-skills update --years ...` (needs `PickEmCache<year>/` dirs) or proceed with average skills |
 | Wrong league | pass `--league-id <yours>` |
 | Odds API errors | check the key and your rate limit at the-odds-api.com, or drop `--live-odds` |
