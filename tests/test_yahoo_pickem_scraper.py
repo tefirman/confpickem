@@ -481,7 +481,7 @@ def test_cookie_handling(mock_cookiejar):
         YahooPickEm(week=1, league_id=12345, cookies_file='cookies.txt')
         mock_cookiejar.load.assert_called_once_with(ignore_discard=True, ignore_expires=True)
 
-def test_session_headers(mock_session):
+def test_session_headers(mock_session, mock_cache):
     """Test session header configuration"""
     with patch('http.cookiejar.MozillaCookieJar'):
         YahooPickEm(week=1, league_id=12345, cookies_file='cookies.txt')
