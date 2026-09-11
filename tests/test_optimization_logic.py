@@ -9,6 +9,7 @@
 '''
 
 import pytest
+import numpy as np
 from datetime import datetime
 from unittest.mock import patch
 from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Game, Player
@@ -204,9 +205,13 @@ class TestOptimizationPerformanceComparison:
         with patch('builtins.print'):
             optimal_picks = sim.optimize_picks("Expert", confidence_range=2)  # Faster
         
-        # Compare optimized vs random performance
+        # Compare optimized vs random performance. simulate_all draws from the
+        # unseeded global np.random state, so without seeding here this test's
+        # tight-ish margins flake run to run (seen failing in CI on 3.10-3.13).
         optimal_fixed = {"Expert": optimal_picks}
+        np.random.seed(42)
         optimal_stats = sim.simulate_all(optimal_fixed)
+        np.random.seed(42)
         random_stats = sim.simulate_all({})  # No constraints
         
         optimal_win_pct = optimal_stats['win_pct']['Expert']
