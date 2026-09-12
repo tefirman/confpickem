@@ -246,6 +246,45 @@ SAMPLE_CONFIDENCE_PICKS_HTML = """
 <!-- fantasy-sports-fe- -rhel7-production-bf1-89c65d566-9jfkf Thu Jan  2 07:34:38 UTC 2025 -->
 """
 
+SAMPLE_WEEKLY_PERFORMANCE_HTML = """
+<div id="ysf-weeklyperformance" class="data-table">
+    <table>
+        <thead>
+            <tr>
+                <th>Rank</th>
+                <th class="team">Pick Set Name</th>
+                <th class="ysptblhdr"><a href="/pickem/12345/weeklyperformance?week=1">Wk 1</a></th>
+                <th class="ysptblhdr"><a href="/pickem/12345/weeklyperformance?week=2">Wk 2</a></th>
+                <th class="c">Total Pts</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="first data-row odd">
+                <td class="rank">1</td>
+                <td class="team"><a href="/pickem/12345/54">Player 1</a></td>
+                <td class="stat weekly-winner"><strong>21</strong></td>
+                <td class="stat weekly-winner"><strong>18</strong></td>
+                <td class="stat total current">39</td>
+            </tr>
+            <tr class="data-row even">
+                <td class="rank">2</td>
+                <td class="team"><a href="/pickem/12345/15">Player 2</a></td>
+                <td class="stat">15</td>
+                <td class="stat">12</td>
+                <td class="stat total current">27</td>
+            </tr>
+            <tr class="data-row odd">
+                <td class="rank">49</td>
+                <td class="team"><a href="/pickem/12345/58">Player 3</a></td>
+                <td class="stat">0</td>
+                <td class="stat">0</td>
+                <td class="stat total current">0</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+"""
+
 @pytest.fixture
 def mock_session():
     """Create a mock requests session"""
@@ -259,15 +298,22 @@ def mock_session():
         picks_response = MagicMock()
         picks_response.text = SAMPLE_CONFIDENCE_PICKS_HTML
         picks_response.raise_for_status.return_value = None
-        
+
+        # Configure mock response for weekly performance (standings) page
+        standings_response = MagicMock()
+        standings_response.text = SAMPLE_WEEKLY_PERFORMANCE_HTML
+        standings_response.raise_for_status.return_value = None
+
         # Configure session to return appropriate response based on URL
         def get_response(url):
             if 'pickdistribution' in url:
                 return dist_response
             elif 'grouppicks' in url:
                 return picks_response
+            elif 'weeklyperformance' in url:
+                return standings_response
             return MagicMock()
-            
+
         mock.return_value.get.side_effect = get_response
         yield mock.return_value
 
@@ -335,6 +381,7 @@ def test_yahoo_pickem_initialization(yahoo_pickem):
     assert hasattr(yahoo_pickem, 'session')
     assert hasattr(yahoo_pickem, 'games')
     assert hasattr(yahoo_pickem, 'players')
+    assert hasattr(yahoo_pickem, 'standings')
 
 def test_parse_pick_distribution(yahoo_pickem):
     """Test parsing of pick distribution page"""
@@ -378,6 +425,31 @@ def test_parse_confidence_picks(yahoo_pickem):
     assert players_df.iloc[1]['game_2_pick'] == 'Phi'
     assert players_df.iloc[1]['game_2_confidence'] == 4
     assert players_df.iloc[1]['game_2_correct'] == True
+
+def test_parse_standings(yahoo_pickem):
+    """Test parsing of season-long standings from the weekly performance page"""
+    standings_df = yahoo_pickem.standings
+
+    expected_cols = [
+        'rank', 'player_name', 'total_points', 'weeks_won',
+        'week_1_points', 'week_2_points',
+    ]
+    assert all(col in standings_df.columns for col in expected_cols)
+    assert len(standings_df) == 3
+
+    assert standings_df.iloc[0]['player_name'] == 'Player 1'
+    assert standings_df.iloc[0]['rank'] == 1
+    assert standings_df.iloc[0]['total_points'] == 39
+    assert standings_df.iloc[0]['weeks_won'] == 2
+    assert standings_df.iloc[0]['week_1_points'] == 21
+    assert standings_df.iloc[0]['week_2_points'] == 18
+
+    assert standings_df.iloc[1]['player_name'] == 'Player 2'
+    assert standings_df.iloc[1]['weeks_won'] == 0
+    assert standings_df.iloc[1]['total_points'] == 27
+
+    assert standings_df.iloc[2]['rank'] == 49
+    assert standings_df.iloc[2]['total_points'] == 0
 
 def test_calculate_player_stats():
     """Test player statistics calculation"""
@@ -446,19 +518,23 @@ def test_cached_content():
         
         # Configure mock cache instance
         mock_cache = MagicMock()
-        mock_cache.get_cached_content.side_effect = [None, None, cached_html]  # First two for init, third for test
+        mock_cache.get_cached_content.side_effect = [None, None, None, cached_html]  # First three for init, fourth for test
         mock_cache_class.return_value = mock_cache
-        
+
         # Configure mock session
         mock_response1 = MagicMock()
         mock_response1.text = cached_html
         mock_response1.raise_for_status.return_value = None
-        
+
         mock_response2 = MagicMock()
         mock_response2.text = SAMPLE_CONFIDENCE_PICKS_HTML
         mock_response2.raise_for_status.return_value = None
-        
-        mock_session.return_value.get.side_effect = [mock_response1, mock_response2]
+
+        mock_response3 = MagicMock()
+        mock_response3.text = SAMPLE_WEEKLY_PERFORMANCE_HTML
+        mock_response3.raise_for_status.return_value = None
+
+        mock_session.return_value.get.side_effect = [mock_response1, mock_response2, mock_response3]
         
         # Initialize YahooPickEm
         yahoo = YahooPickEm(week=1, league_id=12345, cookies_file='cookies.txt')
@@ -475,8 +551,9 @@ def test_cookie_handling(mock_cookiejar):
     """Test cookie handling"""
     with patch('requests.Session'), \
          patch.object(YahooPickEm, 'get_pick_distribution'), \
-         patch.object(YahooPickEm, 'get_confidence_picks'):
-        
+         patch.object(YahooPickEm, 'get_confidence_picks'), \
+         patch.object(YahooPickEm, 'get_standings'):
+
         # Just test that cookie jar is loaded during initialization
         YahooPickEm(week=1, league_id=12345, cookies_file='cookies.txt')
         mock_cookiejar.load.assert_called_once_with(ignore_discard=True, ignore_expires=True)
