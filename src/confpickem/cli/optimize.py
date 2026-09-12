@@ -39,6 +39,42 @@ from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Play
 from src.confpickem.html_report import generate_html_report
 
 
+def parse_compare_slate(raw: str) -> tuple:
+    """Parse one ``--compare-slate`` value into ``(label, {TEAM: confidence})``.
+
+    Expected format: ``'label:TEAM CONF,TEAM CONF,...'``, e.g.
+    ``'manual:KC 16, SF 15, MIN 14'``. Raises ``ValueError`` with a
+    human-readable message on malformed input.
+    """
+    if ":" not in raw:
+        raise ValueError(
+            f"--compare-slate {raw!r} is missing a label -- expected "
+            f"'label:TEAM CONF,TEAM CONF,...'"
+        )
+    label, picks_str = raw.split(":", 1)
+    label = label.strip()
+    if not label:
+        raise ValueError(f"--compare-slate {raw!r} has an empty label")
+
+    picks = {}
+    for pick in picks_str.split(","):
+        parts = pick.strip().split()
+        if len(parts) != 2:
+            raise ValueError(
+                f"--compare-slate {raw!r}: could not parse pick {pick.strip()!r} "
+                f"(expected 'TEAM CONF')"
+            )
+        team, conf_str = parts
+        try:
+            picks[team] = int(conf_str)
+        except ValueError:
+            raise ValueError(
+                f"--compare-slate {raw!r}: confidence {conf_str!r} for {team!r} "
+                f"is not an integer"
+            )
+    return label, picks
+
+
 def main():
     """Unified optimization CLI"""
     parser = argparse.ArgumentParser(
@@ -101,6 +137,17 @@ Examples:
         "--html",
         action="store_true",
         help="Also write an interactive HTML report alongside the .txt report",
+    )
+    parser.add_argument(
+        "--compare-slate",
+        action="append",
+        metavar="LABEL:PICKS",
+        help="Compare a full pick set against the optimizer's own picks on the "
+        "same analytical field (no simulation noise between them). Format: "
+        "'label:TEAM CONF,TEAM CONF,...', e.g. "
+        '--compare-slate "manual:KC 16, SF 15, MIN 14". Repeatable -- pass '
+        "multiple times to compare several slates at once. Every non-frozen "
+        "game must be covered by a valid 1..N confidence permutation.",
     )
 
     # Synthetic opponents (for private games outside your Yahoo league)
@@ -645,6 +692,48 @@ Examples:
                 print(f"   🎯 Optimized strategy: {opt_win:.1%}")
                 print(f"   🎲 Random picks: {rand_win:.1%}")
                 print(f"   💪 Advantage: +{(opt_win - rand_win)*100:.1f} percentage points")
+
+                if args.compare_slate:
+                    print(f"\n🆚 SLATE COMPARISON (analytical P(win), no simulation noise):")
+                    try:
+                        slates = {"optimizer": optimal_picks}
+                        for raw in args.compare_slate:
+                            label, picks = parse_compare_slate(raw)
+                            resolved = {}
+                            for team_input, conf in picks.items():
+                                matched_team = None
+                                for team in available_teams:
+                                    if team.lower() == team_input.lower():
+                                        matched_team = team
+                                        break
+                                if matched_team is None:
+                                    raise ValueError(
+                                        f"--compare-slate {raw!r}: team "
+                                        f"{team_input!r} not found in this week's "
+                                        f"games"
+                                    )
+                                resolved[matched_team] = conf
+                            if label in slates:
+                                raise ValueError(
+                                    f"--compare-slate label {label!r} is used more " f"than once"
+                                )
+                            slates[label] = resolved
+
+                        comparison = simulator.compare_slates(
+                            selected,
+                            slates,
+                            player_data=yahoo.players if args.mode == "midweek" else None,
+                            as_of=datetime.now() if args.mode == "midweek" else None,
+                            n_outcomes=args.an_outcomes,
+                        )
+                        for _, row in comparison.iterrows():
+                            marker = "👉 " if row["label"] == "optimizer" else "   "
+                            print(
+                                f"{marker}#{int(row['rank'])}  {row['label']:<20} "
+                                f"{row['win_probability']:.1%}"
+                            )
+                    except ValueError as e:
+                        print(f"   ⚠️  {e}")
 
                 # Show simulated final standings
                 print(f"\n📊 SIMULATED FINAL STANDINGS (with your optimized picks):")

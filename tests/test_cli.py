@@ -152,6 +152,57 @@ class TestOptimizeCLI:
         # reaches the cookies check and returns 1 -- did not SystemExit on parsing
         assert result == 1
 
+    def test_compare_slate_flag_accepted_and_repeatable(self):
+        """--compare-slate is valid and can be passed multiple times"""
+        parser_args = [
+            "optimize.py",
+            "--week",
+            "10",
+            "--mode",
+            "beginning",
+            "--compare-slate",
+            "manual:KC 16, SF 15",
+            "--compare-slate",
+            "alt:SF 16, KC 15",
+        ]
+        with patch("sys.argv", parser_args):
+            with patch("src.confpickem.cli.optimize.Path") as mock_path:
+                mock_path.return_value.exists.return_value = False  # bail at cookies
+                with patch("builtins.print"):
+                    result = optimize.main()
+        # reaches the cookies check and returns 1 -- did not SystemExit on parsing
+        assert result == 1
+
+
+class TestParseCompareSlate:
+    """Unit tests for optimize.parse_compare_slate"""
+
+    def test_parses_label_and_picks(self):
+        label, picks = optimize.parse_compare_slate("manual:KC 16, SF 15, MIN 14")
+        assert label == "manual"
+        assert picks == {"KC": 16, "SF": 15, "MIN": 14}
+
+    def test_strips_whitespace_around_label(self):
+        label, picks = optimize.parse_compare_slate("  manual  :KC 16")
+        assert label == "manual"
+        assert picks == {"KC": 16}
+
+    def test_missing_colon_raises(self):
+        with pytest.raises(ValueError, match="missing a label"):
+            optimize.parse_compare_slate("KC 16, SF 15")
+
+    def test_empty_label_raises(self):
+        with pytest.raises(ValueError, match="empty label"):
+            optimize.parse_compare_slate(":KC 16")
+
+    def test_malformed_pick_raises(self):
+        with pytest.raises(ValueError, match="could not parse pick"):
+            optimize.parse_compare_slate("manual:KC")
+
+    def test_non_integer_confidence_raises(self):
+        with pytest.raises(ValueError, match="not an integer"):
+            optimize.parse_compare_slate("manual:KC sixteen")
+
     @patch("src.confpickem.cli.optimize.Path")
     def test_missing_cookies_file_error(self, mock_path):
         """Test error handling when cookies.txt is missing"""

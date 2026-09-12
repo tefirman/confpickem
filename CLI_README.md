@@ -51,6 +51,8 @@ confpickem --week WEEK --mode MODE [OPTIONS]
 --num-sims, -n     Number of simulations (--greedy / --hill-climb only)
 --no-cache         Clear cache before loading
 --html             Also write an interactive HTML report alongside the .txt report
+--compare-slate    Compare a full pick set against the optimizer's picks (repeatable)
+                   Format: 'label:TEAM CONF,TEAM CONF,...'
 --greedy           Use the old greedy sequential optimizer
 --fast             Quicker, rougher pass -- --greedy + beginning mode only
 --hill-climb       Use the simulation hill-climb optimizer (slow; robustness report)
@@ -79,6 +81,9 @@ confpickem --week 18 --mode midweek --live-odds --hill-climb \
 
 # Also write an interactive HTML report alongside the .txt report
 confpickem --week 10 --mode midweek --html
+
+# Compare a manual pick set against the optimizer's own picks (repeatable)
+confpickem --week 10 --mode midweek --compare-slate "manual:KC 16, SF 15, MIN 14"
 ```
 
 **Which optimizer:**
@@ -90,6 +95,18 @@ confpickem --week 10 --mode midweek --html
 - **`--hill-climb`:** Simulation-based random-restart hill climb. Slow; its
   robustness report shows how often each team appears across the top solutions,
   flagging "lock" picks vs. volatile ones.
+
+**Comparing pick sets:**
+
+`--compare-slate` scores each slate you provide against the same analytical
+field and outcome draws used to build the optimizer's own picks, so
+differences reflect the slate choice itself rather than simulation noise (a
+fresh `simulate_all()` run per slate would draw different outcomes each time
+and add noise to the comparison). Useful when the optimizer's hill climb
+lands on a different-looking-but-similarly-good slate than one you built by
+hand, and you want to know which one actually has the higher win probability.
+Every non-frozen game must be covered by a valid confidence permutation --
+completed/kicked-off games are filled in automatically.
 
 **Interactive Features:**
 

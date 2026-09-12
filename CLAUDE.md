@@ -41,6 +41,8 @@ Pipeline: **scrape Yahoo → convert to simulator format → Monte Carlo simulat
   - `simulate_outcomes()` → boolean win matrix; `analyze_results(picks_df, outcomes)` → expected points, win %, game importance.
   - `optimize_picks(player_name, ...)` — **greedy**: assign highest confidence to the pick that most raises win probability, descending.
   - `optimize_picks_hill_climb(player_name, hc_iterations, hc_restarts, hc_top_n, ...)` — random-restart hill climbing; explores more of the space and reports per-team robustness across the top-N solutions. Writes progress to `hill_climb_checkpoint.txt` between restarts.
+  - `optimize_picks_analytic(player_name, ...)` — default optimizer; hill-climbs the closed-form Poisson-binomial `P(win)` from `analytical.py` (noise-free, best backtest results).
+  - `compare_slates(player_name, slates, ...)` — scores multiple full pick sets (`{label: {TEAM: confidence}}`) on the *same* analytical field/outcome draws, so differences reflect the slate choice, not simulation noise. Backs `--compare-slate` in `cli/optimize.py`.
 
 - **`live_odds_scraper.py`** — `LiveOddsScraper(odds_api_key)`. Pulls schedule/scores from ESPN's public API and betting lines from **The Odds API** (`ODDS_API_KEY` env var or `--odds-api-key`). `update_odds_with_live_data()` overwrites Yahoo's implied `win_prob` with live-derived probabilities; **falls back to Yahoo data per-game** when the API is unavailable (look for `live_odds_source == 'Yahoo_Fallback'`).
 

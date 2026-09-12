@@ -367,6 +367,85 @@ def test_optimize_picks_analytic_respects_fixed_picks(analytic_simulator):
     assert sorted(optimal.values()) == list(range(1, n + 1))
 
 
+# ---------------------------------------------------------------------------
+# compare_slates
+# ---------------------------------------------------------------------------
+
+
+def test_compare_slates_ranks_the_optimized_slate_first(analytic_simulator):
+    optimal = analytic_simulator.optimize_picks_analytic(
+        "Me", iterations=80, restarts=2, n_outcomes=3000, seed=1
+    )
+    chalk = {"SF": 4, "KC": 3, "BAL": 2, "BUF": 1}  # favorite everywhere, arbitrary points
+
+    comparison = analytic_simulator.compare_slates(
+        "Me", {"optimized": optimal, "chalk": chalk}, n_outcomes=3000, seed=1
+    )
+
+    assert set(comparison["label"]) == {"optimized", "chalk"}
+    assert list(comparison.sort_values("rank")["label"])[0] == "optimized"
+    assert comparison["rank"].tolist() == [1, 2]
+    assert (comparison["win_probability"] >= 0).all()
+    assert (comparison["win_probability"] <= 1).all()
+
+
+def test_compare_slates_same_slate_ties_in_win_probability(analytic_simulator):
+    slate = {"SF": 4, "KC": 3, "BAL": 2, "BUF": 1}
+    comparison = analytic_simulator.compare_slates(
+        "Me", {"a": slate, "b": dict(slate)}, n_outcomes=2000, seed=7
+    )
+    probs = comparison["win_probability"].tolist()
+    assert abs(probs[0] - probs[1]) < 1e-9
+
+
+def test_compare_slates_rejects_incomplete_slate(analytic_simulator):
+    with pytest.raises(ValueError, match="missing a pick"):
+        analytic_simulator.compare_slates(
+            "Me", {"partial": {"SF": 4, "KC": 3}}, n_outcomes=500, seed=1
+        )
+
+
+def test_compare_slates_rejects_invalid_permutation(analytic_simulator):
+    with pytest.raises(ValueError, match="not a valid"):
+        analytic_simulator.compare_slates(
+            "Me",
+            {"dup": {"SF": 4, "KC": 4, "BAL": 2, "BUF": 1}},
+            n_outcomes=500,
+            seed=1,
+        )
+
+
+def test_compare_slates_midweek_fills_in_frozen_games(midweek_simulator):
+    """Slates only need to cover the two non-frozen games (BAL, BUF) -- the two
+    completed games (SF, KC/DEN) are filled in from player_data automatically."""
+    player_data = pd.DataFrame(
+        [
+            {
+                "player_name": p.name,
+                "game_1_pick": "SF",
+                "game_1_confidence": 4,
+                "game_2_pick": "DEN" if p.name == "Me" else "KC",
+                "game_2_confidence": 2,
+                "game_3_pick": "BAL" if p.name == "Me" else "CIN",
+                "game_3_confidence": 1,
+                "game_4_pick": "BUF",
+                "game_4_confidence": 3,
+            }
+            for p in midweek_simulator.players
+        ]
+    )
+
+    comparison = midweek_simulator.compare_slates(
+        "Me",
+        {"as-picked": {"BAL": 1, "BUF": 3}, "swapped": {"BAL": 3, "BUF": 1}},
+        player_data=player_data,
+        n_outcomes=2000,
+        seed=3,
+    )
+    assert set(comparison["label"]) == {"as-picked", "swapped"}
+    assert len(comparison) == 2
+
+
 def test_optimize_picks_analytic_unknown_player(analytic_simulator):
     with pytest.raises(ValueError):
         analytic_simulator.optimize_picks_analytic("Nobody")
