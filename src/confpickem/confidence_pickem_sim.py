@@ -936,6 +936,7 @@ class ConfidencePickEmSimulator:
         n_outcomes: int = 6000,
         seed: int = 51,
         max_opponent_types: int = 16,
+        downside_quantile: float = 0.1,
     ) -> pd.DataFrame:
         """Compare full pick sets head-to-head on the same analytical field.
 
@@ -960,13 +961,27 @@ class ConfidencePickEmSimulator:
             n_outcomes: outcome-vector draws for the analytical P(win) estimate.
             seed: RNG seed (deterministic given identical inputs).
             max_opponent_types: midweek cap on distinct modeled opponent types.
+            downside_quantile: defines the "bad week" tail reported in
+                ``downside_win_probability`` -- the mean ``P(win | draw)`` over
+                the worst ``downside_quantile`` fraction of outcome draws,
+                ranked by that draw's own ``P(win | draw)``. E.g. 0.1 reports
+                the average win probability in your worst 10% of simulated
+                weeks. Lower means a worse floor when things go wrong.
 
         Returns:
             DataFrame with one row per slate label, columns ``label``,
-            ``win_probability`` and ``rank`` (1 = highest ``win_probability``),
-            sorted by ``win_probability`` descending. Raises ``ValueError`` if
-            a slate leaves any non-frozen game unassigned or reuses a
-            confidence value.
+            ``win_probability``, ``win_std`` (standard deviation of
+            ``P(win | draw)`` across outcome draws -- higher means the slate's
+            fate swings more between a good week and a bad one),
+            ``downside_win_probability`` (see ``downside_quantile``) and
+            ``rank`` (1 = highest ``win_probability``), sorted by
+            ``win_probability`` descending. Two slates with similar
+            ``win_probability`` but very different ``win_std`` /
+            ``downside_win_probability`` differ in *risk*, not just expected
+            value -- e.g. one big-swing pick vs. several moderate ones can
+            produce the same average win probability with a very different
+            floor. Raises ``ValueError`` if a slate leaves any non-frozen game
+            unassigned or reuses a confidence value.
         """
         field = self._build_analytic_field(
             player_name,
@@ -1008,10 +1023,16 @@ class ConfidencePickEmSimulator:
                     f"permutation: {sorted(points.tolist())}"
                 )
 
+            per_outcome = pwin.per_outcome(pick_home, points)  # type: ignore[attr-defined]
+            n_tail = max(1, int(np.ceil(len(per_outcome) * downside_quantile)))
+            downside = float(np.sort(per_outcome)[:n_tail].mean())
+
             rows.append(
                 {
                     "label": label,
-                    "win_probability": float(pwin(pick_home, points)),
+                    "win_probability": float(per_outcome.mean()),
+                    "win_std": float(per_outcome.std()),
+                    "downside_win_probability": downside,
                 }
             )
 

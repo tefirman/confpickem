@@ -48,6 +48,27 @@ def _all_win_probs(you_name="You"):
     ]
 
 
+def _comparison_df():
+    return pd.DataFrame(
+        [
+            {
+                "label": "optimizer",
+                "win_probability": 0.068,
+                "win_std": 0.1366,
+                "downside_win_probability": 0.0,
+                "rank": 1,
+            },
+            {
+                "label": "diffuse",
+                "win_probability": 0.037,
+                "win_std": 0.039,
+                "downside_win_probability": 0.0,
+                "rank": 2,
+            },
+        ]
+    )
+
+
 def _base_kwargs(**overrides):
     kwargs = dict(
         week=4,
@@ -158,6 +179,25 @@ def test_robustness_section_included_when_summary_stats_present():
 def test_robustness_section_omitted_when_no_summary_stats():
     html = generate_html_report(**_base_kwargs(summary_stats=None))
     assert "Pick Robustness" not in html
+
+
+def test_comparison_section_included_when_slate_comparison_present():
+    html = generate_html_report(**_base_kwargs(slate_comparison=_comparison_df()))
+    assert "Slate Comparison" in html
+    assert "comparison-table" in html
+    assert '"label": "optimizer"' in html
+    assert '"winStd": 0.1366' in html
+    assert '"isOptimizer": true' in html
+
+
+def test_comparison_section_omitted_when_no_slate_comparison():
+    html = generate_html_report(**_base_kwargs(slate_comparison=None))
+    assert "Slate Comparison" not in html
+
+
+def test_comparison_section_omitted_when_empty_dataframe():
+    html = generate_html_report(**_base_kwargs(slate_comparison=pd.DataFrame()))
+    assert "Slate Comparison" not in html
 
 
 def test_rank_and_edge_values_rendered():

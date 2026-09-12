@@ -108,6 +108,18 @@ hand, and you want to know which one actually has the higher win probability.
 Every non-frozen game must be covered by a valid confidence permutation --
 completed/kicked-off games are filled in automatically.
 
+Alongside win probability, each slate also reports **Std Dev** (how much the
+slate's win probability swings between simulated weeks) and **Worst 10% Wks**
+(average win probability in the worst 10% of simulated weeks -- your floor
+when things go wrong). Two slates can have similar win probability but very
+different risk: one big-impact pick (e.g. max confidence on a coin-flip game)
+concentrates the week into a sharper win/lose boundary -- higher Std Dev, a
+worse floor -- than spreading confidence across a few moderate-impact games.
+Whether that's *good* depends on context the numbers alone can't tell you:
+chasing a season-long standings gap generally favors the higher-variance
+play, protecting a lead favors the steadier one. Combine with `--html` to see
+the comparison as a table instead of terminal output.
+
 **Interactive Features:**
 
 The optimizer will prompt you to:

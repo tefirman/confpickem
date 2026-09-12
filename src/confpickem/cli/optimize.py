@@ -143,8 +143,11 @@ Examples:
         action="append",
         metavar="LABEL:PICKS",
         help="Compare a full pick set against the optimizer's own picks on the "
-        "same analytical field (no simulation noise between them). Format: "
-        "'label:TEAM CONF,TEAM CONF,...', e.g. "
+        "same analytical field (no simulation noise between them), reporting "
+        "win probability plus its standard deviation and worst-10%%-of-weeks "
+        "floor across simulated weeks -- so a boom/bust slate (one big-impact "
+        "pick) can be told apart from a steadier one with similar win "
+        "probability. Format: 'label:TEAM CONF,TEAM CONF,...', e.g. "
         '--compare-slate "manual:KC 16, SF 15, MIN 14". Repeatable -- pass '
         "multiple times to compare several slates at once. Every non-frozen "
         "game must be covered by a valid 1..N confidence permutation.",
@@ -726,12 +729,28 @@ Examples:
                             as_of=datetime.now() if args.mode == "midweek" else None,
                             n_outcomes=args.an_outcomes,
                         )
+                        print(
+                            f"   {'Rank':<6} {'Slate':<20} {'Win %':<9} "
+                            f"{'Std Dev':<10} {'Worst 10% Wks'}"
+                        )
+                        print(f"   {'-'*6} {'-'*20} {'-'*9} {'-'*10} {'-'*13}")
                         for _, row in comparison.iterrows():
                             marker = "👉 " if row["label"] == "optimizer" else "   "
                             print(
-                                f"{marker}#{int(row['rank'])}  {row['label']:<20} "
-                                f"{row['win_probability']:.1%}"
+                                f"{marker}#{int(row['rank']):<4} {row['label']:<20} "
+                                f"{row['win_probability']:>6.1%}   "
+                                f"{row['win_std']:>7.4f}   "
+                                f"{row['downside_win_probability']:>6.1%}"
                             )
+                        print(
+                            f"\n   Std Dev: how much this slate's win probability swings "
+                            f"between simulated weeks -- higher means more boom/bust risk"
+                            f" from a few high-impact picks."
+                        )
+                        print(
+                            f"   Worst 10% Wks: average win probability in the worst 10% "
+                            f"of simulated weeks -- your floor when things go wrong."
+                        )
                     except ValueError as e:
                         print(f"   ⚠️  {e}")
 
@@ -1118,6 +1137,7 @@ Examples:
                         num_remaining_games=num_remaining,
                         total_games=len(simulator.games),
                         summary_stats=summary_stats,
+                        slate_comparison=comparison if "comparison" in locals() else None,
                     )
                     with open(html_filename, "w") as f:
                         f.write(html_report)

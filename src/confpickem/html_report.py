@@ -113,6 +113,24 @@ def _build_robustness_rows(
     return rows
 
 
+def _build_comparison_rows(slate_comparison: Optional[pd.DataFrame]) -> List[Dict]:
+    if slate_comparison is None or len(slate_comparison) == 0:
+        return []
+    rows = []
+    for _, row in slate_comparison.iterrows():
+        rows.append(
+            {
+                "label": row["label"],
+                "rank": int(row["rank"]),
+                "winProb": float(row["win_probability"]),
+                "winStd": float(row["win_std"]),
+                "downside": float(row["downside_win_probability"]),
+                "isOptimizer": row["label"] == "optimizer",
+            }
+        )
+    return rows
+
+
 def generate_html_report(
     *,
     week: int,
@@ -132,6 +150,7 @@ def generate_html_report(
     num_remaining_games: int,
     total_games: int,
     summary_stats: Optional[pd.DataFrame] = None,
+    slate_comparison: Optional[pd.DataFrame] = None,
     generated_at: Optional[datetime] = None,
 ) -> str:
     """Build a single self-contained HTML report string.
@@ -150,11 +169,13 @@ def generate_html_report(
     )
     standings_rows = _build_standings_rows(all_win_probs, has_standings)
     robustness_rows = _build_robustness_rows(summary_stats, dict(sorted_picks))
+    comparison_rows = _build_comparison_rows(slate_comparison)
 
     paste_format = ", ".join(f"{team} {conf}" for team, conf in sorted_picks)
 
     max_impact = max((abs(r["impact"]) for r in importance_rows), default=0.0) or 1.0
     max_win_pct = max((r["win_pct"] for r in standings_rows), default=0.0) or 1.0
+    max_comparison_win_pct = max((r["winProb"] for r in comparison_rows), default=0.0) or 1.0
 
     mode_label = "Mid-Week" if mode == "midweek" else "Beginning-of-Week"
     edge_pp = (opt_win - rand_win) * 100
@@ -164,8 +185,10 @@ def generate_html_report(
         "importance": importance_rows,
         "standings": standings_rows,
         "robustness": robustness_rows,
+        "comparison": comparison_rows,
         "maxImpact": max_impact,
         "maxWinPct": max_win_pct,
+        "maxComparisonWinPct": max_comparison_win_pct,
         "pasteFormat": paste_format,
     }
     data_json = json.dumps(data).replace("</", "<\\/")
@@ -201,6 +224,38 @@ def generate_html_report(
         </thead>
         <tbody><!-- rows injected by script --></tbody>
       </table>
+    </div>
+  </section>
+"""
+
+    comparison_section = ""
+    if comparison_rows:
+        comparison_section = """
+  <section class="panel">
+    <div class="panel-head">
+      <span class="panel-title">Slate Comparison</span>
+      <span class="panel-note">win probability vs. risk, same field for every slate</span>
+    </div>
+    <div class="table-scroll">
+      <table class="standings" id="comparison-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Slate</th>
+            <th class="num">Win %</th>
+            <th>&nbsp;</th>
+            <th class="num">Std Dev</th>
+            <th class="num">Worst 10% Wks</th>
+          </tr>
+        </thead>
+        <tbody><!-- rows injected by script --></tbody>
+      </table>
+    </div>
+    <div class="comparison-legend">
+      <span><b>Std Dev</b> -- how much this slate's win probability swings between
+      simulated weeks; higher means more boom/bust risk from a few high-impact picks.</span>
+      <span><b>Worst 10% Wks</b> -- average win probability in the worst 10% of
+      simulated weeks; your floor when things go wrong.</span>
     </div>
   </section>
 """
@@ -626,6 +681,20 @@ def generate_html_report(
   .signal-moderate{{ color:var(--warn); }}
   .signal-uncertain{{ color:var(--ink-faint); }}
 
+  .comparison-legend{{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    padding:12px 18px 16px;
+    border-top:1px solid var(--line);
+    background:var(--surface-2);
+    font-size:11.5px;
+    color:var(--ink-soft);
+  }}
+  .comparison-legend b{{ color:var(--ink); }}
+  .comparison-row.is-optimizer{{ background:var(--accent-soft); }}
+  .comparison-row.is-optimizer td{{ font-weight:600; }}
+
   footer{{
     display:flex;
     justify-content:space-between;
@@ -718,6 +787,7 @@ def generate_html_report(
       </table>
     </div>
   </section>
+{comparison_section}
 {robustness_section}
   <footer>
     <span>confpickem &middot; {_esc(algo_label)}</span>
@@ -960,6 +1030,61 @@ def generate_html_report(
       tr.appendChild(tdRange);
       tr.appendChild(tdSignal);
       robustBody.appendChild(tr);
+    }});
+  }}
+
+  var comparisonBody = document.querySelector('#comparison-table tbody');
+  if(comparisonBody){{
+    DATA.comparison.forEach(function(c){{
+      var tr = document.createElement('tr');
+      tr.className = 'comparison-row' + (c.isOptimizer ? ' is-optimizer' : '');
+
+      var tdRank = document.createElement('td');
+      var badge = document.createElement('span');
+      badge.className = 'rank-badge' + (c.rank === 1 ? ' gold' : '');
+      badge.textContent = c.rank;
+      tdRank.appendChild(badge);
+
+      var tdLabel = document.createElement('td');
+      tdLabel.textContent = c.label;
+      if(c.isOptimizer){{
+        var tag = document.createElement('span');
+        tag.className = 'you-tag';
+        tag.textContent = 'OPTIMIZER';
+        tdLabel.appendChild(tag);
+      }}
+
+      var tdWin = document.createElement('td');
+      tdWin.className = 'num';
+      tdWin.textContent = (Math.round(c.winProb*1000)/10) + '%';
+
+      var tdBar = document.createElement('td');
+      var barWrap = document.createElement('div');
+      barWrap.className = 'bar-cell';
+      var track = document.createElement('div');
+      track.className = 'bar-track';
+      var fill = document.createElement('div');
+      fill.className = 'bar-fill';
+      fill.style.width = (DATA.maxComparisonWinPct > 0 ? (c.winProb / DATA.maxComparisonWinPct * 100) : 0) + '%';
+      track.appendChild(fill);
+      barWrap.appendChild(track);
+      tdBar.appendChild(barWrap);
+
+      var tdStd = document.createElement('td');
+      tdStd.className = 'num';
+      tdStd.textContent = c.winStd.toFixed(4);
+
+      var tdDownside = document.createElement('td');
+      tdDownside.className = 'num';
+      tdDownside.textContent = (Math.round(c.downside*1000)/10) + '%';
+
+      tr.appendChild(tdRank);
+      tr.appendChild(tdLabel);
+      tr.appendChild(tdWin);
+      tr.appendChild(tdBar);
+      tr.appendChild(tdStd);
+      tr.appendChild(tdDownside);
+      comparisonBody.appendChild(tr);
     }});
   }}
 

@@ -446,6 +446,76 @@ def test_compare_slates_midweek_fills_in_frozen_games(midweek_simulator):
     assert len(comparison) == 2
 
 
+def test_compare_slates_reports_win_std_and_downside_columns(analytic_simulator):
+    optimal = analytic_simulator.optimize_picks_analytic(
+        "Me", iterations=80, restarts=2, n_outcomes=3000, seed=1
+    )
+    comparison = analytic_simulator.compare_slates(
+        "Me", {"optimizer": optimal}, n_outcomes=3000, seed=1
+    )
+    row = comparison.iloc[0]
+    assert "win_std" in comparison.columns
+    assert "downside_win_probability" in comparison.columns
+    assert row["win_std"] >= 0
+    # the worst 10% of weeks can't have a higher average win probability
+    # than the week-over-week average
+    assert row["downside_win_probability"] <= row["win_probability"] + 1e-9
+
+
+@pytest.fixture
+def risk_profile_simulator():
+    """4 games: 3 near-certain favorites plus one true coin flip (BAL@CIN).
+    Built so a slate can concentrate its top confidence on the coin-flip game
+    (high win_std, since the whole week swings on one 50/50 result) or spread
+    confidence across the near-certain games instead (low win_std, since the
+    coin flip barely moves the needle either way)."""
+    sim = ConfidencePickEmSimulator(num_sims=100)
+    sim.games = [
+        Game("SF", "ARI", 0.95, 0.95, 4.0, 1.0, 1, datetime(2024, 9, 8, 13, 0)),
+        Game("KC", "DEN", 0.93, 0.93, 3.0, 1.0, 1, datetime(2024, 9, 8, 13, 0)),
+        Game("BUF", "MIA", 0.92, 0.92, 2.0, 1.0, 1, datetime(2024, 9, 8, 13, 0)),
+        Game("BAL", "CIN", 0.50, 0.50, 2.5, 2.5, 1, datetime(2024, 9, 8, 20, 20)),
+    ]
+    sim.players = [Player("Me", 0.75, 0.74, 0.83)] + [
+        Player(f"P{i}", 0.6, 0.5, 0.5) for i in range(1, 12)
+    ]
+    return sim
+
+
+def test_compare_slates_concentrated_pick_has_higher_win_std(risk_profile_simulator):
+    """Putting max confidence on the coin-flip game concentrates the week's
+    risk into one swing; spreading confidence across the near-certain games
+    instead is the lower-variance play. Both are plausible full slates; this
+    checks win_std actually distinguishes them the way a user would expect."""
+    concentrated = {"SF": 2, "KC": 1, "BUF": 3, "BAL": 4}  # top confidence on the coin flip
+    diffuse = {"SF": 4, "KC": 3, "BUF": 2, "BAL": 1}  # top confidence on the favorites
+
+    comparison = risk_profile_simulator.compare_slates(
+        "Me",
+        {"concentrated": concentrated, "diffuse": diffuse},
+        n_outcomes=8000,
+        seed=11,
+    )
+    conc = comparison[comparison["label"] == "concentrated"].iloc[0]
+    diff = comparison[comparison["label"] == "diffuse"].iloc[0]
+    assert conc["win_std"] > diff["win_std"]
+
+
+def test_compare_slates_downside_quantile_is_configurable(analytic_simulator):
+    optimal = analytic_simulator.optimize_picks_analytic(
+        "Me", iterations=80, restarts=2, n_outcomes=3000, seed=1
+    )
+    narrow = analytic_simulator.compare_slates(
+        "Me", {"optimizer": optimal}, n_outcomes=3000, seed=1, downside_quantile=0.05
+    )
+    wide = analytic_simulator.compare_slates(
+        "Me", {"optimizer": optimal}, n_outcomes=3000, seed=1, downside_quantile=0.5
+    )
+    # averaging over a wider (less extreme) tail can't be worse than the
+    # narrower, more extreme tail
+    assert wide.iloc[0]["downside_win_probability"] >= narrow.iloc[0]["downside_win_probability"]
+
+
 def test_optimize_picks_analytic_unknown_player(analytic_simulator):
     with pytest.raises(ValueError):
         analytic_simulator.optimize_picks_analytic("Nobody")
