@@ -50,6 +50,7 @@ confpickem --week WEEK --mode MODE [OPTIONS]
 --odds-api-key, -k The Odds API key
 --num-sims, -n     Number of simulations (--greedy / --hill-climb only)
 --no-cache         Clear cache before loading
+--html             Also write an interactive HTML report alongside the .txt report
 --greedy           Use the old greedy sequential optimizer
 --fast             Quicker, rougher pass -- --greedy + beginning mode only
 --hill-climb       Use the simulation hill-climb optimizer (slow; robustness report)
@@ -75,6 +76,9 @@ confpickem --week 10 --mode beginning --greedy --fast
 # Simulation hill climbing with recommended starting parameters
 confpickem --week 18 --mode midweek --live-odds --hill-climb \
   --hc-iterations 100 --hc-restarts 5 --num-sims 500 --hc-top-n 250
+
+# Also write an interactive HTML report alongside the .txt report
+confpickem --week 10 --mode midweek --html
 ```
 
 **Which optimizer:**

@@ -44,6 +44,7 @@ Pipeline: **scrape Yahoo → convert to simulator format → Monte Carlo simulat
 
 - **`live_odds_scraper.py`** — `LiveOddsScraper(odds_api_key)`. Pulls schedule/scores from ESPN's public API and betting lines from **The Odds API** (`ODDS_API_KEY` env var or `--odds-api-key`). `update_odds_with_live_data()` overwrites Yahoo's implied `win_prob` with live-derived probabilities; **falls back to Yahoo data per-game** when the API is unavailable (look for `live_odds_source == 'Yahoo_Fallback'`).
 
+- **`html_report.py`** — `generate_html_report(...)` renders the same picks / win-probability / game-importance / standings data `cli/optimize.py` already computes into a single self-contained, styled HTML string. Pure rendering — takes no simulator objects, only the plain dicts/DataFrames the CLI already has in scope. Written alongside the `.txt` report when `--html` is passed.
 - **`analyze_player_skills.py`** — parses cached HTML in `PickEmCache<year>/` (per season) into raw per-player hit/miss stats → `player_skills_<year>.json`.
 - **`apply_realistic_skills.py`** — combines one or more `player_skills_<year>.json`, converts raw stats to the three 0–1 knobs, fuzzy-matches historical names to the current roster, assigns distribution-sampled skills to unmatched players → `current_player_skills.json`, which `optimize.py` loads automatically if present (else default skills).
 
@@ -54,7 +55,7 @@ Pipeline: **scrape Yahoo → convert to simulator format → Monte Carlo simulat
 
 ## Repo-specific conventions
 
-- **Runtime data lives in the repo root and is gitignored**: `cookies.txt` (Mozilla cookie-jar format, Yahoo session, expires in days), `current_player_skills*.json`, `player_skills_*.json`, `PickEmCache*/`, `PreviousWeeks/`, `.cache/`, `hill_climb_checkpoint.txt`, and generated `NFL_Week*_*.txt` reports. Default league ID is `11465`.
+- **Runtime data lives in the repo root and is gitignored**: `cookies.txt` (Mozilla cookie-jar format, Yahoo session, expires in days), `current_player_skills*.json`, `player_skills_*.json`, `PickEmCache*/`, `PreviousWeeks/`, `.cache/`, `hill_climb_checkpoint.txt`, and generated `NFL_Week*_*.txt`/`.html` reports (the latter written next to the `.txt` report when `optimize.py` is run with `--html`). Default league ID is `11465`.
 - Packaging uses **hatchling** (not setuptools, despite a leftover `[tool.setuptools]` block). Bump `version` in `pyproject.toml` and `__version__` in `src/confpickem/__init__.py` together. A GitHub **release** triggers `publish.yml` → PyPI.
 - `--live-odds` and `--no-cache` both wipe `.cache/` before loading so odds aren't served stale.
 - Tests run offline — network-touching code (Yahoo, ESPN, Odds API) is mocked; keep it that way.
