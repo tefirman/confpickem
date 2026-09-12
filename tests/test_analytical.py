@@ -255,6 +255,29 @@ def test_optimize_slate_respects_locked_picks(week_data):
     assert sorted(pts.tolist()) == list(range(1, n + 1))
 
 
+def test_optimize_slate_all_games_locked_is_a_noop(week_data):
+    """Every game fixed -> nothing left to search (regression: `_neighbor`
+    called `rng.choice` on an empty `free` array and raised ValueError)."""
+    n = week_data["n"]
+    pwin = _pwin_for(week_data)
+    points_fixed = np.arange(1, n + 1, dtype=int)
+    pick_home_fixed = week_data["vegas_home"] >= 0.5
+
+    ph, pts, val = optimize_slate(
+        pwin,
+        week_data["vegas_home"],
+        pick_home_fixed=pick_home_fixed,
+        points_fixed=points_fixed,
+        iterations=60,
+        restarts=2,
+        rng=np.random.default_rng(5),
+    )
+
+    assert np.array_equal(pts, points_fixed)
+    assert np.array_equal(ph, pick_home_fixed)
+    assert val == pwin(pick_home_fixed, points_fixed)
+
+
 def test_optimize_slate_is_deterministic_given_seed(week_data):
     pwin = _pwin_for(week_data)
     a = optimize_slate(

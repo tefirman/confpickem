@@ -489,6 +489,10 @@ def optimize_slate(pwin: Callable[[np.ndarray, np.ndarray], float],
     best_ph, best_pts = base_ph.copy(), base_pts.copy()
     best_val = pwin(best_ph, best_pts)
 
+    if len(free) == 0:
+        # Every game is locked -- the slate is fully determined, nothing to search.
+        return best_ph, best_pts, best_val
+
     for restart in range(restarts):
         if restart == 0:
             ph, pts = base_ph.copy(), base_pts.copy()

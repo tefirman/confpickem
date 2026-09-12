@@ -98,7 +98,7 @@ class ConfidencePickEmSimulator:
                         pick = player_row.get(f'game_{game_num}_pick')
                         confidence = player_row.get(f'game_{game_num}_confidence')
                         
-                        if pick and confidence:
+                        if pick and confidence and not pd.isna(confidence):
                             used_confidence.add(int(confidence))
                 
                 player_used_confidence[player_name] = used_confidence

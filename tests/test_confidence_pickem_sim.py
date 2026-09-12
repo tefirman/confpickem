@@ -126,11 +126,34 @@ def test_analyze_results(simulator):
     assert (stats['win_pct'] >= 0).all()
     assert (stats['value_at_risk'] >= 0).all()
 
+def test_simulate_picks_ignores_nan_confidence_in_player_data(simulator):
+    """A player_data row with a pick but NaN confidence on a completed game
+    must not crash simulate_picks (regression: int(nan) raised ValueError
+    because `if pick and confidence` doesn't catch NaN, which is truthy)."""
+    simulator.games[0].actual_outcome = True  # mark first game completed
+
+    player_data = pd.DataFrame([
+        {
+            "player_name": "Player 1",
+            "game_1_pick": "SF",
+            "game_1_confidence": np.nan,
+        },
+        {
+            "player_name": "Player 2",
+            "game_1_pick": "SEA",
+            "game_1_confidence": 2,
+        },
+    ])
+
+    # Should not raise
+    picks_df = simulator.simulate_picks(player_data=player_data)
+    assert picks_df is not None
+
 def test_fixed_picks(simulator):
     """Test handling of fixed picks"""
     fixed_picks = {"Player 1": {"SF": 2, "KC": 1}}
     picks_df = simulator.simulate_picks(fixed_picks)
-    
+
     # Filter for player with fixed picks (first player)
     player_picks = picks_df[picks_df['player'] == "Player 1"]
     
