@@ -36,12 +36,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from src.confpickem.yahoo_pickem_scraper import YahooPickEm
 from src.confpickem.live_odds_scraper import update_odds_with_live_data
 from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Player
+from src.confpickem.html_report import generate_html_report
 
 
 def main():
     """Unified optimization CLI"""
     parser = argparse.ArgumentParser(
-        description='NFL Confidence Pick\'Em Optimization',
+        description="NFL Confidence Pick'Em Optimization",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -56,63 +57,111 @@ Examples:
 
   # Old greedy optimizer, quick pass
   %(prog)s --week 10 --mode beginning --greedy --fast
-        """
+        """,
     )
 
     # Required arguments
-    parser.add_argument('--week', '-w', type=int, default=3,
-                       help='NFL week number (default: 3)')
-    parser.add_argument('--league-id', '-l', type=int, default=11465,
-                       help='Yahoo league ID (default: 11465)')
+    parser.add_argument("--week", "-w", type=int, default=3, help="NFL week number (default: 3)")
+    parser.add_argument(
+        "--league-id", "-l", type=int, default=11465, help="Yahoo league ID (default: 11465)"
+    )
 
     # Mode selection
-    parser.add_argument('--mode', '-m', choices=['beginning', 'midweek'], required=True,
-                       help='Optimization mode: "beginning" (all games pending) or "midweek" (some games completed)')
+    parser.add_argument(
+        "--mode",
+        "-m",
+        choices=["beginning", "midweek"],
+        required=True,
+        help='Optimization mode: "beginning" (all games pending) or "midweek" (some games completed)',
+    )
 
     # Optional features
-    parser.add_argument('--live-odds', action='store_true',
-                       help='Use live Vegas odds (requires --odds-api-key or ODDS_API_KEY env var)')
-    parser.add_argument('--odds-api-key', '-k', type=str,
-                       help='The Odds API key for live odds')
-    parser.add_argument('--fast', action='store_true',
-                       help='Quicker, rougher pass for the --greedy optimizer '
-                            '(beginning mode only; the default analytical '
-                            'optimizer is already fast so --fast is a no-op there)')
-    parser.add_argument('--num-sims', '-n', type=int,
-                       help='Number of simulations (overrides defaults)')
-    parser.add_argument('--no-cache', action='store_true',
-                       help='Clear cache before loading data (forces fresh fetch)')
+    parser.add_argument(
+        "--live-odds",
+        action="store_true",
+        help="Use live Vegas odds (requires --odds-api-key or ODDS_API_KEY env var)",
+    )
+    parser.add_argument("--odds-api-key", "-k", type=str, help="The Odds API key for live odds")
+    parser.add_argument(
+        "--fast",
+        action="store_true",
+        help="Quicker, rougher pass for the --greedy optimizer "
+        "(beginning mode only; the default analytical "
+        "optimizer is already fast so --fast is a no-op there)",
+    )
+    parser.add_argument(
+        "--num-sims", "-n", type=int, help="Number of simulations (overrides defaults)"
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Clear cache before loading data (forces fresh fetch)",
+    )
+    parser.add_argument(
+        "--html",
+        action="store_true",
+        help="Also write an interactive HTML report alongside the .txt report",
+    )
 
     # Synthetic opponents (for private games outside your Yahoo league)
-    parser.add_argument('--num-opponents', '-o', type=int,
-                       help='Use N synthetic average opponents instead of real league players. '
-                            'Useful for optimizing against a small private group.')
+    parser.add_argument(
+        "--num-opponents",
+        "-o",
+        type=int,
+        help="Use N synthetic average opponents instead of real league players. "
+        "Useful for optimizing against a small private group.",
+    )
 
     # Optimization algorithm selection. Default is the analytical
     # Poisson-binomial P(win) optimizer (noise-free, best backtest results --
     # see docs/optimization-methodology.md). --greedy / --hill-climb opt out.
     algo_group = parser.add_mutually_exclusive_group()
-    algo_group.add_argument('--greedy', action='store_true',
-                       help='Use the greedy sequential optimizer instead of the '
-                            'default analytical one (faster, weaker in backtest)')
-    algo_group.add_argument('--hill-climb', action='store_true',
-                       help='Use the simulation hill-climb optimizer instead of '
-                            'the default analytical one (slow; reports per-team '
-                            'robustness across the top-N solutions)')
-    parser.add_argument('--analytic', action='store_true',
-                       help=argparse.SUPPRESS)  # deprecated: analytic is the default
-    parser.add_argument('--hc-iterations', type=int, default=1000,
-                       help='Hill climbing iterations per restart (default: 1000)')
-    parser.add_argument('--hc-restarts', type=int, default=10,
-                       help='Hill climbing random restarts (default: 10)')
-    parser.add_argument('--hc-top-n', type=int, default=1000,
-                       help='Number of top combinations to analyze for summary stats (default: 1000)')
-    parser.add_argument('--an-iterations', type=int, default=400,
-                       help='Analytic optimizer hill-climb steps per restart (default: 400)')
-    parser.add_argument('--an-restarts', type=int, default=4,
-                       help='Analytic optimizer random restarts (default: 4)')
-    parser.add_argument('--an-outcomes', type=int, default=6000,
-                       help='Outcome-vector draws for the analytic P(win) estimate (default: 6000)')
+    algo_group.add_argument(
+        "--greedy",
+        action="store_true",
+        help="Use the greedy sequential optimizer instead of the "
+        "default analytical one (faster, weaker in backtest)",
+    )
+    algo_group.add_argument(
+        "--hill-climb",
+        action="store_true",
+        help="Use the simulation hill-climb optimizer instead of "
+        "the default analytical one (slow; reports per-team "
+        "robustness across the top-N solutions)",
+    )
+    parser.add_argument(
+        "--analytic", action="store_true", help=argparse.SUPPRESS
+    )  # deprecated: analytic is the default
+    parser.add_argument(
+        "--hc-iterations",
+        type=int,
+        default=1000,
+        help="Hill climbing iterations per restart (default: 1000)",
+    )
+    parser.add_argument(
+        "--hc-restarts", type=int, default=10, help="Hill climbing random restarts (default: 10)"
+    )
+    parser.add_argument(
+        "--hc-top-n",
+        type=int,
+        default=1000,
+        help="Number of top combinations to analyze for summary stats (default: 1000)",
+    )
+    parser.add_argument(
+        "--an-iterations",
+        type=int,
+        default=400,
+        help="Analytic optimizer hill-climb steps per restart (default: 400)",
+    )
+    parser.add_argument(
+        "--an-restarts", type=int, default=4, help="Analytic optimizer random restarts (default: 4)"
+    )
+    parser.add_argument(
+        "--an-outcomes",
+        type=int,
+        default=6000,
+        help="Outcome-vector draws for the analytic P(win) estimate (default: 6000)",
+    )
 
     args = parser.parse_args()
 
@@ -121,20 +170,22 @@ Examples:
         print("ℹ️  --analytic is now the default; the flag is no longer needed.")
 
     # Resolve which optimizer to run.
-    algo = 'greedy' if args.greedy else 'hill_climb' if args.hill_climb else 'analytic'
+    algo = "greedy" if args.greedy else "hill_climb" if args.hill_climb else "analytic"
 
     # Validate arguments
-    if args.fast and args.mode == 'midweek':
+    if args.fast and args.mode == "midweek":
         print("❌ Error: --fast mode is only available for beginning-of-week optimization")
         return 1
 
     # --fast only tunes the greedy simulation path.
-    if args.fast and algo != 'greedy':
-        print("❌ Error: --fast mode only applies to --greedy "
-              "(the default analytical optimizer is already fast).")
+    if args.fast and algo != "greedy":
+        print(
+            "❌ Error: --fast mode only applies to --greedy "
+            "(the default analytical optimizer is already fast)."
+        )
         return 1
 
-    if args.num_opponents is not None and args.mode == 'midweek':
+    if args.num_opponents is not None and args.mode == "midweek":
         print("❌ Error: --num-opponents is only available for beginning-of-week optimization")
         print("   (Midweek mode requires real player data to track completed games)")
         return 1
@@ -155,15 +206,17 @@ Examples:
     confidence_range = 4  # Original scripts all used 4
 
     # Print banner
-    mode_str = "MID-WEEK" if args.mode == 'midweek' else "BEGINNING-OF-WEEK"
+    mode_str = "MID-WEEK" if args.mode == "midweek" else "BEGINNING-OF-WEEK"
     odds_str = " + LIVE ODDS" if args.live_odds else ""
     fast_str = " (FAST MODE)" if args.fast else ""
-    algo_str = {'analytic': " | ANALYTIC",
-                'hill_climb': " | HILL CLIMB",
-                'greedy': " | GREEDY"}[algo]
-    algo_label = {'analytic': "Analytical P(win)",
-                  'hill_climb': "Hill Climbing",
-                  'greedy': "Greedy Sequential"}[algo]
+    algo_str = {"analytic": " | ANALYTIC", "hill_climb": " | HILL CLIMB", "greedy": " | GREEDY"}[
+        algo
+    ]
+    algo_label = {
+        "analytic": "Analytical P(win)",
+        "hill_climb": "Hill Climbing",
+        "greedy": "Greedy Sequential",
+    }[algo]
 
     print(f"🎯 NFL PICK OPTIMIZATION - {mode_str}{odds_str}{fast_str}{algo_str}")
     print(f"📅 Week {args.week} | League {args.league_id}")
@@ -202,28 +255,29 @@ Examples:
         if args.live_odds:
             print(f"\n🔄 Fetching live Vegas odds...")
             enhanced_games = update_odds_with_live_data(
-                yahoo.games,
-                week=args.week,
-                odds_api_key=args.odds_api_key
+                yahoo.games, week=args.week, odds_api_key=args.odds_api_key
             )
 
             # Count updates
-            live_updates = sum(1 for _, game in enhanced_games.iterrows()
-                              if game.get('live_odds_source', 'Yahoo_Fallback') != 'Yahoo_Fallback')
+            live_updates = sum(
+                1
+                for _, game in enhanced_games.iterrows()
+                if game.get("live_odds_source", "Yahoo_Fallback") != "Yahoo_Fallback"
+            )
             print(f"💡 Updated {live_updates}/{len(enhanced_games)} games with live Vegas odds")
 
         # Show game status
-        completed_games = [r for r in yahoo.results if r['winner']]
+        completed_games = [r for r in yahoo.results if r["winner"]]
         remaining_games_count = len(yahoo.games) - len(completed_games)
 
         print(f"\n🎮 GAME STATUS:")
         print(f"   ✅ {len(completed_games)} completed")
         print(f"   ⏳ {remaining_games_count} remaining")
 
-        if args.mode == 'midweek' and len(completed_games) > 0:
+        if args.mode == "midweek" and len(completed_games) > 0:
             print(f"\n🏆 COMPLETED GAMES:")
             for game in completed_games[:5]:  # Show first 5
-                winner = game.get('winner', 'Unknown')
+                winner = game.get("winner", "Unknown")
                 print(f"     ✅ {winner} won")
             if len(completed_games) > 5:
                 print(f"     ... and {len(completed_games) - 5} more")
@@ -241,47 +295,57 @@ Examples:
         print("=" * 80)
 
         for _, game_row in enhanced_games.iterrows():
-            favorite, underdog = game_row['favorite'], game_row['underdog']
+            favorite, underdog = game_row["favorite"], game_row["underdog"]
 
-            if game_row['home_favorite']:
+            if game_row["home_favorite"]:
                 home_team, away_team = favorite, underdog
-                home_prob = game_row['win_prob']
-                crowd_home_pct = game_row['favorite_pick_pct'] / 100.0
-                home_conf, away_conf = game_row['favorite_confidence'], game_row['underdog_confidence']
+                home_prob = game_row["win_prob"]
+                crowd_home_pct = game_row["favorite_pick_pct"] / 100.0
+                home_conf, away_conf = (
+                    game_row["favorite_confidence"],
+                    game_row["underdog_confidence"],
+                )
             else:
                 home_team, away_team = underdog, favorite
-                home_prob = 1.0 - game_row['win_prob']
-                crowd_home_pct = game_row['underdog_pick_pct'] / 100.0
-                home_conf, away_conf = game_row['underdog_confidence'], game_row['favorite_confidence']
+                home_prob = 1.0 - game_row["win_prob"]
+                crowd_home_pct = game_row["underdog_pick_pct"] / 100.0
+                home_conf, away_conf = (
+                    game_row["underdog_confidence"],
+                    game_row["favorite_confidence"],
+                )
 
             # DEBUG: Print each matchup
             matchup = f"{away_team} @ {home_team}"
-            is_home_fav = "YES" if game_row['home_favorite'] else "NO"
-            spread = game_row.get('spread', 0.0)
-            print(f"{matchup:<30} {favorite:<10} {home_prob*100:>6.1f}%     {spread:>5.1f}     {is_home_fav}")
+            is_home_fav = "YES" if game_row["home_favorite"] else "NO"
+            spread = game_row.get("spread", 0.0)
+            print(
+                f"{matchup:<30} {favorite:<10} {home_prob*100:>6.1f}%     {spread:>5.1f}     {is_home_fav}"
+            )
 
             # Determine actual outcome if mid-week mode
             actual_outcome = None
-            if args.mode == 'midweek':
+            if args.mode == "midweek":
                 for completed in yahoo.results:
-                    if completed['winner']:
-                        game_teams = {completed['favorite'], completed['underdog']}
+                    if completed["winner"]:
+                        game_teams = {completed["favorite"], completed["underdog"]}
                         our_teams = {home_team, away_team}
                         if game_teams == our_teams:
-                            actual_outcome = (completed['winner'] == home_team)
+                            actual_outcome = completed["winner"] == home_team
                             break
 
-            games_data.append({
-                'home_team': home_team,
-                'away_team': away_team,
-                'vegas_win_prob': home_prob,
-                'crowd_home_pick_pct': crowd_home_pct,
-                'crowd_home_confidence': home_conf,
-                'crowd_away_confidence': away_conf,
-                'week': args.week,
-                'kickoff_time': game_row['kickoff_time'],
-                'actual_outcome': actual_outcome
-            })
+            games_data.append(
+                {
+                    "home_team": home_team,
+                    "away_team": away_team,
+                    "vegas_win_prob": home_prob,
+                    "crowd_home_pick_pct": crowd_home_pct,
+                    "crowd_home_confidence": home_conf,
+                    "crowd_away_confidence": away_conf,
+                    "week": args.week,
+                    "kickoff_time": game_row["kickoff_time"],
+                    "actual_outcome": actual_outcome,
+                }
+            )
 
         simulator.add_games_from_dataframe(pd.DataFrame(games_data))
 
@@ -295,20 +359,19 @@ Examples:
             # Create synthetic average players
             players = []
             # Add "You" as the first player (the one we're optimizing for)
-            players.append(Player(
-                name="You",
-                skill_level=0.6,
-                crowd_following=0.5,
-                confidence_following=0.5
-            ))
+            players.append(
+                Player(name="You", skill_level=0.6, crowd_following=0.5, confidence_following=0.5)
+            )
             # Add N synthetic opponents with average skills
             for i in range(args.num_opponents):
-                players.append(Player(
-                    name=f"Opponent {i + 1}",
-                    skill_level=0.6,
-                    crowd_following=0.5,
-                    confidence_following=0.5
-                ))
+                players.append(
+                    Player(
+                        name=f"Opponent {i + 1}",
+                        skill_level=0.6,
+                        crowd_following=0.5,
+                        confidence_following=0.5,
+                    )
+                )
             simulator.players = players
             print(f"✅ Created {args.num_opponents} synthetic average opponents")
             selected = "You"
@@ -316,7 +379,7 @@ Examples:
             # Load real players from Yahoo league
             # Load player skills
             try:
-                with open('current_player_skills.json', 'r') as f:
+                with open("current_player_skills.json", "r") as f:
                     player_skills = json.load(f)
                 print("✅ Using realistic player skills from current_player_skills.json")
             except FileNotFoundError:
@@ -326,47 +389,52 @@ Examples:
             # Add players
             players = []
             for _, player in yahoo.players.iterrows():
-                name = player['player_name']
+                name = player["player_name"]
                 if name in player_skills:
                     skill_data = player_skills[name]
-                    skill = skill_data['skill_level']
-                    crowd = skill_data['crowd_following']
-                    confidence = skill_data['confidence_following']
+                    skill = skill_data["skill_level"]
+                    crowd = skill_data["crowd_following"]
+                    confidence = skill_data["confidence_following"]
                 else:
                     skill, crowd, confidence = 0.6, 0.5, 0.5
 
-                players.append(Player(
-                    name=name,
-                    skill_level=skill,
-                    crowd_following=crowd,
-                    confidence_following=confidence
-                ))
+                players.append(
+                    Player(
+                        name=name,
+                        skill_level=skill,
+                        crowd_following=crowd,
+                        confidence_following=confidence,
+                    )
+                )
 
             simulator.players = players
             print(f"✅ Added {len(players)} league players")
 
-            if args.mode == 'midweek' and len(completed_games) > 0:
+            if args.mode == "midweek" and len(completed_games) > 0:
                 print(f"\n📊 CURRENT STANDINGS (from completed games):")
 
                 for _, player in yahoo.players.iterrows():
-                    player_name = player['player_name']
+                    player_name = player["player_name"]
                     points_earned = 0
 
                     for i, game in enumerate(simulator.games):
                         if game.actual_outcome is not None:
                             game_num = i + 1
-                            pick = player.get(f'game_{game_num}_pick')
-                            conf = player.get(f'game_{game_num}_confidence', 0)
+                            pick = player.get(f"game_{game_num}_pick")
+                            conf = player.get(f"game_{game_num}_confidence", 0)
 
                             if pick:
-                                if (pick == game.home_team and game.actual_outcome) or \
-                                   (pick == game.away_team and not game.actual_outcome):
+                                if (pick == game.home_team and game.actual_outcome) or (
+                                    pick == game.away_team and not game.actual_outcome
+                                ):
                                     points_earned += conf
 
                     current_standings[player_name] = points_earned
 
                 # Show top 10
-                sorted_standings = sorted(current_standings.items(), key=lambda x: x[1], reverse=True)
+                sorted_standings = sorted(
+                    current_standings.items(), key=lambda x: x[1], reverse=True
+                )
                 for i, (name, points) in enumerate(sorted_standings[:10], 1):
                     print(f"   {i}. {name}: {points} points")
 
@@ -378,7 +446,7 @@ Examples:
             print(f"\n👥 Select your player from {len(player_names)} total:")
 
             for i in range(0, min(15, len(player_names)), 3):
-                row_players = player_names[i:i+3]
+                row_players = player_names[i : i + 3]
                 for j, name in enumerate(row_players):
                     current_points = current_standings.get(name, 0) if current_standings else 0
                     print(f"   {i+j+1:2d}. {name:<25} ({current_points} pts)", end="")
@@ -406,10 +474,10 @@ Examples:
             print(f"✅ Selected: {selected}")
 
         # Calculate available confidence levels for mid-week
-        if args.mode == 'midweek' and len(completed_games) > 0:
+        if args.mode == "midweek" and len(completed_games) > 0:
             your_player_data = None
             for _, player in yahoo.players.iterrows():
-                if player['player_name'] == selected:
+                if player["player_name"] == selected:
                     your_player_data = player
                     break
 
@@ -417,7 +485,7 @@ Examples:
                 for i, game in enumerate(simulator.games):
                     if game.actual_outcome is not None:
                         game_num = i + 1
-                        conf = your_player_data.get(f'game_{game_num}_confidence')
+                        conf = your_player_data.get(f"game_{game_num}_confidence")
                         if conf:
                             your_used_confidence.add(conf)
 
@@ -435,10 +503,7 @@ Examples:
             if game_sim.actual_outcome is None:
                 available_teams.add(game_sim.home_team)
                 available_teams.add(game_sim.away_team)
-                remaining_games.append({
-                    'home': game_sim.home_team,
-                    'away': game_sim.away_team
-                })
+                remaining_games.append({"home": game_sim.home_team, "away": game_sim.away_team})
 
         available_teams = sorted(list(available_teams))
 
@@ -456,7 +521,7 @@ Examples:
         fixed_picks = None
         if fixed_input:
             fixed_picks = {}
-            for pick in fixed_input.split(','):
+            for pick in fixed_input.split(","):
                 try:
                     parts = pick.strip().split()
                     if len(parts) >= 2:
@@ -493,21 +558,29 @@ Examples:
         print(f"   Algorithm: {algo_label}")
         if args.live_odds:
             print(f"   Live Odds: {live_updates} games updated")
-        if algo == 'analytic':
-            print(f"   P(win) draws: {args.an_outcomes:,} | "
-                  f"hill-climb: {args.an_iterations} iters × {args.an_restarts} restarts")
-            estimated_minutes = 0.1 if args.mode == 'beginning' else 0.2
+        if algo == "analytic":
+            print(
+                f"   P(win) draws: {args.an_outcomes:,} | "
+                f"hill-climb: {args.an_iterations} iters × {args.an_restarts} restarts"
+            )
+            estimated_minutes = 0.1 if args.mode == "beginning" else 0.2
         else:
             print(f"   Simulations: {num_sims:,} per evaluation")
         print(f"   Games to optimize: {games_to_optimize}")
         if args.fast:
             print(f"   ⚡ Fast mode: ~85% accuracy, 10x speed")
-        if algo == 'hill_climb':
-            print(f"   🔍 Hill climb: {args.hc_iterations} iterations × {args.hc_restarts} restarts")
+        if algo == "hill_climb":
+            print(
+                f"   🔍 Hill climb: {args.hc_iterations} iterations × {args.hc_restarts} restarts"
+            )
             # Adjust time estimate for hill climbing
-            estimated_minutes = games_to_optimize * time_per_game * args.hc_iterations * args.hc_restarts / 100
+            estimated_minutes = (
+                games_to_optimize * time_per_game * args.hc_iterations * args.hc_restarts / 100
+            )
         if estimated_minutes >= 1:
-            print(f"   ⏱️  Estimated time: {estimated_minutes:.0f}-{estimated_minutes*1.5:.0f} minutes")
+            print(
+                f"   ⏱️  Estimated time: {estimated_minutes:.0f}-{estimated_minutes*1.5:.0f} minutes"
+            )
         else:
             print(f"   ⏱️  Estimated time: a few seconds")
         print()
@@ -518,7 +591,7 @@ Examples:
             # Initialize summary_stats to None (only hill climb returns this)
             summary_stats = None
 
-            if algo == 'analytic':
+            if algo == "analytic":
                 # Analytical Poisson-binomial P(win) optimizer - returns just picks.
                 # Midweek: pass player_data + as_of=now so the method locks every
                 # frozen game (finished OR kicked off) and derives the unspent
@@ -531,20 +604,20 @@ Examples:
                     iterations=args.an_iterations,
                     restarts=args.an_restarts,
                     n_outcomes=args.an_outcomes,
-                    player_data=yahoo.players if args.mode == 'midweek' else None,
-                    as_of=datetime.now() if args.mode == 'midweek' else None,
+                    player_data=yahoo.players if args.mode == "midweek" else None,
+                    as_of=datetime.now() if args.mode == "midweek" else None,
                     verbose=True,
                 )
-            elif algo == 'hill_climb':
+            elif algo == "hill_climb":
                 # Use hill climbing optimizer - returns (picks, summary_stats)
                 optimal_picks, summary_stats = simulator.optimize_picks_hill_climb(
                     player_name=selected,
                     fixed_picks=fixed_formatted,
                     iterations=args.hc_iterations,
                     restarts=args.hc_restarts,
-                    available_points=your_remaining_confidence if args.mode == 'midweek' else None,
+                    available_points=your_remaining_confidence if args.mode == "midweek" else None,
                     player_data=yahoo.players,
-                    top_n=args.hc_top_n
+                    top_n=args.hc_top_n,
                 )
             else:
                 # Use greedy optimizer - returns just picks
@@ -552,8 +625,8 @@ Examples:
                     player_name=selected,
                     fixed_picks=fixed_formatted,
                     confidence_range=confidence_range,
-                    available_points=your_remaining_confidence if args.mode == 'midweek' else None,
-                    player_data=yahoo.players
+                    available_points=your_remaining_confidence if args.mode == "midweek" else None,
+                    player_data=yahoo.players,
                 )
 
             if optimal_picks:
@@ -565,8 +638,8 @@ Examples:
                 optimal_stats = simulator.simulate_all(optimal_fixed, player_data=yahoo.players)
                 random_stats = simulator.simulate_all({}, player_data=yahoo.players)
 
-                opt_win = optimal_stats['win_pct'][selected]
-                rand_win = random_stats['win_pct'][selected]
+                opt_win = optimal_stats["win_pct"][selected]
+                rand_win = random_stats["win_pct"][selected]
 
                 print(f"📈 Win Probability:")
                 print(f"   🎯 Optimized strategy: {opt_win:.1%}")
@@ -584,12 +657,12 @@ Examples:
 
                 # Get all players' win probabilities and calculate total expected points
                 all_win_probs = []
-                for player_name in optimal_stats['win_pct'].index:
-                    win_pct = optimal_stats['win_pct'][player_name]
+                for player_name in optimal_stats["win_pct"].index:
+                    win_pct = optimal_stats["win_pct"][player_name]
 
                     # The simulation returns expected points for ALL games (completed + remaining)
                     # We need to show: current actual points + expected remaining points
-                    simulated_total = optimal_stats['expected_points'][player_name]
+                    simulated_total = optimal_stats["expected_points"][player_name]
 
                     # Current points from completed games
                     current_pts = current_standings.get(player_name, 0) if current_standings else 0
@@ -598,63 +671,81 @@ Examples:
                     # For beginning of week: simulated_total is the full expected
                     total_expected = simulated_total
 
-                    all_win_probs.append({
-                        'player': player_name,
-                        'win_pct': win_pct,
-                        'total_expected': total_expected,
-                        'current_pts': current_pts,
-                        'is_you': player_name == selected
-                    })
+                    all_win_probs.append(
+                        {
+                            "player": player_name,
+                            "win_pct": win_pct,
+                            "total_expected": total_expected,
+                            "current_pts": current_pts,
+                            "is_you": player_name == selected,
+                        }
+                    )
 
                 # Sort by win probability
-                all_win_probs.sort(key=lambda x: x['win_pct'], reverse=True)
+                all_win_probs.sort(key=lambda x: x["win_pct"], reverse=True)
 
                 # Display top contenders and your position
-                if args.mode == 'midweek' and current_standings:
-                    print(f"   {'Rank':<6} {'Player':<25} {'Win %':<10} {'Total Exp':<12} {'Current':<10} {'Remaining'}")
+                if args.mode == "midweek" and current_standings:
+                    print(
+                        f"   {'Rank':<6} {'Player':<25} {'Win %':<10} {'Total Exp':<12} {'Current':<10} {'Remaining'}"
+                    )
                     print(f"   {'-'*6} {'-'*25} {'-'*10} {'-'*12} {'-'*10} {'-'*10}")
                 else:
                     print(f"   {'Rank':<6} {'Player':<25} {'Win %':<10} {'Exp Points'}")
                     print(f"   {'-'*6} {'-'*25} {'-'*10} {'-'*12}")
 
                 for i, player_data in enumerate(all_win_probs[:25], 1):
-                    player_name = player_data['player']
-                    win_pct = player_data['win_pct']
-                    total_exp = player_data['total_expected']
-                    current_pts = player_data['current_pts']
+                    player_name = player_data["player"]
+                    win_pct = player_data["win_pct"]
+                    total_exp = player_data["total_expected"]
+                    current_pts = player_data["current_pts"]
                     remaining_exp = total_exp - current_pts
 
-                    marker = "👉 " if player_data['is_you'] else "   "
+                    marker = "👉 " if player_data["is_you"] else "   "
 
-                    if args.mode == 'midweek' and current_standings:
-                        print(f"{marker}{i:<4} {player_name:<25} {win_pct:>6.1%}     {total_exp:>6.1f} pts    {current_pts:>4.0f} pts   +{remaining_exp:>5.1f}")
+                    if args.mode == "midweek" and current_standings:
+                        print(
+                            f"{marker}{i:<4} {player_name:<25} {win_pct:>6.1%}     {total_exp:>6.1f} pts    {current_pts:>4.0f} pts   +{remaining_exp:>5.1f}"
+                        )
                     else:
-                        print(f"{marker}{i:<4} {player_name:<25} {win_pct:>6.1%}     {total_exp:>6.1f} pts")
+                        print(
+                            f"{marker}{i:<4} {player_name:<25} {win_pct:>6.1%}     {total_exp:>6.1f} pts"
+                        )
 
                 if len(all_win_probs) > 25:
                     print(f"   ... and {len(all_win_probs) - 25} more players")
 
                     # If you're not in top 25, show your position
-                    your_rank = next((i+1 for i, p in enumerate(all_win_probs) if p['is_you']), None)
+                    your_rank = next(
+                        (i + 1 for i, p in enumerate(all_win_probs) if p["is_you"]), None
+                    )
                     if your_rank and your_rank > 25:
-                        your_data = next(p for p in all_win_probs if p['is_you'])
-                        total_exp = your_data['total_expected']
-                        current_pts = your_data['current_pts']
+                        your_data = next(p for p in all_win_probs if p["is_you"])
+                        total_exp = your_data["total_expected"]
+                        current_pts = your_data["current_pts"]
                         remaining_exp = total_exp - current_pts
                         print()
-                        if args.mode == 'midweek' and current_standings:
-                            print(f"👉 {your_rank:<4} {selected:<25} {your_data['win_pct']:>6.1%}     {total_exp:>6.1f} pts    {current_pts:>4.0f} pts   +{remaining_exp:>5.1f}")
+                        if args.mode == "midweek" and current_standings:
+                            print(
+                                f"👉 {your_rank:<4} {selected:<25} {your_data['win_pct']:>6.1%}     {total_exp:>6.1f} pts    {current_pts:>4.0f} pts   +{remaining_exp:>5.1f}"
+                            )
                         else:
-                            print(f"👉 {your_rank:<4} {selected:<25} {your_data['win_pct']:>6.1%}     {total_exp:>6.1f} pts")
+                            print(
+                                f"👉 {your_rank:<4} {selected:<25} {your_data['win_pct']:>6.1%}     {total_exp:>6.1f} pts"
+                            )
 
                 # Initialize midweek tracking variables
                 your_rank = None
                 your_points = None
 
-                if args.mode == 'midweek' and current_standings:
+                if args.mode == "midweek" and current_standings:
                     your_points = current_standings.get(selected, 0)
-                    sorted_standings = sorted(current_standings.items(), key=lambda x: x[1], reverse=True)
-                    your_rank = next(i for i, (n, _) in enumerate(sorted_standings, 1) if n == selected)
+                    sorted_standings = sorted(
+                        current_standings.items(), key=lambda x: x[1], reverse=True
+                    )
+                    your_rank = next(
+                        i for i, (n, _) in enumerate(sorted_standings, 1) if n == selected
+                    )
                     print(f"\n📊 Current Position:")
                     print(f"   Rank: #{your_rank}")
                     print(f"   Points from completed: {your_points}")
@@ -667,8 +758,8 @@ Examples:
                     opponent = "Unknown"
                     is_remaining = False
                     for game in remaining_games:
-                        if team in [game['home'], game['away']]:
-                            opponent = game['away'] if team == game['home'] else game['home']
+                        if team in [game["home"], game["away"]]:
+                            opponent = game["away"] if team == game["home"] else game["home"]
                             is_remaining = True
                             break
 
@@ -685,50 +776,57 @@ Examples:
                     complete_picks = optimal_picks.copy()
 
                     # Add completed game picks from player_data if in midweek mode
-                    if args.mode == 'midweek' and yahoo.players is not None:
-                        player_row = yahoo.players[yahoo.players['player_name'] == selected]
+                    if args.mode == "midweek" and yahoo.players is not None:
+                        player_row = yahoo.players[yahoo.players["player_name"] == selected]
                         if not player_row.empty:
                             # Iterate through games to find completed ones
                             for game_idx, game in enumerate(simulator.games):
                                 if game.actual_outcome is not None:  # Completed game
                                     # Yahoo data uses game_N_pick and game_N_confidence columns
-                                    pick_col = f'game_{game_idx+1}_pick'
-                                    conf_col = f'game_{game_idx+1}_confidence'
+                                    pick_col = f"game_{game_idx+1}_pick"
+                                    conf_col = f"game_{game_idx+1}_confidence"
 
-                                    if pick_col in yahoo.players.columns and conf_col in yahoo.players.columns:
+                                    if (
+                                        pick_col in yahoo.players.columns
+                                        and conf_col in yahoo.players.columns
+                                    ):
                                         picked_team = player_row[pick_col].values[0]
                                         confidence = player_row[conf_col].values[0]
 
-                                        if pd.notna(picked_team) and pd.notna(confidence) and confidence > 0:
+                                        if (
+                                            pd.notna(picked_team)
+                                            and pd.notna(confidence)
+                                            and confidence > 0
+                                        ):
                                             complete_picks[picked_team] = int(confidence)
 
                     complete_fixed = {selected: complete_picks}
 
                     importance_df = simulator.assess_game_importance(
-                        player_name=selected,
-                        fixed_picks=complete_fixed,
-                        player_data=yahoo.players
+                        player_name=selected, fixed_picks=complete_fixed, player_data=yahoo.players
                     )
 
-                    importance_sorted = importance_df.sort_values('total_impact', ascending=False)
+                    importance_sorted = importance_df.sort_values("total_impact", ascending=False)
 
                     for i, (_, row) in enumerate(importance_sorted.head(8).iterrows()):
-                        game_desc = row['game']
-                        pick = row['pick']
-                        conf = int(row['points_bid'])
-                        importance = row['total_impact']
-                        correct_prob = row['win_probability']
-                        incorrect_prob = row['loss_probability']
+                        game_desc = row["game"]
+                        pick = row["pick"]
+                        conf = int(row["points_bid"])
+                        importance = row["total_impact"]
+                        correct_prob = row["win_probability"]
+                        incorrect_prob = row["loss_probability"]
 
                         # Check if remaining
-                        away_team, home_team = game_desc.split('@')
+                        away_team, home_team = game_desc.split("@")
                         is_remaining = any(
-                            set([home_team, away_team]) == set([g['home'], g['away']])
+                            set([home_team, away_team]) == set([g["home"], g["away"]])
                             for g in remaining_games
                         )
                         status = "📅" if is_remaining else "✅"
 
-                        print(f"   {i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) {importance:+5.1%} (Correct: {correct_prob:4.1%}, Wrong: {incorrect_prob:4.1%}) {status}")
+                        print(
+                            f"   {i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) {importance:+5.1%} (Correct: {correct_prob:4.1%}, Wrong: {incorrect_prob:4.1%}) {status}"
+                        )
 
                 except Exception as e:
                     print(f"   ⚠️  Could not calculate: {e}")
@@ -736,19 +834,23 @@ Examples:
                 # Display summary statistics if available (from hill climbing)
                 if summary_stats is not None and len(summary_stats) > 0:
                     print(f"\n📊 PICK ROBUSTNESS ANALYSIS:")
-                    print(f"   Frequency each team appears in top {len(summary_stats)} combinations")
+                    print(
+                        f"   Frequency each team appears in top {len(summary_stats)} combinations"
+                    )
                     print()
-                    print(f"   {'Team':<8} {'Frequency':<14} {'Avg':<6} {'Med':<6} {'Std':<6} {'Range':<8} {'Signal'}")
+                    print(
+                        f"   {'Team':<8} {'Frequency':<14} {'Avg':<6} {'Med':<6} {'Std':<6} {'Range':<8} {'Signal'}"
+                    )
                     print(f"   {'-'*8} {'-'*14} {'-'*6} {'-'*6} {'-'*6} {'-'*8} {'-'*20}")
 
                     for _, row in summary_stats.head(20).iterrows():
-                        team = row['team']
-                        freq = row['frequency']
-                        avg_conf = row['avg_confidence']
-                        med_conf = row['median_confidence']
-                        std_conf = row['std_confidence']
-                        min_conf = row['min_confidence']
-                        max_conf = row['max_confidence']
+                        team = row["team"]
+                        freq = row["frequency"]
+                        avg_conf = row["avg_confidence"]
+                        med_conf = row["median_confidence"]
+                        std_conf = row["std_confidence"]
+                        min_conf = row["min_confidence"]
+                        max_conf = row["max_confidence"]
 
                         # Determine signal strength
                         if freq > 0.9:
@@ -765,7 +867,9 @@ Examples:
                         # Check if this team is in optimal picks
                         in_optimal = "→" if team in optimal_picks else " "
 
-                        print(f"   {team:<8} {freq:>6.1%} ({row['appearances']:>4})  {avg_conf:>5.1f} {med_conf:>5.1f} {std_conf:>5.2f}  {min_conf:.0f}-{max_conf:.0f}    {signal} {in_optimal}")
+                        print(
+                            f"   {team:<8} {freq:>6.1%} ({row['appearances']:>4})  {avg_conf:>5.1f} {med_conf:>5.1f} {std_conf:>5.2f}  {min_conf:.0f}-{max_conf:.0f}    {signal} {in_optimal}"
+                        )
 
                     if len(summary_stats) > 20:
                         print(f"\n   ... and {len(summary_stats) - 20} more teams analyzed")
@@ -782,34 +886,40 @@ Examples:
                 print(f"   {paste_format}")
 
                 # Save results
-                mode_suffix = "MidWeek" if args.mode == 'midweek' else "BeginningWeek"
+                mode_suffix = "MidWeek" if args.mode == "midweek" else "BeginningWeek"
                 odds_suffix = "_LiveOdds" if args.live_odds else ""
                 fast_suffix = "_Fast" if args.fast else ""
-                algo_suffix = {'analytic': "_Analytic",
-                               'hill_climb': "_HillClimb",
-                               'greedy': "_Greedy"}[algo]
+                algo_suffix = {
+                    "analytic": "_Analytic",
+                    "hill_climb": "_HillClimb",
+                    "greedy": "_Greedy",
+                }[algo]
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-                safe_name = selected.replace(' ', '_').replace('/', '_')
+                safe_name = selected.replace(" ", "_").replace("/", "_")
                 filename = f"NFL_Week{args.week}_{mode_suffix}{odds_suffix}{fast_suffix}{algo_suffix}_{safe_name}_{timestamp}.txt"
 
-                with open(filename, 'w') as f:
+                with open(filename, "w") as f:
                     f.write(f"NFL Week {args.week} Optimized Picks\n")
                     f.write(f"Player: {selected}\n")
                     f.write(f"Generated: {datetime.now()}\n")
                     f.write(f"Mode: {mode_str}{odds_suffix}{fast_suffix}\n")
                     f.write(f"Algorithm: {algo_label}\n")
-                    if algo == 'analytic':
-                        f.write(f"Analytic params: {args.an_outcomes} P(win) draws, "
-                                f"{args.an_iterations} iterations × {args.an_restarts} restarts\n")
-                    elif algo == 'hill_climb':
-                        f.write(f"Hill climb params: {args.hc_iterations} iterations × {args.hc_restarts} restarts\n")
-                    if algo != 'analytic':
+                    if algo == "analytic":
+                        f.write(
+                            f"Analytic params: {args.an_outcomes} P(win) draws, "
+                            f"{args.an_iterations} iterations × {args.an_restarts} restarts\n"
+                        )
+                    elif algo == "hill_climb":
+                        f.write(
+                            f"Hill climb params: {args.hc_iterations} iterations × {args.hc_restarts} restarts\n"
+                        )
+                    if algo != "analytic":
                         f.write(f"Simulations: {num_sims:,}\n")
                     if args.live_odds:
                         f.write(f"Live odds updates: {live_updates}/{len(enhanced_games)} games\n")
                     f.write(f"Win probability: {opt_win:.1%}\n")
                     f.write(f"Advantage: +{(opt_win - rand_win)*100:.1f} pp\n")
-                    if args.mode == 'midweek' and your_rank is not None:
+                    if args.mode == "midweek" and your_rank is not None:
                         f.write(f"Current rank: #{your_rank}\n")
                         f.write(f"Current points: {your_points}\n")
                     f.write("\n")
@@ -820,46 +930,54 @@ Examples:
 
                     # Write game importance analysis if available
                     try:
-                        if 'importance_sorted' in locals():
+                        if "importance_sorted" in locals():
                             f.write(f"\nGAME IMPORTANCE ANALYSIS:\n")
                             f.write("(Impact on your win probability)\n\n")
                             for i, (_, row) in enumerate(importance_sorted.iterrows()):
-                                game_desc = row['game']
-                                pick = row['pick']
-                                conf = int(row['points_bid'])
-                                importance = row['total_impact']
-                                correct_prob = row['win_probability']
-                                incorrect_prob = row['loss_probability']
+                                game_desc = row["game"]
+                                pick = row["pick"]
+                                conf = int(row["points_bid"])
+                                importance = row["total_impact"]
+                                correct_prob = row["win_probability"]
+                                incorrect_prob = row["loss_probability"]
 
                                 # Check if remaining
-                                away_team, home_team = game_desc.split('@')
+                                away_team, home_team = game_desc.split("@")
                                 is_remaining = any(
-                                    set([home_team, away_team]) == set([g['home'], g['away']])
+                                    set([home_team, away_team]) == set([g["home"], g["away"]])
                                     for g in remaining_games
                                 )
                                 status = "[REMAINING]" if is_remaining else "[COMPLETE]"
 
-                                f.write(f"{i+1:2d}. {game_desc:<20} -> {pick:3} ({conf:2d} pts) {importance:+5.1%} "
-                                       f"(Correct: {correct_prob:4.1%}, Wrong: {incorrect_prob:4.1%}) {status}\n")
+                                f.write(
+                                    f"{i+1:2d}. {game_desc:<20} -> {pick:3} ({conf:2d} pts) {importance:+5.1%} "
+                                    f"(Correct: {correct_prob:4.1%}, Wrong: {incorrect_prob:4.1%}) {status}\n"
+                                )
                     except Exception as e:
                         f.write(f"\nGame importance analysis: Could not calculate ({e})\n")
 
                     # Write summary statistics if available
                     if summary_stats is not None and len(summary_stats) > 0:
                         f.write(f"\nPICK ROBUSTNESS ANALYSIS:\n")
-                        f.write(f"Frequency each team appears in top solutions from hill climbing\n\n")
-                        f.write(f"{'Team':<10} {'Frequency':<12} {'Count':<8} {'Avg':<8} {'Median':<8} {'Std':<8} {'Range':<10} {'Signal'}\n")
-                        f.write(f"{'-'*10} {'-'*12} {'-'*8} {'-'*8} {'-'*8} {'-'*8} {'-'*10} {'-'*20}\n")
+                        f.write(
+                            f"Frequency each team appears in top solutions from hill climbing\n\n"
+                        )
+                        f.write(
+                            f"{'Team':<10} {'Frequency':<12} {'Count':<8} {'Avg':<8} {'Median':<8} {'Std':<8} {'Range':<10} {'Signal'}\n"
+                        )
+                        f.write(
+                            f"{'-'*10} {'-'*12} {'-'*8} {'-'*8} {'-'*8} {'-'*8} {'-'*10} {'-'*20}\n"
+                        )
 
                         for _, row in summary_stats.iterrows():
-                            team = row['team']
-                            freq = row['frequency']
-                            appearances = row['appearances']
-                            avg_conf = row['avg_confidence']
-                            med_conf = row['median_confidence']
-                            std_conf = row['std_confidence']
-                            min_conf = row['min_confidence']
-                            max_conf = row['max_confidence']
+                            team = row["team"]
+                            freq = row["frequency"]
+                            appearances = row["appearances"]
+                            avg_conf = row["avg_confidence"]
+                            med_conf = row["median_confidence"]
+                            std_conf = row["std_confidence"]
+                            min_conf = row["min_confidence"]
+                            max_conf = row["max_confidence"]
 
                             # Determine signal strength
                             if freq > 0.9:
@@ -875,15 +993,47 @@ Examples:
 
                             in_optimal = "*" if team in optimal_picks else " "
 
-                            f.write(f"{team:<10} {freq:>6.1%}       {appearances:>5}   {avg_conf:>5.1f}    {med_conf:>5.1f}    {std_conf:>5.2f}    {min_conf:.0f}-{max_conf:.0f}      {signal} {in_optimal}\n")
+                            f.write(
+                                f"{team:<10} {freq:>6.1%}       {appearances:>5}   {avg_conf:>5.1f}    {med_conf:>5.1f}    {std_conf:>5.2f}    {min_conf:.0f}-{max_conf:.0f}      {signal} {in_optimal}\n"
+                            )
 
                         f.write(f"\n* = Team in final optimized picks\n")
-                        f.write(f"Std = Standard deviation (lower = more consistent point assignment)\n")
+                        f.write(
+                            f"Std = Standard deviation (lower = more consistent point assignment)\n"
+                        )
 
                     f.write(f"\nCOPY-PASTE FORMAT:\n")
                     f.write(f"{paste_format}\n")
 
                 print(f"\n💾 Results saved: {filename}")
+
+                if args.html:
+                    html_filename = filename.rsplit(".", 1)[0] + ".html"
+                    html_report = generate_html_report(
+                        week=args.week,
+                        league_id=args.league_id,
+                        player_name=selected,
+                        mode=args.mode,
+                        algo_label=algo_label,
+                        sorted_picks=sorted_picks,
+                        remaining_games=remaining_games,
+                        opt_win=opt_win,
+                        rand_win=rand_win,
+                        importance_sorted=(
+                            importance_sorted if "importance_sorted" in locals() else None
+                        ),
+                        all_win_probs=all_win_probs,
+                        current_standings=current_standings,
+                        your_rank=your_rank,
+                        your_points=your_points,
+                        num_remaining_games=num_remaining,
+                        total_games=len(simulator.games),
+                        summary_stats=summary_stats,
+                    )
+                    with open(html_filename, "w") as f:
+                        f.write(html_report)
+                    print(f"🌐 HTML report saved: {html_filename}")
+
                 print(f"\n✅ Optimization complete!")
 
             else:
@@ -893,12 +1043,14 @@ Examples:
         except Exception as e:
             print(f"❌ Optimization error: {e}")
             import traceback
+
             traceback.print_exc()
             return 1
 
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
