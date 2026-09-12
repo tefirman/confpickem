@@ -99,6 +99,7 @@ class YahooPickEm:
         # Load initial data
         self.get_pick_distribution()
         self.get_confidence_picks()
+        self.get_standings()
 
     def get_page_content(self, url: str, page_type: str) -> str:
         """
@@ -383,6 +384,64 @@ class YahooPickEm:
         
         self.players = pd.DataFrame(players)
         self.results = games
+
+    def get_standings(self):
+        """
+        Parse Yahoo Fantasy weekly performance page into season-to-date standings:
+        one row per player with rank, per-week points (through the current week),
+        season total, and how many weeks each player won outright.
+        """
+        url = f"https://football.fantasysports.yahoo.com/pickem/{self.league_id}/weeklyperformance"
+        content = self.get_page_content(url, "weekly_performance")
+        soup = BeautifulSoup(content, 'html.parser')
+
+        table = soup.find('div', id='ysf-weeklyperformance')
+        if table is None:
+            self.standings = pd.DataFrame()
+            return
+        table = table.find('table')
+        header_cells = table.find('thead').find('tr').find_all('th')
+        # Columns are Rank, Pick Set Name, Wk 1..Wk N, Total Pts
+        num_weeks = len(header_cells) - 3
+
+        standings = []
+        for row in table.find('tbody').find_all('tr'):
+            cols = row.find_all('td')
+            if len(cols) < 3:
+                continue
+
+            try:
+                rank = int(cols[0].text.strip())
+            except ValueError:
+                continue
+
+            name_elem = cols[1]
+            player_name = name_elem.find('a').text.strip() if name_elem.find('a') else name_elem.text.strip()
+
+            week_cols = cols[2:2 + num_weeks]
+            weekly_points = []
+            weeks_won = 0
+            for i, col in enumerate(week_cols):
+                text = col.text.strip()
+                points = int(text) if text.isdigit() else 0
+                weekly_points.append(points)
+                if 'weekly-winner' in (col.get('class') or []):
+                    weeks_won += 1
+
+            total_text = cols[-1].text.strip()
+            total_points = int(total_text) if total_text.isdigit() else sum(weekly_points)
+
+            row_dict = {
+                'rank': rank,
+                'player_name': player_name,
+                'total_points': total_points,
+                'weeks_won': weeks_won,
+            }
+            for i, points in enumerate(weekly_points):
+                row_dict[f'week_{i + 1}_points'] = points
+            standings.append(row_dict)
+
+        self.standings = pd.DataFrame(standings)
 
 def calculate_player_stats(league_id: int, weeks: list, cookies_file: str):
     """
