@@ -99,8 +99,48 @@ class TestOptimizeCLI:
                 error_calls = [str(call) for call in mock_print.call_args_list]
                 assert any("fast mode" in str(call).lower() for call in error_calls)
 
+    def test_fast_mode_rejected_for_locked(self):
+        """--fast is rejected for --mode locked too (only beginning supports it)"""
+        test_args = ["optimize.py", "--week", "10", "--mode", "locked", "--fast"]
+        with patch("sys.argv", test_args):
+            with patch("builtins.print") as mock_print:
+                result = optimize.main()
+        assert result == 1
+        error_calls = [str(call) for call in mock_print.call_args_list]
+        assert any("fast mode" in str(call).lower() for call in error_calls)
+
+    def test_num_opponents_rejected_for_locked(self):
+        """--num-opponents is rejected for --mode locked (needs real player data)"""
+        test_args = ["optimize.py", "--week", "10", "--mode", "locked", "--num-opponents", "5"]
+        with patch("sys.argv", test_args):
+            with patch("builtins.print") as mock_print:
+                result = optimize.main()
+        assert result == 1
+        error_calls = [str(call) for call in mock_print.call_args_list]
+        assert any("num-opponents" in str(call).lower() for call in error_calls)
+
+    def test_hill_climb_rejected_for_locked(self):
+        """--hill-climb doesn't apply to --mode locked (nothing to optimize)"""
+        test_args = ["optimize.py", "--week", "10", "--mode", "locked", "--hill-climb"]
+        with patch("sys.argv", test_args):
+            with patch("builtins.print") as mock_print:
+                result = optimize.main()
+        assert result == 1
+        error_calls = [str(call) for call in mock_print.call_args_list]
+        assert any("optimize" in str(call).lower() for call in error_calls)
+
+    def test_player_rejected_outside_locked_mode(self):
+        """--player only makes sense for --mode locked (others prompt interactively)"""
+        test_args = ["optimize.py", "--week", "10", "--mode", "midweek", "--player", "Alice"]
+        with patch("sys.argv", test_args):
+            with patch("builtins.print") as mock_print:
+                result = optimize.main()
+        assert result == 1
+        error_calls = [str(call) for call in mock_print.call_args_list]
+        assert any("--player" in str(call) for call in error_calls)
+
     def test_mode_choices_validation(self):
-        """Test that mode must be 'beginning' or 'midweek'"""
+        """Test that mode must be 'beginning', 'midweek', or 'locked'"""
         with patch("sys.argv", ["optimize.py", "--week", "10", "--mode", "invalid"]):
             with pytest.raises(SystemExit):
                 optimize.main()
@@ -326,6 +366,181 @@ class TestCLIIntegration:
                             pass
                         except Exception as e:
                             pytest.fail(f"Optimization workflow failed: {e}")
+
+    @patch("src.confpickem.cli.optimize.YahooPickEm")
+    @patch("src.confpickem.cli.optimize.Path")
+    def test_optimize_locked_mode_workflow(self, mock_path, mock_yahoo, tmp_path, monkeypatch):
+        """--mode locked runs end-to-end with no prompts and no optimization,
+        auto-filling any entrant missing a pick."""
+        monkeypatch.chdir(tmp_path)
+        mock_path.return_value.exists.return_value = True
+
+        mock_yahoo_instance = MagicMock()
+        mock_yahoo_instance.games = pd.DataFrame(
+            {
+                "favorite": ["KC", "SF"],
+                "underdog": ["LV", "ARI"],
+                "spread": [7.0, 6.5],
+                "win_prob": [0.75, 0.70],
+                "home_favorite": [True, True],
+                "favorite_pick_pct": [80.0, 75.0],
+                "underdog_pick_pct": [20.0, 25.0],
+                "favorite_confidence": [12.0, 11.0],
+                "underdog_confidence": [4.0, 5.0],
+                "kickoff_time": [datetime(2024, 9, 8, 13, 0), datetime(2024, 9, 8, 16, 25)],
+            }
+        )
+        mock_yahoo_instance.players = pd.DataFrame(
+            [
+                {
+                    "player_name": "Complete",
+                    "game_1_pick": "KC",
+                    "game_1_confidence": 2,
+                    "game_2_pick": "SF",
+                    "game_2_confidence": 1,
+                },
+                {
+                    # missing game_2 entirely -- standings_analytic must not raise
+                    "player_name": "Jayparr",
+                    "game_1_pick": "KC",
+                    "game_1_confidence": 1,
+                    "game_2_pick": None,
+                    "game_2_confidence": None,
+                },
+            ]
+        )
+        mock_yahoo_instance.results = [
+            {"favorite": "KC", "underdog": "LV", "winner": None},
+            {"favorite": "SF", "underdog": "ARI", "winner": None},
+        ]
+        mock_yahoo.return_value = mock_yahoo_instance
+
+        test_args = ["optimize.py", "--week", "1", "--mode", "locked", "--html"]
+        with patch("sys.argv", test_args):
+            result = optimize.main()
+
+        assert result == 0
+        txt_files = list(tmp_path.glob("NFL_Week1_Locked_*.txt"))
+        html_files = list(tmp_path.glob("NFL_Week1_Locked_*.html"))
+        assert len(txt_files) == 1
+        assert len(html_files) == 1
+
+        report = txt_files[0].read_text()
+        assert "LIVE STANDINGS" in report
+        assert "Jayparr" in report
+        assert "Auto-filled missing picks" in report
+
+        html = html_files[0].read_text()
+        assert "Live Standings" in html
+        assert "Jayparr" in html
+
+    def _locked_mode_yahoo_mock(self):
+        mock_yahoo_instance = MagicMock()
+        mock_yahoo_instance.games = pd.DataFrame(
+            {
+                "favorite": ["KC", "SF"],
+                "underdog": ["LV", "ARI"],
+                "spread": [7.0, 6.5],
+                "win_prob": [0.75, 0.70],
+                "home_favorite": [True, True],
+                "favorite_pick_pct": [80.0, 75.0],
+                "underdog_pick_pct": [20.0, 25.0],
+                "favorite_confidence": [12.0, 11.0],
+                "underdog_confidence": [4.0, 5.0],
+                "kickoff_time": [datetime(2024, 9, 8, 13, 0), datetime(2024, 9, 8, 16, 25)],
+            }
+        )
+        mock_yahoo_instance.players = pd.DataFrame(
+            [
+                {
+                    "player_name": "Alice Anderson",
+                    "game_1_pick": "KC",
+                    "game_1_confidence": 2,
+                    "game_2_pick": "SF",
+                    "game_2_confidence": 1,
+                },
+                {
+                    "player_name": "Alice Smith",
+                    "game_1_pick": "LV",
+                    "game_1_confidence": 1,
+                    "game_2_pick": "SF",
+                    "game_2_confidence": 2,
+                },
+            ]
+        )
+        mock_yahoo_instance.results = [
+            {"favorite": "KC", "underdog": "LV", "winner": None},
+            {"favorite": "SF", "underdog": "ARI", "winner": None},
+        ]
+        return mock_yahoo_instance
+
+    @patch("src.confpickem.cli.optimize.YahooPickEm")
+    @patch("src.confpickem.cli.optimize.Path")
+    def test_locked_mode_player_flag_highlights_match(
+        self, mock_path, mock_yahoo, tmp_path, monkeypatch
+    ):
+        """--player uniquely matching one entrant highlights their row"""
+        monkeypatch.chdir(tmp_path)
+        mock_path.return_value.exists.return_value = True
+        mock_yahoo.return_value = self._locked_mode_yahoo_mock()
+
+        test_args = [
+            "optimize.py",
+            "--week",
+            "1",
+            "--mode",
+            "locked",
+            "--player",
+            "Anderson",
+            "--html",
+        ]
+        with patch("sys.argv", test_args):
+            result = optimize.main()
+
+        assert result == 0
+        report = list(tmp_path.glob("NFL_Week1_Locked_*.txt"))[0].read_text()
+        assert "Player: Alice Anderson" in report
+        # same display as the optimizer's game importance: Correct/Wrong probabilities
+        assert "GAME IMPORTANCE ANALYSIS (Alice Anderson)" in report
+        assert "Correct:" in report and "Wrong:" in report
+
+        html = list(tmp_path.glob("NFL_Week1_Locked_*.html"))[0].read_text()
+        assert '"hasPickColumns": true' in html
+        assert "-> " in report  # marker on the matched entrant's row
+
+    @patch("src.confpickem.cli.optimize.YahooPickEm")
+    @patch("src.confpickem.cli.optimize.Path")
+    def test_locked_mode_player_flag_ambiguous(self, mock_path, mock_yahoo, tmp_path, monkeypatch):
+        """--player matching multiple entrants errors instead of guessing"""
+        monkeypatch.chdir(tmp_path)
+        mock_path.return_value.exists.return_value = True
+        mock_yahoo.return_value = self._locked_mode_yahoo_mock()
+
+        test_args = ["optimize.py", "--week", "1", "--mode", "locked", "--player", "Alice"]
+        with patch("sys.argv", test_args):
+            with patch("builtins.print") as mock_print:
+                result = optimize.main()
+
+        assert result == 1
+        msgs = " ".join(str(c) for c in mock_print.call_args_list)
+        assert "multiple entrants" in msgs
+
+    @patch("src.confpickem.cli.optimize.YahooPickEm")
+    @patch("src.confpickem.cli.optimize.Path")
+    def test_locked_mode_player_flag_not_found(self, mock_path, mock_yahoo, tmp_path, monkeypatch):
+        """--player matching no entrant errors instead of silently omitting it"""
+        monkeypatch.chdir(tmp_path)
+        mock_path.return_value.exists.return_value = True
+        mock_yahoo.return_value = self._locked_mode_yahoo_mock()
+
+        test_args = ["optimize.py", "--week", "1", "--mode", "locked", "--player", "Nobody"]
+        with patch("sys.argv", test_args):
+            with patch("builtins.print") as mock_print:
+                result = optimize.main()
+
+        assert result == 1
+        msgs = " ".join(str(c) for c in mock_print.call_args_list)
+        assert "not found" in msgs
 
 
 class TestCLIOutputFiles:

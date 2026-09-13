@@ -979,3 +979,694 @@ def generate_html_report(
 }})();
 </script>
 """
+
+
+def _build_locked_standings_rows(standings: pd.DataFrame, player_name: Optional[str]) -> List[Dict]:
+    rows = []
+    for i, row in enumerate(standings.itertuples(index=False), 1):
+        rows.append(
+            {
+                "rank": i,
+                "name": row.player,
+                "locked_points": float(row.locked_points),
+                "win_pct": float(row.win_pct),
+                "expected_points": float(row.expected_points),
+                "you": player_name is not None and row.player == player_name,
+            }
+        )
+    return rows
+
+
+def _build_locked_importance_rows(importance: pd.DataFrame) -> List[Dict]:
+    has_pick_columns = "win_probability" in importance.columns
+    rows = []
+    for row in importance.itertuples(index=False):
+        d = {
+            "game": row.game.replace("@", " @ "),
+            "vegasHomeWinPct": float(row.vegas_home_win_pct),
+            "topSwing": float(row.top_swing),
+        }
+        if has_pick_columns:
+            d.update(
+                {
+                    "pick": row.pick,
+                    "conf": int(row.points_bid),
+                    "impact": float(row.total_impact),
+                    "winProb": float(row.win_probability),
+                    "lossProb": float(row.loss_probability),
+                }
+            )
+        rows.append(d)
+    return rows
+
+
+def generate_locked_board_html_report(
+    *,
+    week: int,
+    league_id: int,
+    standings: pd.DataFrame,
+    importance: pd.DataFrame,
+    player_name: Optional[str] = None,
+    filled_players: Optional[List[str]] = None,
+    generated_at: Optional[datetime] = None,
+) -> str:
+    """Build a self-contained HTML report for `standings_analytic` -- the
+    no-optimization "board's locked, just show me where things stand" view.
+
+    Unlike `generate_html_report`, there are no picks to optimize and no
+    single player's slate to render: every entrant's real picks are already
+    locked in, so this only renders the live standings (`win_pct`,
+    `expected_points`) and which undecided games still swing them
+    (`top_swing`). `standings` and `importance` are the two DataFrames
+    returned by `ConfidencePickEmSimulator.standings_analytic`.
+
+    Args:
+        player_name: if given, highlights that entrant's row in the
+            standings table (does not filter or change any values).
+        filled_players: names of entrants whose slate had missing picks
+            auto-filled (via `standings_analytic(..., fill_missing=True)`) --
+            rendered as a note so the report doesn't silently imply everyone
+            actually submitted a full slate.
+    """
+    generated_at = generated_at or datetime.now()
+
+    has_pick_columns = "win_probability" in importance.columns
+    standings_rows = _build_locked_standings_rows(standings, player_name)
+    importance_rows = _build_locked_importance_rows(importance)
+    filled_players = filled_players or []
+
+    max_win_pct = max((r["win_pct"] for r in standings_rows), default=0.0) or 1.0
+    max_swing = max((r["topSwing"] for r in importance_rows), default=0.0) or 1.0
+    max_impact = (
+        max((abs(r["impact"]) for r in importance_rows), default=0.0) if has_pick_columns else 0.0
+    ) or 1.0
+
+    you_row = next((r for r in standings_rows if r["you"]), None)
+    your_rank_value = f"#{you_row['rank']}" if you_row else "&mdash;"
+    your_win_pct_sub = (
+        f"{you_row['win_pct']*100:.1f}% to win it all" if you_row else "no player selected"
+    )
+    top_swing_game = importance_rows[0]["game"] if importance_rows else None
+    top_swing_sub = (
+        f"{top_swing_game} swings it most" if top_swing_game else "everything is decided"
+    )
+
+    data = {
+        "standings": standings_rows,
+        "importance": importance_rows,
+        "maxWinPct": max_win_pct,
+        "maxSwing": max_swing,
+        "maxImpact": max_impact,
+        "hasPickColumns": has_pick_columns,
+    }
+    data_json = json.dumps(data).replace("</", "<\\/")
+
+    filled_note = ""
+    if filled_players:
+        names = ", ".join(_esc(n) for n in filled_players)
+        plural = "entrant" if len(filled_players) == 1 else "entrants"
+        filled_note = (
+            f'<div class="fill-note">&#9888;&#65039; {len(filled_players)} {plural} '
+            f"missing one or more picks had them auto-filled (underdog, lowest "
+            f"remaining confidence): <b>{names}</b></div>"
+        )
+
+    return f"""<title>Week {week} Live Standings</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
+<style>
+  :root{{
+    --bg:#F7F5F1;
+    --surface:#FFFFFF;
+    --surface-2:#EFEBE2;
+    --ink:#1D1B16;
+    --ink-soft:#5B5749;
+    --ink-faint:#8B8776;
+    --line:#DDD7C8;
+    --line-strong:#C7BFA9;
+    --accent:#2F6B4F;
+    --accent-ink:#FFFFFF;
+    --accent-soft:#E3EDE6;
+    --gold:#9C7A3C;
+    --gold-soft:#F1E7D2;
+    --good:#3A8A5C;
+    --good-soft:#E4F0E7;
+    --warn:#B8860B;
+    --warn-soft:#F6EDDA;
+    --bad:#B84A3E;
+    --bad-soft:#F7E8E5;
+    --shadow: 0 1px 2px rgba(29,27,22,0.06), 0 6px 20px -8px rgba(29,27,22,0.12);
+    --focus: #1D6FB8;
+  }}
+  @media (prefers-color-scheme: dark){{
+    :root:not([data-theme="light"]){{
+      --bg:#121815;
+      --surface:#182019;
+      --surface-2:#1E2721;
+      --ink:#EDEAE1;
+      --ink-soft:#B4AF9F;
+      --ink-faint:#7C7869;
+      --line:#2B342C;
+      --line-strong:#3B463C;
+      --accent:#4CAF7A;
+      --accent-ink:#0D140F;
+      --accent-soft:#1D3327;
+      --gold:#D9A441;
+      --gold-soft:#2E2718;
+      --good:#45A06E;
+      --good-soft:#1C3226;
+      --warn:#B8860B;
+      --warn-soft:#332A14;
+      --bad:#D14F5A;
+      --bad-soft:#3A2220;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -10px rgba(0,0,0,0.6);
+      --focus: #6FB2E8;
+    }}
+  }}
+  :root[data-theme="dark"]{{
+    --bg:#121815;
+    --surface:#182019;
+    --surface-2:#1E2721;
+    --ink:#EDEAE1;
+    --ink-soft:#B4AF9F;
+    --ink-faint:#7C7869;
+    --line:#2B342C;
+    --line-strong:#3B463C;
+    --accent:#4CAF7A;
+    --accent-ink:#0D140F;
+    --accent-soft:#1D3327;
+    --gold:#D9A441;
+    --gold-soft:#2E2718;
+    --good:#45A06E;
+    --good-soft:#1C3226;
+    --warn:#B8860B;
+    --warn-soft:#332A14;
+    --bad:#D14F5A;
+    --bad-soft:#3A2220;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -10px rgba(0,0,0,0.6);
+    --focus: #6FB2E8;
+  }}
+
+  *{{box-sizing:border-box;}}
+  body{{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"IBM Plex Sans", system-ui, sans-serif;
+    font-size:14px;
+    line-height:1.5;
+  }}
+  ::selection{{ background: var(--accent-soft); }}
+  :focus-visible{{ outline: 2px solid var(--focus); outline-offset: 2px; }}
+
+  .wrap{{
+    max-width:1180px;
+    margin:0 auto;
+    padding:28px 24px 64px;
+    display:flex;
+    flex-direction:column;
+    gap:22px;
+  }}
+
+  .masthead{{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:24px;
+    flex-wrap:wrap;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom:16px;
+  }}
+  .masthead-left{{ display:flex; flex-direction:column; gap:6px; }}
+  .eyebrow{{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:11.5px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+  }}
+  h1{{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:600;
+    font-size:clamp(28px, 4vw, 40px);
+    margin:0;
+    text-wrap:balance;
+    letter-spacing:-0.01em;
+  }}
+  .meta-line{{
+    font-size:13px;
+    color:var(--ink-soft);
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    font-family:"IBM Plex Mono", monospace;
+  }}
+  .meta-line b{{ color:var(--ink); font-weight:600; }}
+
+  .summary-strip{{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow:var(--shadow);
+  }}
+  @media (max-width: 720px){{ .summary-strip{{ grid-template-columns:1fr; }} }}
+  .stat{{
+    background:var(--surface);
+    padding:16px 18px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    min-width:0;
+  }}
+  .stat-label{{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--ink-faint);
+    font-weight:600;
+  }}
+  .stat-value{{
+    font-family:"IBM Plex Mono", monospace;
+    font-variant-numeric:tabular-nums;
+    font-size:26px;
+    font-weight:600;
+    letter-spacing:-0.01em;
+  }}
+  .stat-value.accent{{ color:var(--accent); }}
+  .stat-sub{{
+    font-size:12.5px;
+    color:var(--ink-soft);
+  }}
+
+  .fill-note{{
+    font-size:12.5px;
+    color:var(--warn);
+    background:var(--warn-soft);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:10px 14px;
+  }}
+  .fill-note b{{ color:var(--ink); }}
+
+  .board{{
+    display:grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap:20px;
+    align-items:start;
+  }}
+  @media (max-width: 880px){{ .board{{ grid-template-columns:1fr; }} }}
+
+  .panel{{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:10px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }}
+  .panel-head{{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:12px;
+    padding:14px 18px;
+    border-bottom:1px solid var(--line);
+    background:var(--surface-2);
+  }}
+  .panel-title{{
+    font-family:"Fraunces", Georgia, serif;
+    font-size:17px;
+    font-weight:600;
+  }}
+  .panel-note{{
+    font-size:11.5px;
+    color:var(--ink-faint);
+    font-family:"IBM Plex Mono", monospace;
+  }}
+
+  .empty-note{{
+    padding:20px 18px;
+    color:var(--ink-faint);
+    font-size:13px;
+  }}
+
+  .table-scroll{{ overflow-x:auto; }}
+  table.standings{{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13.5px;
+    min-width:480px;
+  }}
+  table.standings th{{
+    text-align:left;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--ink-faint);
+    font-weight:600;
+    padding:10px 18px;
+    border-bottom:1px solid var(--line);
+    white-space:nowrap;
+  }}
+  table.standings td{{
+    padding:9px 18px;
+    border-bottom:1px solid var(--line);
+    white-space:nowrap;
+  }}
+  table.standings td.num, table.standings th.num{{
+    font-family:"IBM Plex Mono", monospace;
+    font-variant-numeric:tabular-nums;
+    text-align:right;
+  }}
+  table.standings tbody tr:hover{{ background:var(--surface-2); }}
+  table.standings tbody tr.you{{ background:var(--accent-soft); }}
+  table.standings tbody tr.you td{{ font-weight:600; }}
+  .rank-badge{{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:22px; height:22px;
+    border-radius:5px;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:12px;
+    font-weight:700;
+    color:var(--ink-soft);
+  }}
+  .rank-badge.gold{{ background:var(--gold-soft); color:var(--gold); }}
+  .you-tag{{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:0.04em;
+    background:var(--accent);
+    color:var(--accent-ink);
+    padding:2px 6px;
+    border-radius:4px;
+    margin-left:8px;
+  }}
+  .bar-cell{{ display:flex; align-items:center; gap:8px; }}
+  .bar-track{{
+    width:80px;
+    height:6px;
+    background:var(--surface-2);
+    border-radius:4px;
+    overflow:hidden;
+    flex-shrink:0;
+  }}
+  .bar-fill{{ height:100%; background:var(--accent); border-radius:4px; }}
+
+  .importance-list{{ padding:14px 18px 16px; display:flex; flex-direction:column; gap:11px; }}
+  .imp-row{{ display:flex; flex-direction:column; gap:4px; }}
+  .imp-top{{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:8px;
+    font-size:13px;
+  }}
+  .imp-game{{ font-weight:600; }}
+  .imp-vegas{{ color:var(--ink-faint); font-size:12px; }}
+  .imp-pick{{ color:var(--ink-faint); font-size:12px; }}
+  .imp-val{{
+    font-family:"IBM Plex Mono", monospace;
+    font-variant-numeric:tabular-nums;
+    font-weight:600;
+    font-size:13px;
+    color:var(--accent);
+  }}
+  .imp-track{{
+    position:relative;
+    height:8px;
+    background:var(--surface-2);
+    border-radius:5px;
+    overflow:hidden;
+  }}
+  .imp-fill{{
+    position:absolute;
+    top:0; bottom:0; left:0;
+    border-radius:5px;
+    background:var(--accent);
+  }}
+  .imp-mid{{
+    position:absolute;
+    top:-2px; bottom:-2px; left:50%;
+    width:1px;
+    background:var(--line-strong);
+  }}
+  .imp-outcomes{{
+    display:flex;
+    justify-content:space-between;
+    font-family:"IBM Plex Mono", monospace;
+    font-variant-numeric:tabular-nums;
+    font-size:11.5px;
+  }}
+  .imp-outcomes .if-wrong{{ color:var(--bad); }}
+  .imp-outcomes .if-right{{ color:var(--good); }}
+  .imp-outcomes .outcome-label{{ color:var(--ink-faint); font-weight:400; }}
+
+  footer{{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+    padding-top:6px;
+    font-size:11.5px;
+    color:var(--ink-faint);
+    font-family:"IBM Plex Mono", monospace;
+  }}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="masthead-left">
+      <span class="eyebrow">Confidence Pick&rsquo;Em &middot; League {_esc(league_id)}</span>
+      <h1>Week {_esc(week)} Live Standings</h1>
+      <div class="meta-line">
+        <span>Every entry is locked &mdash; only outcomes are uncertain</span>
+        <span>&middot;</span>
+        <span>Generated {_esc(generated_at.strftime('%Y-%m-%d %H:%M'))}</span>
+      </div>
+    </div>
+  </header>
+
+  {filled_note}
+
+  <section class="summary-strip" aria-label="Headline results">
+    <div class="stat">
+      <span class="stat-label">Your Rank</span>
+      <span class="stat-value accent">{your_rank_value}<span style="font-size:15px;color:var(--ink-faint);"> / {len(standings_rows)}</span></span>
+      <span class="stat-sub">{your_win_pct_sub}</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Entrants Tracked</span>
+      <span class="stat-value">{len(standings_rows)}</span>
+      <span class="stat-sub">win_pct sums to {sum(r['win_pct'] for r in standings_rows):.2f}</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Games Still Deciding It</span>
+      <span class="stat-value">{len(importance_rows)}</span>
+      <span class="stat-sub">{top_swing_sub}</span>
+    </div>
+  </section>
+
+  <section class="board">
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Live Standings</span>
+        <span class="panel-note">win % / expected points</span>
+      </div>
+      <div class="table-scroll">
+        <table class="standings" id="standings-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Player</th>
+              <th class="num">Win %</th>
+              <th></th>
+              <th class="num">Locked Pts</th>
+              <th class="num">Exp. Points</th>
+            </tr>
+          </thead>
+          <tbody><!-- rows injected by script --></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Game Importance</span>
+        <span class="panel-note">{
+          f"impact on {_esc(player_name)}&rsquo;s win probability"
+          if has_pick_columns else "largest win % swing, any entrant"
+        }</span>
+      </div>
+      <div class="importance-list" id="importance-list"></div>
+    </div>
+
+  </section>
+
+  <footer>
+    <span>confpickem &middot; standings_analytic</span>
+    <span>Generated by confpickem-optimize</span>
+  </footer>
+
+</div>
+
+<script>
+(function(){{
+  var DATA = {data_json};
+
+  var tbody = document.querySelector('#standings-table tbody');
+  if(DATA.standings.length === 0){{
+    var tr0 = document.createElement('tr');
+    var td0 = document.createElement('td');
+    td0.className = 'empty-note';
+    td0.colSpan = 6;
+    td0.textContent = 'No standings data available.';
+    tr0.appendChild(td0);
+    tbody.appendChild(tr0);
+  }}
+  DATA.standings.forEach(function(s){{
+    var tr = document.createElement('tr');
+    if(s.you) tr.className = 'you';
+
+    var tdRank = document.createElement('td');
+    var badge = document.createElement('span');
+    badge.className = 'rank-badge' + (s.rank === 1 ? ' gold' : '');
+    badge.textContent = s.rank;
+    tdRank.appendChild(badge);
+
+    var tdName = document.createElement('td');
+    tdName.textContent = s.name;
+    if(s.you){{
+      var tag = document.createElement('span');
+      tag.className = 'you-tag';
+      tag.textContent = 'YOU';
+      tdName.appendChild(tag);
+    }}
+
+    var tdWin = document.createElement('td');
+    tdWin.className = 'num';
+    tdWin.textContent = (Math.round(s.win_pct*1000)/10) + '%';
+
+    var tdBar = document.createElement('td');
+    var barWrap = document.createElement('div');
+    barWrap.className = 'bar-cell';
+    var track = document.createElement('div');
+    track.className = 'bar-track';
+    var fill = document.createElement('div');
+    fill.className = 'bar-fill';
+    fill.style.width = (DATA.maxWinPct > 0 ? (s.win_pct / DATA.maxWinPct * 100) : 0) + '%';
+    track.appendChild(fill);
+    barWrap.appendChild(track);
+    tdBar.appendChild(barWrap);
+
+    var tdLocked = document.createElement('td');
+    tdLocked.className = 'num';
+    tdLocked.textContent = s.locked_points.toFixed(0);
+
+    var tdExp = document.createElement('td');
+    tdExp.className = 'num';
+    tdExp.textContent = s.expected_points.toFixed(1);
+
+    tr.appendChild(tdRank);
+    tr.appendChild(tdName);
+    tr.appendChild(tdWin);
+    tr.appendChild(tdBar);
+    tr.appendChild(tdLocked);
+    tr.appendChild(tdExp);
+
+    tbody.appendChild(tr);
+  }});
+
+  var impList = document.getElementById('importance-list');
+  if(DATA.importance.length === 0){{
+    impList.innerHTML = '<div class="empty-note">Nothing left to decide &mdash; every game is final.</div>';
+  }}
+  DATA.importance.forEach(function(d){{
+    var row = document.createElement('div');
+    row.className = 'imp-row';
+
+    var top = document.createElement('div');
+    top.className = 'imp-top';
+    var left = document.createElement('span');
+    var gameEl = document.createElement('span');
+    gameEl.className = 'imp-game';
+    gameEl.textContent = d.game;
+    left.appendChild(gameEl);
+
+    if(DATA.hasPickColumns){{
+      var pickEl = document.createElement('span');
+      pickEl.className = 'imp-pick';
+      pickEl.textContent = ' \\u2192 ' + d.pick + ' (' + d.conf + ' pts)';
+      left.appendChild(pickEl);
+    }} else {{
+      var vegasEl = document.createElement('span');
+      vegasEl.className = 'imp-vegas';
+      vegasEl.textContent = ' (' + (Math.round(d.vegasHomeWinPct*1000)/10) + '% home)';
+      left.appendChild(vegasEl);
+    }}
+
+    var val = document.createElement('span');
+    val.className = 'imp-val';
+    if(DATA.hasPickColumns){{
+      val.style.color = d.impact < 0 ? 'var(--bad)' : 'var(--accent)';
+      val.textContent = (d.impact >= 0 ? '+' : '') + (Math.round(d.impact*1000)/10) + 'pp';
+    }} else {{
+      val.textContent = '\\u00b1' + (Math.round(d.topSwing*1000)/10) + 'pp';
+    }}
+    top.appendChild(left);
+    top.appendChild(val);
+
+    var track = document.createElement('div');
+    track.className = 'imp-track';
+    var fill = document.createElement('div');
+    fill.className = 'imp-fill';
+
+    if(DATA.hasPickColumns){{
+      var mid = document.createElement('div');
+      mid.className = 'imp-mid';
+      var pct = Math.abs(d.impact) / DATA.maxImpact * 48;
+      if(d.impact >= 0){{
+        fill.style.left = '50%';
+        fill.style.width = pct + '%';
+        fill.style.background = 'var(--accent)';
+      }} else {{
+        fill.style.left = (50 - pct) + '%';
+        fill.style.width = pct + '%';
+        fill.style.background = 'var(--bad)';
+      }}
+      track.appendChild(fill);
+      track.appendChild(mid);
+
+      var outcomes = document.createElement('div');
+      outcomes.className = 'imp-outcomes';
+      var wrongEl = document.createElement('span');
+      wrongEl.className = 'if-wrong';
+      wrongEl.innerHTML = '<span class="outcome-label">If wrong:</span> ' + (Math.round(d.lossProb*1000)/10) + '%';
+      var rightEl = document.createElement('span');
+      rightEl.className = 'if-right';
+      rightEl.innerHTML = '<span class="outcome-label">If right:</span> ' + (Math.round(d.winProb*1000)/10) + '%';
+      outcomes.appendChild(wrongEl);
+      outcomes.appendChild(rightEl);
+
+      row.appendChild(top);
+      row.appendChild(track);
+      row.appendChild(outcomes);
+    }} else {{
+      fill.style.width = (DATA.maxSwing > 0 ? (d.topSwing / DATA.maxSwing * 100) : 0) + '%';
+      track.appendChild(fill);
+
+      row.appendChild(top);
+      row.appendChild(track);
+    }}
+    impList.appendChild(row);
+  }});
+}})();
+</script>"""

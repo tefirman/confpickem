@@ -847,7 +847,8 @@ class ConfidencePickEmSimulator:
         return results.sort_values('total_impact', ascending=False, key=abs)
 
     def standings_analytic(self, player_data: pd.DataFrame,
-                           n_outcomes: int = 6000, seed: int = 51):
+                           n_outcomes: int = 6000, seed: int = 51,
+                           fill_missing: bool = False, player_name: str = None):
         """Live league standings once every pick is locked -- no optimization.
 
         After the first Sunday kickoff a confidence pool locks *every* entry, so
@@ -862,9 +863,23 @@ class ConfidencePickEmSimulator:
         Args:
             player_data: ``yahoo.players`` DataFrame -- every entrant must have a
                 pick + confidence on every game (that is the point of the
-                fully-locked state).
+                fully-locked state), unless ``fill_missing`` is set.
             n_outcomes: outcome-vector draws.
             seed: RNG seed (deterministic given identical inputs).
+            fill_missing: if ``True``, entrants missing picks on some games have
+                those games filled in rather than raising. Missing games are
+                assigned the underdog (Yahoo credits no one for games left
+                blank, and the underdog is the harsher assumption for the
+                stats) and the entrant's lowest remaining unused confidence
+                values, lowest points on the earliest-kicking missing game --
+                the same "least damage" convention most pools apply to a
+                forgotten slate.
+            player_name: if given, ``importance`` also reports that entrant's
+                own ``pick``/``points_bid``/``win_probability``/
+                ``loss_probability``/``win_delta``/``loss_delta``/
+                ``total_impact`` -- the same columns and meaning as
+                ``assess_game_importance`` -- alongside the field-wide
+                ``top_swing``. Must match a name in ``player_data``.
 
         Returns:
             ``(standings, importance)``:
@@ -875,7 +890,11 @@ class ConfidencePickEmSimulator:
             * ``importance`` -- one row per *undecided* game: ``game``,
               ``vegas_home_win_pct``, and ``top_swing`` = the largest
               ``|P(win | home) - P(win | away)|`` over all entrants (how much
-              first place hinges on that game), sorted descending.
+              first place hinges on that game); plus, when ``player_name`` is
+              given, that entrant's ``pick``, ``points_bid``,
+              ``win_probability``, ``loss_probability``, ``win_delta``,
+              ``loss_delta``, ``total_impact``. Sorted by ``total_impact``
+              (or ``top_swing`` if no player was given) descending.
         """
         from . import analytical as _an
 
@@ -888,16 +907,31 @@ class ConfidencePickEmSimulator:
         N = len(names)
         pick_home = np.zeros((N, n), dtype=bool)
         points = np.zeros((N, n), dtype=int)
+        all_points = set(range(1, n + 1))
+        kickoff_order = sorted(range(n), key=lambda i: games[i].kickoff_time)
         for e, name in enumerate(names):
             row = player_data.iloc[e]
+            missing = []
+            used_points = set()
             for i, g in enumerate(games):
                 got = self._player_game_pick(row, i, g)
                 if got is None:
-                    raise ValueError(
-                        f"{name!r} has no locked pick for "
-                        f"{g.away_team}@{g.home_team}; standings_analytic needs "
-                        f"every entrant's full slate")
+                    if not fill_missing:
+                        raise ValueError(
+                            f"{name!r} has no locked pick for "
+                            f"{g.away_team}@{g.home_team}; standings_analytic "
+                            f"needs every entrant's full slate (or pass "
+                            f"fill_missing=True)")
+                    missing.append(i)
+                    continue
                 pick_home[e, i], points[e, i] = got
+                used_points.add(points[e, i])
+            if missing:
+                leftover = sorted(all_points - used_points)
+                for i in sorted(missing, key=lambda idx: kickoff_order.index(idx)):
+                    g = games[i]
+                    pick_home[e, i] = g.vegas_win_prob < 0.5
+                    points[e, i] = leftover.pop(0) if leftover else 0
 
         vegas_home = np.array([g.vegas_win_prob for g in games])
         completed = [g.actual_outcome is not None for g in games]
@@ -906,7 +940,7 @@ class ConfidencePickEmSimulator:
         outcomes = _an.sample_outcomes(vegas_home, n_outcomes, rng,
                                        actual_outcomes=actual_outcomes)
 
-        win_pct, exp_pts, swing = _an.locked_board_standings(
+        win_pct, exp_pts, swing, if_home, if_away = _an.locked_board_standings(
             pick_home, points, outcomes)
 
         locked_points = np.array([
@@ -921,17 +955,39 @@ class ConfidencePickEmSimulator:
             'expected_points': exp_pts,
         }).sort_values('win_pct', ascending=False, ignore_index=True)
 
+        player_idx = None
+        if player_name is not None:
+            if player_name not in names:
+                raise ValueError(f"Unknown player: {player_name!r}")
+            player_idx = names.index(player_name)
+
         imp_rows = []
         for i, g in enumerate(games):
             if completed[i]:
                 continue
-            imp_rows.append({
+            row = {
                 'game': f"{g.away_team}@{g.home_team}",
                 'vegas_home_win_pct': float(vegas_home[i]),
                 'top_swing': float(np.abs(swing[:, i]).max()),
-            })
+            }
+            if player_idx is not None:
+                e = player_idx
+                win_prob = if_home[e, i] if pick_home[e, i] else if_away[e, i]
+                loss_prob = if_away[e, i] if pick_home[e, i] else if_home[e, i]
+                row.update({
+                    'pick': g.home_team if pick_home[e, i] else g.away_team,
+                    'points_bid': int(points[e, i]),
+                    'win_probability': float(win_prob),
+                    'loss_probability': float(loss_prob),
+                    'win_delta': float(win_prob - win_pct[e]),
+                    'loss_delta': float(loss_prob - win_pct[e]),
+                    'total_impact': float(win_prob - loss_prob),
+                })
+            imp_rows.append(row)
+
+        sort_col = 'total_impact' if player_idx is not None else 'top_swing'
         importance = pd.DataFrame(imp_rows).sort_values(
-            'top_swing', ascending=False, ignore_index=True)
+            sort_col, ascending=False, key=abs, ignore_index=True)
 
         return standings, importance
 
