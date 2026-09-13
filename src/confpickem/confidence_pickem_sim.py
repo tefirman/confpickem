@@ -938,7 +938,8 @@ class ConfidencePickEmSimulator:
     def optimize_picks_hill_climb(self, player_name: str, fixed_picks: Dict[str, Dict[str, int]] = None,
                                    iterations: int = 1000, restarts: int = 10,
                                    available_points: set = None, player_data: pd.DataFrame = None,
-                                   top_n: int = 1000) -> Tuple[Dict[str, int], pd.DataFrame]:
+                                   top_n: int = 1000, return_all_combinations: bool = False
+                                   ) -> Tuple[Dict[str, int], pd.DataFrame]:
         """Optimize picks using hill climbing with random restarts.
 
         This is a local search optimization that explores the solution space more thoroughly
@@ -955,11 +956,19 @@ class ConfidencePickEmSimulator:
             available_points: Set of confidence points available to use (if None, auto-calculate)
             player_data: DataFrame with actual player picks for completed games
             top_n: Number of top combinations to analyze for summary statistics
+            return_all_combinations: if True, also return every
+                ``(picks_dict, win_probability, restart_index)`` triple explored
+                during the search -- e.g. for clustering/visualizing the
+                pick-set landscape (see ``scripts/explore_pickset_landscape.py``).
+                Off by default since it can be a few thousand entries.
 
         Returns:
             Tuple of (optimal_picks, summary_stats) where:
             - optimal_picks: Dict mapping team abbreviations to optimal confidence points
             - summary_stats: DataFrame with frequency and average points for each team in top N solutions
+            If ``return_all_combinations`` is True, returns a 4-tuple with the list of
+            every ``(picks_dict, win_probability, restart_index)`` triple explored
+            appended at the end.
         """
         # Set consistent random seed for deterministic optimization
         np.random.seed(42)
@@ -1013,7 +1022,7 @@ class ConfidencePickEmSimulator:
         best_overall_picks = None
         best_overall_prob = 0
 
-        # Track all explored combinations: list of (picks_dict, win_probability)
+        # Track all explored combinations: list of (picks_dict, win_probability, restart_index)
         all_combinations = []
 
         for restart in range(restarts):
@@ -1039,7 +1048,7 @@ class ConfidencePickEmSimulator:
             print(f"   Initial win probability: {current_prob:.4f}")
 
             # Track this initial solution
-            all_combinations.append((current_picks.copy(), current_prob))
+            all_combinations.append((current_picks.copy(), current_prob, restart))
 
             improvements = 0
             no_improvement_count = 0
@@ -1055,7 +1064,7 @@ class ConfidencePickEmSimulator:
                 neighbor_prob = self._evaluate_picks(player_name, neighbor_picks, fixed_picks)
 
                 # Track this neighbor solution
-                all_combinations.append((neighbor_picks.copy(), neighbor_prob))
+                all_combinations.append((neighbor_picks.copy(), neighbor_prob, restart))
 
                 # Accept if better
                 if neighbor_prob > current_prob:
@@ -1108,7 +1117,7 @@ class ConfidencePickEmSimulator:
         print(f"   Total combinations explored: {len(all_combinations):,}")
 
         # Filter out combinations with zero win probability
-        viable_combinations = [(picks, prob) for picks, prob in all_combinations if prob > 0]
+        viable_combinations = [(picks, prob) for picks, prob, _ in all_combinations if prob > 0]
         print(f"   Viable combinations (win prob > 0): {len(viable_combinations):,}")
 
         # Sort viable combinations by win probability (descending)
@@ -1178,6 +1187,8 @@ class ConfidencePickEmSimulator:
             print(f"   ... and {len(summary_df) - 15} more teams")
 
         print(f"\n✅ Best win probability found: {best_overall_prob:.4f}")
+        if return_all_combinations:
+            return best_overall_picks, summary_df, all_combinations
         return best_overall_picks, summary_df
 
     def _generate_greedy_picks(self, player_name: str, player_fixed: Dict[str, int],
