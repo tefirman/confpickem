@@ -994,7 +994,10 @@ class ConfidencePickEmSimulator:
     def optimize_picks_hill_climb(self, player_name: str, fixed_picks: Dict[str, Dict[str, int]] = None,
                                    iterations: int = 1000, restarts: int = 10,
                                    available_points: set = None, player_data: pd.DataFrame = None,
-                                   top_n: int = 1000) -> Tuple[Dict[str, int], pd.DataFrame]:
+                                   top_n: int = 1000, return_all_combinations: bool = False,
+                                   initial_temperature: float = 0.0,
+                                   perturbed_restart_fraction: float = 0.0
+                                   ) -> Tuple[Dict[str, int], pd.DataFrame]:
         """Optimize picks using hill climbing with random restarts.
 
         This is a local search optimization that explores the solution space more thoroughly
@@ -1011,11 +1014,40 @@ class ConfidencePickEmSimulator:
             available_points: Set of confidence points available to use (if None, auto-calculate)
             player_data: DataFrame with actual player picks for completed games
             top_n: Number of top combinations to analyze for summary statistics
+            return_all_combinations: if True, also return every
+                ``(picks_dict, win_probability, restart_index)`` triple explored
+                during the search -- e.g. for clustering/visualizing the
+                pick-set landscape (see ``scripts/explore_pickset_landscape.py``).
+                Off by default since it can be a few thousand entries.
+            initial_temperature: if > 0, enables simulated-annealing-style
+                acceptance -- a worse neighbor is still accepted (as the new
+                ``current_picks``) with probability ``exp(-delta / T)``, where
+                ``T`` decays linearly from ``initial_temperature`` to 0 over
+                each restart's iterations and ``delta`` is the win-probability
+                drop. This lets a restart escape a mediocre local optimum
+                instead of only ever climbing uphill; the single best solution
+                seen during the restart is still what carries forward,
+                regardless of where the walk ends up. 0 (default) disables
+                this and reproduces the original strict hill-climb behavior.
+            perturbed_restart_fraction: fraction (0-1) of the non-greedy
+                restarts (restarts 1..restarts-1) that start from a perturbed
+                copy of the greedy solution -- a handful of random neighbor
+                moves applied to it -- instead of a fully random slate. Purely
+                random restarts rarely climb back to the greedy solution's
+                neighborhood within a normal iteration budget (see
+                ``scripts/explore_pickset_landscape.py`` findings); starting
+                closer to it lets those restarts spend their budget refining
+                nearby instead of rediscovering "favor the favorites" from
+                scratch. 0 (default) disables this and reproduces the original
+                behavior (every non-greedy restart is fully random).
 
         Returns:
             Tuple of (optimal_picks, summary_stats) where:
             - optimal_picks: Dict mapping team abbreviations to optimal confidence points
             - summary_stats: DataFrame with frequency and average points for each team in top N solutions
+            If ``return_all_combinations`` is True, returns a 4-tuple with the list of
+            every ``(picks_dict, win_probability, restart_index)`` triple explored
+            appended at the end.
         """
         # Set consistent random seed for deterministic optimization
         np.random.seed(42)
@@ -1069,8 +1101,15 @@ class ConfidencePickEmSimulator:
         best_overall_picks = None
         best_overall_prob = 0
 
-        # Track all explored combinations: list of (picks_dict, win_probability)
+        # Track all explored combinations: list of (picks_dict, win_probability, restart_index)
         all_combinations = []
+
+        greedy_picks = self._generate_greedy_picks(
+            player_name, player_fixed, games_to_pick, available_points, fixed_picks
+        )
+        # First `num_perturbed` non-greedy restarts start near the greedy
+        # solution instead of fully random -- see perturbed_restart_fraction.
+        num_perturbed = round(perturbed_restart_fraction * max(restarts - 1, 0))
 
         for restart in range(restarts):
             print(f"\n🔄 Restart {restart + 1}/{restarts}")
@@ -1079,11 +1118,19 @@ class ConfidencePickEmSimulator:
             if restart == 0:
                 # First restart: use greedy approach as starting point
                 print("   Starting from greedy solution...")
-                current_picks = self._generate_greedy_picks(
-                    player_name, player_fixed, games_to_pick, available_points, fixed_picks
-                )
+                current_picks = greedy_picks.copy()
+            elif restart <= num_perturbed:
+                # A perturbed-greedy start: a handful of random neighbor moves
+                # applied to the greedy solution, rather than a fresh random slate.
+                num_kicks = int(np.random.randint(2, 6))
+                print(f"   Starting from perturbed-greedy solution ({num_kicks} kicks)...")
+                current_picks = greedy_picks.copy()
+                for _ in range(num_kicks):
+                    current_picks = self._get_neighbor_solution(
+                        current_picks, games_to_pick, player_fixed
+                    )
             else:
-                # Subsequent restarts: use random solutions
+                # Remaining restarts: use random solutions
                 print("   Starting from random solution...")
                 current_picks = self._generate_random_picks(games_to_pick, available_points)
 
@@ -1095,7 +1142,13 @@ class ConfidencePickEmSimulator:
             print(f"   Initial win probability: {current_prob:.4f}")
 
             # Track this initial solution
-            all_combinations.append((current_picks.copy(), current_prob))
+            all_combinations.append((current_picks.copy(), current_prob, restart))
+
+            # Best solution seen this restart -- tracked separately from
+            # current_picks/current_prob, which may wander to worse solutions
+            # under simulated annealing (see initial_temperature).
+            restart_best_picks = current_picks.copy()
+            restart_best_prob = current_prob
 
             improvements = 0
             no_improvement_count = 0
@@ -1111,19 +1164,43 @@ class ConfidencePickEmSimulator:
                 neighbor_prob = self._evaluate_picks(player_name, neighbor_picks, fixed_picks)
 
                 # Track this neighbor solution
-                all_combinations.append((neighbor_picks.copy(), neighbor_prob))
+                all_combinations.append((neighbor_picks.copy(), neighbor_prob, restart))
 
-                # Accept if better
-                if neighbor_prob > current_prob:
+                # Accept if better, or -- under simulated annealing -- accept a
+                # worse neighbor with probability exp(-delta / T) so the walk
+                # can escape a mediocre local optimum instead of only ever
+                # climbing uphill. Temperature decays linearly to 0 over the
+                # restart, so later iterations behave like plain hill climbing.
+                delta = neighbor_prob - current_prob
+                if delta > 0:
+                    accept = True
+                elif initial_temperature > 0:
+                    temperature = initial_temperature * (1 - i / iterations)
+                    accept = (temperature > 0 and
+                              np.random.random() < np.exp(delta / temperature))
+                else:
+                    accept = False
+
+                if accept:
                     current_picks = neighbor_picks
                     current_prob = neighbor_prob
-                    improvements += 1
-                    no_improvement_count = 0
+                    if delta > 0:
+                        improvements += 1
+                        no_improvement_count = 0
+                    else:
+                        no_improvement_count += 1
                 else:
                     no_improvement_count += 1
 
-                # Early stopping if no improvement for a while
-                if no_improvement_count >= 100:
+                if neighbor_prob > restart_best_prob:
+                    restart_best_picks = neighbor_picks.copy()
+                    restart_best_prob = neighbor_prob
+
+                # Early stopping if no improvement for a while. Skipped under
+                # simulated annealing -- accepted sideways/downhill moves would
+                # otherwise trigger it long before the temperature has decayed,
+                # cutting the escape short.
+                if initial_temperature <= 0 and no_improvement_count >= 100:
                     print(f"   Early stop at iteration {i+1} (no improvement for 100 iterations)")
                     break
 
@@ -1131,12 +1208,12 @@ class ConfidencePickEmSimulator:
                 if (i + 1) % 100 == 0:
                     print(f"   Iteration {i+1}/{iterations}: {current_prob:.4f} ({improvements} improvements)")
 
-            print(f"   Final win probability: {current_prob:.4f} ({improvements} total improvements)")
+            print(f"   Final win probability: {restart_best_prob:.4f} ({improvements} total improvements)")
 
             # Update best overall solution
-            if current_prob > best_overall_prob:
-                best_overall_picks = current_picks.copy()
-                best_overall_prob = current_prob
+            if restart_best_prob > best_overall_prob:
+                best_overall_picks = restart_best_picks.copy()
+                best_overall_prob = restart_best_prob
                 print(f"   ⭐ New best solution!")
 
             # Print best solution so far after each restart (safety net for interruptions)
@@ -1164,7 +1241,7 @@ class ConfidencePickEmSimulator:
         print(f"   Total combinations explored: {len(all_combinations):,}")
 
         # Filter out combinations with zero win probability
-        viable_combinations = [(picks, prob) for picks, prob in all_combinations if prob > 0]
+        viable_combinations = [(picks, prob) for picks, prob, _ in all_combinations if prob > 0]
         print(f"   Viable combinations (win prob > 0): {len(viable_combinations):,}")
 
         # Sort viable combinations by win probability (descending)
@@ -1234,6 +1311,8 @@ class ConfidencePickEmSimulator:
             print(f"   ... and {len(summary_df) - 15} more teams")
 
         print(f"\n✅ Best win probability found: {best_overall_prob:.4f}")
+        if return_all_combinations:
+            return best_overall_picks, summary_df, all_combinations
         return best_overall_picks, summary_df
 
     def _generate_greedy_picks(self, player_name: str, player_fixed: Dict[str, int],
