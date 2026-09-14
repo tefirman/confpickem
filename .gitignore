@@ -35,6 +35,9 @@ hill_climb_checkpoint.txt
 PickEmCache*/
 PreviousWeeks/
 
+# Output of scripts/explore_pickset_landscape.py
+pickset_landscape.png
+
 # Player skill data (derived from historical picks)
 current_player_skills*.json
 player_skills_*.json

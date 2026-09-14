@@ -19,7 +19,25 @@ project dependencies -- install with:
 Usage:
 
     python scripts/explore_pickset_landscape.py [--games N] [--iterations N]
-        [--restarts N] [--out FILE]
+        [--restarts N] [--temperature T] [--perturb-fraction F] [--out FILE]
+
+Findings so far (synthetic 16-game weeks, small 6-player field): clusters map
+almost 1:1 to hill-climb restarts -- each restart converges into its own
+tight, largely isolated neighborhood rather than the search discovering a
+shared "good strategy" region from multiple starting points. The team-set
+overlap between restarts correlates with win probability (more overlap with
+the best restart's picks = better score), which argues the good neighborhood
+is reachable, not an isolated fluke -- but restarts starting from a fully
+random slate rarely climb there within a normal iteration budget.
+--temperature (simulated annealing) did NOT close this gap in testing (two
+temperatures tried, both came back flat vs. plain hill climbing).
+--perturb-fraction (seed some restarts as a few random moves away from the
+greedy solution, instead of fully random) DID close it -- perturbed-greedy
+restarts landed within ~1-2% of the greedy restart's win probability, vs.
+random restarts trailing by ~15-25 points at the same iteration budget. That
+result is specific to this exploration script's opt-in
+perturbed_restart_fraction parameter; it has not been applied to
+optimize_picks_hill_climb's actual defaults or the CLI.
 """
 import argparse
 import sys
@@ -102,6 +120,11 @@ def main():
     parser.add_argument("--iterations", type=int, default=300, help="hill-climb iterations per restart")
     parser.add_argument("--restarts", type=int, default=15, help="hill-climb random restarts")
     parser.add_argument("--seed", type=int, default=7, help="synthetic-week RNG seed")
+    parser.add_argument("--temperature", type=float, default=0.0,
+                         help="simulated-annealing initial temperature (0 = plain hill climb)")
+    parser.add_argument("--perturb-fraction", type=float, default=0.0,
+                         help="fraction of non-greedy restarts seeded near the greedy "
+                              "solution instead of fully random (0 = all random)")
     parser.add_argument("--out", default="pickset_landscape.png", help="output image path")
     args = parser.parse_args()
 
@@ -117,10 +140,13 @@ def main():
     print(f"Building a synthetic {args.games}-game week...")
     simulator = build_synthetic_week(args.games, seed=args.seed)
 
-    print(f"Running hill-climb optimization ({args.restarts} restarts x {args.iterations} iterations)...")
+    print(f"Running hill-climb optimization ({args.restarts} restarts x {args.iterations} iterations, "
+          f"temperature={args.temperature}, perturb_fraction={args.perturb_fraction})...")
     _, _, all_combinations = simulator.optimize_picks_hill_climb(
         "Me", iterations=args.iterations, restarts=args.restarts,
         top_n=len(TEAM_POOL) * 100, return_all_combinations=True,
+        initial_temperature=args.temperature,
+        perturbed_restart_fraction=args.perturb_fraction,
     )
     print(f"Explored {len(all_combinations):,} combinations.")
 
