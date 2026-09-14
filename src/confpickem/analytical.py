@@ -366,7 +366,7 @@ def _win_credit(scores: np.ndarray) -> np.ndarray:
 
 def locked_board_standings(pick_home: np.ndarray, points: np.ndarray,
                            outcomes: np.ndarray,
-                           ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+                           ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Score a fully-locked board against sampled outcomes -- no opponent model.
 
     Every entrant's pick and confidence is already known, so there is nothing to
@@ -375,11 +375,20 @@ def locked_board_standings(pick_home: np.ndarray, points: np.ndarray,
     already-decided games pinned via its ``actual_outcomes`` argument). This just
     scores each entrant on every draw and counts firsts.
 
-    Returns ``(win_pct[N], expected_points[N], per_game_swing[N, n])`` where
-    ``per_game_swing[k, i] = P(entrant k finishes 1st | game i home win)
-    - P(... | game i away win)`` -- the same draw-partition trick as
-    :func:`game_importance`, applied to every entrant at once. A decided or
-    degenerate game gets a 0 column.
+    Returns ``(win_pct[N], expected_points[N], per_game_swing[N, n],
+    if_home[N, n], if_away[N, n])`` where:
+
+    * ``per_game_swing[k, i] = if_home[k, i] - if_away[k, i]`` -- the same
+      draw-partition trick as :func:`game_importance`, applied to every
+      entrant at once.
+    * ``if_home[k, i] = P(entrant k finishes 1st | game i home win)`` and
+      ``if_away[k, i] = P(entrant k finishes 1st | game i away win)`` -- the
+      two conditional win probabilities the swing is a difference of, so
+      callers can report "if this goes your way" / "if it doesn't" the same
+      way :func:`game_importance` does for a single player's slate.
+
+    A decided or degenerate game gets ``swing == 0`` and both conditionals
+    equal to the unconditioned ``win_pct``.
     """
     pick_home = np.asarray(pick_home, dtype=bool)
     points = np.asarray(points, dtype=float)
@@ -399,12 +408,16 @@ def locked_board_standings(pick_home: np.ndarray, points: np.ndarray,
     expected_points = scores.mean(axis=0)
 
     swing = np.zeros((N, n))
+    if_home = np.tile(win_pct, (n, 1)).T
+    if_away = np.tile(win_pct, (n, 1)).T
     for i in range(n):
         home = outcomes[:, i]
         if home.all() or not home.any():
             continue
-        swing[:, i] = credit[home].mean(axis=0) - credit[~home].mean(axis=0)
-    return win_pct, expected_points, swing
+        if_home[:, i] = credit[home].mean(axis=0)
+        if_away[:, i] = credit[~home].mean(axis=0)
+        swing[:, i] = if_home[:, i] - if_away[:, i]
+    return win_pct, expected_points, swing, if_home, if_away
 
 
 # ---------------------------------------------------------------------------

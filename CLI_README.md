@@ -40,17 +40,20 @@ confpickem --week WEEK --mode MODE [OPTIONS]
 **Modes:**
 - `beginning` - All games are pending (start of week)
 - `midweek` - Some games finished or kicked off (mid-week optimization)
+- `locked` - Every entry is locked (first Sunday kickoff or later) - no
+  optimization, just live standings + which remaining games still swing them
 
 **Options:**
 ```
 --week, -w         NFL week number (required)
 --league-id, -l    Yahoo league ID (default: 11465)
---mode, -m         'beginning' or 'midweek' (required)
+--mode, -m         'beginning', 'midweek', or 'locked' (required)
 --live-odds        Use live Vegas odds
 --odds-api-key, -k The Odds API key
 --num-sims, -n     Number of simulations (--greedy / --hill-climb only)
 --no-cache         Clear cache before loading
 --html             Also write an interactive HTML report alongside the .txt report
+--player, -p       Your entry name/substring -- highlights your row (locked mode only)
 --greedy           Use the old greedy sequential optimizer
 --fast             Quicker, rougher pass -- --greedy + beginning mode only
 --hill-climb       Use the simulation hill-climb optimizer (slow; robustness report)
@@ -69,6 +72,12 @@ confpickem --week 10 --mode beginning
 
 # Mid-week with live odds -- locks games already finished or kicked off
 confpickem --week 10 --mode midweek --live-odds
+
+# Everything's locked -- just show live standings, no optimization, no prompts
+confpickem --week 10 --mode locked --html
+
+# Same, but highlight your own entry in the standings
+confpickem --week 10 --mode locked --html --player "Firman's Educated Guesses"
 
 # Old greedy optimizer, quick pass
 confpickem --week 10 --mode beginning --greedy --fast
@@ -93,12 +102,32 @@ confpickem --week 10 --mode midweek --html
 
 **Interactive Features:**
 
-The optimizer will prompt you to:
+The optimizer will prompt you to (`beginning`/`midweek` only -- `locked` mode
+never prompts, since there's nothing left to pick):
 1. **Select your player** - Choose which player to optimize for
 2. **Enter fixed picks** (optional) - Lock in specific picks you want to keep
    - Format: `PHI:16,KC:15,SF:14` (TEAM:CONFIDENCE pairs, comma-separated)
    - Useful for constraining optimization or testing specific pick combinations
    - Leave blank to optimize all games freely
+
+**`--mode locked`:**
+
+Once the first Sunday game kicks off, Yahoo locks every entry -- there's
+nothing left to optimize, just the live standings and which games still swing
+them. This mode skips player selection and fixed picks entirely and reports,
+for the whole league: each entrant's win probability and expected points
+(`win_pct` sums to 1 across the field), plus the undecided games with the
+largest `top_swing` on first place. Entrants who forgot to submit a pick on
+one or more games are auto-filled with the underdog at their lowest remaining
+confidence value rather than dropped, since real pools always have stragglers.
+`--fast`, `--num-opponents`, `--greedy`, and `--hill-climb` don't apply here.
+
+Since there's no interactive player-selection prompt in this mode, pass
+`--player` (or `-p`) with your entry name or a substring of it to highlight
+your row in the standings and the `.txt`/`.html` reports -- e.g.
+`--player "Educated Guesses"`. It must match exactly one entrant; an ambiguous
+or unmatched substring is an error rather than a silent guess. Omit it and the
+report still shows everyone's standings, just without a highlighted row.
 
 ---
 
@@ -220,6 +249,12 @@ confpickem --week 10 --mode beginning --live-odds
 confpickem --week 10 --mode midweek --live-odds
 ```
 
+**Sunday, Everything Locked:**
+```bash
+# No more picks to make -- just track live standings and what's still in play
+confpickem --week 10 --mode locked --html
+```
+
 **Check Your Position:**
 ```bash
 # See everyone's win probabilities
@@ -237,10 +272,19 @@ Live Vegas odds are more accurate than Yahoo spreads:
 ```
 
 ### 2. Mid-Week Re-Optimization
-After Thursday/Friday games — or mid-Sunday, once the early games kick off and
-Yahoo locks every entry — re-run with `--mode midweek`. The analytical optimizer
-locks each game that's already finished or started to your submitted pick and
-optimizes only what's left, over the confidence you haven't spent.
+After Thursday/Friday games — or before the first Sunday kickoff — re-run with
+`--mode midweek`. The analytical optimizer locks each game that's already
+finished or started to your submitted pick and optimizes only what's left,
+over the confidence you haven't spent.
+
+Once the first Sunday game actually kicks off, Yahoo locks every entry in the
+league — yours and everyone else's — so there's nothing left to optimize.
+Switch to `--mode locked` instead: it skips the prompts and the optimizer
+entirely and just reports live standings + which games still decide first
+place.
+```bash
+confpickem --week 10 --mode locked --html
+```
 
 ### 3. Old Greedy Optimizer
 `--greedy` runs the previous sequential optimizer; add `--fast` for a quicker,

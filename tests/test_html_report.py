@@ -3,7 +3,7 @@
 
 import pandas as pd
 
-from src.confpickem.html_report import generate_html_report
+from src.confpickem.html_report import generate_html_report, generate_locked_board_html_report
 
 
 def _importance_df():
@@ -172,3 +172,151 @@ def test_rank_and_edge_values_rendered():
     assert "#2" in html
     assert "33.8%" in html
     assert "18.1%" in html
+
+
+# ---------------------------------------------------------------------------
+# generate_locked_board_html_report
+# ---------------------------------------------------------------------------
+
+
+def _locked_standings():
+    return pd.DataFrame(
+        [
+            {"player": "OneNDone", "locked_points": 42, "win_pct": 0.55, "expected_points": 99.1},
+            {"player": "You", "locked_points": 38, "win_pct": 0.30, "expected_points": 90.4},
+            {"player": "Jayparr", "locked_points": 10, "win_pct": 0.15, "expected_points": 70.2},
+        ]
+    )
+
+
+def _locked_importance():
+    return pd.DataFrame(
+        [
+            {"game": "NE@Sea", "vegas_home_win_pct": 0.62, "top_swing": 0.184},
+            {"game": "KC@Den", "vegas_home_win_pct": 0.41, "top_swing": 0.052},
+        ]
+    )
+
+
+def test_generate_locked_board_html_report_returns_string():
+    html = generate_locked_board_html_report(
+        week=5, league_id=11465, standings=_locked_standings(), importance=_locked_importance()
+    )
+    assert isinstance(html, str)
+    assert "<title>Week 5 Live Standings</title>" in html
+
+
+def test_locked_board_highlights_selected_player():
+    html = generate_locked_board_html_report(
+        week=5,
+        league_id=11465,
+        standings=_locked_standings(),
+        importance=_locked_importance(),
+        player_name="You",
+    )
+    assert '"you": true' in html
+    assert "#2" in html  # You are rank 2 by win_pct order
+
+
+def test_locked_board_omits_you_marker_when_no_player_given():
+    html = generate_locked_board_html_report(
+        week=5, league_id=11465, standings=_locked_standings(), importance=_locked_importance()
+    )
+    assert '"you": true' not in html
+
+
+def test_locked_board_filled_players_note_rendered_and_escaped():
+    html = generate_locked_board_html_report(
+        week=5,
+        league_id=11465,
+        standings=_locked_standings(),
+        importance=_locked_importance(),
+        filled_players=["<script>alert(1)</script>"],
+    )
+    assert "auto-filled" in html
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;" in html
+
+
+def test_locked_board_no_filled_note_when_none_missing():
+    html = generate_locked_board_html_report(
+        week=5, league_id=11465, standings=_locked_standings(), importance=_locked_importance()
+    )
+    assert "auto-filled" not in html
+
+
+def test_locked_board_handles_empty_importance():
+    html = generate_locked_board_html_report(
+        week=5,
+        league_id=11465,
+        standings=_locked_standings(),
+        importance=pd.DataFrame(columns=["game", "vegas_home_win_pct", "top_swing"]),
+    )
+    assert '"importance": []' in html
+
+
+def test_locked_board_game_names_present():
+    html = generate_locked_board_html_report(
+        week=5, league_id=11465, standings=_locked_standings(), importance=_locked_importance()
+    )
+    assert "NE @ Sea" in html
+    assert "KC @ Den" in html
+
+
+def _locked_importance_with_pick_columns():
+    return pd.DataFrame(
+        [
+            {
+                "game": "NE@Sea",
+                "vegas_home_win_pct": 0.62,
+                "top_swing": 0.184,
+                "pick": "Sea",
+                "points_bid": 12,
+                "win_probability": 0.41,
+                "loss_probability": 0.22,
+                "win_delta": 0.11,
+                "loss_delta": -0.08,
+                "total_impact": 0.19,
+            },
+            {
+                "game": "KC@Den",
+                "vegas_home_win_pct": 0.41,
+                "top_swing": 0.052,
+                "pick": "KC",
+                "points_bid": 5,
+                "win_probability": 0.33,
+                "loss_probability": 0.29,
+                "win_delta": 0.03,
+                "loss_delta": -0.01,
+                "total_impact": 0.04,
+            },
+        ]
+    )
+
+
+def test_locked_board_with_player_name_shows_win_loss_probability():
+    """When importance carries the per-player columns (standings_analytic was
+    called with player_name), the locked-board report must render the same
+    Correct/Wrong-style win/loss probability display as the optimizer report."""
+    html = generate_locked_board_html_report(
+        week=5,
+        league_id=11465,
+        standings=_locked_standings(),
+        importance=_locked_importance_with_pick_columns(),
+        player_name="You",
+    )
+    assert '"hasPickColumns": true' in html
+    assert '"winProb": 0.41' in html
+    assert '"lossProb": 0.22' in html
+    assert '"pick": "Sea"' in html
+    assert '"conf": 12' in html
+    assert "impact on" in html.lower()
+
+
+def test_locked_board_without_player_name_omits_win_loss_probability():
+    html = generate_locked_board_html_report(
+        week=5, league_id=11465, standings=_locked_standings(), importance=_locked_importance()
+    )
+    assert '"hasPickColumns": false' in html
+    assert '"winProb"' not in html
+    assert '"lossProb"' not in html

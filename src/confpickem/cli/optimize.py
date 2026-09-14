@@ -3,7 +3,7 @@
 Unified NFL Confidence Pick'Em Optimization CLI
 
 Consolidates all optimization functionality into a single interface:
-- Beginning-of-week vs mid-week optimization
+- Beginning-of-week vs mid-week optimization vs a fully-locked live-standings view
 - Analytical Poisson-binomial P(win) optimizer by default (--greedy / --hill-climb opt out)
 - Live Vegas odds integration
 - Player skill integration
@@ -14,6 +14,9 @@ Usage:
 
   # Mid-week (some games completed / kicked off)
   optimize.py --week 10 --mode midweek
+
+  # Everything's locked -- just show live standings, no optimization
+  optimize.py --week 10 --mode locked
 
   # With live Vegas odds
   optimize.py --week 10 --mode midweek --live-odds --odds-api-key YOUR_KEY
@@ -36,7 +39,149 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from src.confpickem.yahoo_pickem_scraper import YahooPickEm
 from src.confpickem.live_odds_scraper import update_odds_with_live_data
 from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Player
-from src.confpickem.html_report import generate_html_report
+from src.confpickem.html_report import generate_html_report, generate_locked_board_html_report
+
+
+def _run_locked_mode(args, yahoo, simulator):
+    """--mode locked: every entry is locked, nothing to optimize -- just score
+    the board with `standings_analytic` and write the standings + game
+    importance report. Missing picks (an entrant who forgot a game) are
+    auto-filled rather than raising, since real pools always have stragglers.
+    """
+    print(f"\n📊 Scoring the board ({len(simulator.games)} games)...")
+
+    filled_players = []
+    for _, row in yahoo.players.iterrows():
+        name = row['player_name']
+        for i, game in enumerate(simulator.games):
+            got = simulator._player_game_pick(row, i, game)
+            if got is None:
+                filled_players.append(name)
+                break
+
+    all_names = yahoo.players['player_name'].tolist()
+    player_name = None
+    if args.player:
+        matches = [p for p in all_names if args.player.lower() in p.lower()]
+        if len(matches) == 1:
+            player_name = matches[0]
+        elif len(matches) > 1:
+            print(f"❌ Error: --player '{args.player}' matches multiple entrants: {matches}")
+            return 1
+        else:
+            print(f"❌ Error: --player '{args.player}' not found among: {all_names}")
+            return 1
+
+    try:
+        standings, importance = simulator.standings_analytic(
+            yahoo.players, fill_missing=True, player_name=player_name)
+    except ValueError as e:
+        print(f"❌ Error: {e}")
+        return 1
+
+    print(f"\n🏆 LIVE STANDINGS (win_pct sums to {standings.win_pct.sum():.4f}):")
+    print(f"   {'Rank':<6} {'Player':<25} {'Win %':<10} {'Locked':<8} {'Exp Points'}")
+    print(f"   {'-'*6} {'-'*25} {'-'*10} {'-'*8} {'-'*10}")
+    for i, row in enumerate(standings.itertuples(index=False), 1):
+        marker = "👉 " if row.player == player_name else "   "
+        print(
+            f"{marker}{i:<4} {row.player:<25} {row.win_pct:>6.1%}     "
+            f"{row.locked_points:>4.0f}     {row.expected_points:>6.1f} pts"
+        )
+
+    if player_name:
+        your_rank = next(i for i, p in enumerate(standings['player'], 1) if p == player_name)
+        print(f"\n📊 Your Position: #{your_rank} of {len(standings)} ({player_name})")
+
+    has_pick_columns = 'win_probability' in importance.columns
+    if has_pick_columns:
+        print(f"\n🔥 GAME IMPORTANCE ANALYSIS ({player_name}):")
+        print("   (Impact on your win probability)")
+    else:
+        print(f"\n🔥 GAMES THAT STILL SWING FIRST PLACE:")
+
+    for i, (_, row) in enumerate(importance.head(10).iterrows()):
+        if has_pick_columns:
+            game_desc, pick, conf = row['game'], row['pick'], int(row['points_bid'])
+            impact, correct_prob, incorrect_prob = (
+                row['total_impact'], row['win_probability'], row['loss_probability'])
+            print(
+                f"   {i+1:2d}. {game_desc:<20} → {pick:3} ({conf:2d} pts) {impact:+5.1%} "
+                f"(Correct: {correct_prob:4.1%}, Wrong: {incorrect_prob:4.1%})"
+            )
+        else:
+            print(
+                f"   {row['game']:<20} vegas home: {row['vegas_home_win_pct']:>5.1%}   "
+                f"top swing: {row['top_swing']:>5.1%}"
+            )
+
+    if filled_players:
+        print(
+            f"\n⚠️  {len(filled_players)} entrant(s) missing one or more picks "
+            f"were auto-filled (underdog, lowest remaining confidence): "
+            f"{', '.join(filled_players)}"
+        )
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    filename = f"NFL_Week{args.week}_Locked_{timestamp}.txt"
+
+    with open(filename, "w") as f:
+        f.write(f"NFL Week {args.week} Live Standings\n")
+        if player_name:
+            f.write(f"Player: {player_name}\n")
+        f.write(f"Generated: {datetime.now()}\n")
+        f.write(f"Mode: LOCKED (every entry locked, no optimization)\n")
+        if filled_players:
+            f.write(
+                f"Auto-filled missing picks (underdog, lowest remaining "
+                f"confidence) for: {', '.join(filled_players)}\n"
+            )
+        f.write("\n")
+
+        f.write(f"LIVE STANDINGS (win_pct sums to {standings.win_pct.sum():.4f}):\n")
+        for i, row in enumerate(standings.itertuples(index=False), 1):
+            marker = "-> " if row.player == player_name else "   "
+            f.write(
+                f"{marker}{i:3d}. {row.player:<25} {row.win_pct:>6.1%}   "
+                f"locked: {row.locked_points:>4.0f}   exp: {row.expected_points:>6.1f} pts\n"
+            )
+
+        if has_pick_columns:
+            f.write(f"\nGAME IMPORTANCE ANALYSIS ({player_name}):\n")
+            f.write("(Impact on your win probability)\n\n")
+            for i, (_, row) in enumerate(importance.iterrows()):
+                f.write(
+                    f"{i+1:2d}. {row['game']:<20} -> {row['pick']:3} "
+                    f"({int(row['points_bid']):2d} pts) {row['total_impact']:+5.1%} "
+                    f"(Correct: {row['win_probability']:4.1%}, "
+                    f"Wrong: {row['loss_probability']:4.1%})\n"
+                )
+        else:
+            f.write(f"\nGAMES THAT STILL SWING FIRST PLACE:\n")
+            for _, row in importance.iterrows():
+                f.write(
+                    f"{row['game']:<20} vegas home: {row['vegas_home_win_pct']:>5.1%}   "
+                    f"top swing: {row['top_swing']:>5.1%}\n"
+                )
+
+    print(f"\n💾 Results saved: {filename}")
+
+    if args.html:
+        html_filename = filename.rsplit(".", 1)[0] + ".html"
+        html_report = generate_locked_board_html_report(
+            week=args.week,
+            league_id=args.league_id,
+            standings=standings,
+            importance=importance,
+            player_name=player_name,
+            filled_players=filled_players,
+        )
+        with open(html_filename, "w") as f:
+            f.write(html_report)
+        print(f"🌐 HTML report saved: {html_filename}")
+
+    print(f"\n✅ Board scored!")
+    return 0
 
 
 def main():
@@ -51,6 +196,9 @@ Examples:
 
   # Mid-week -- locks games already finished or kicked off
   %(prog)s --week 10 --mode midweek
+
+  # Everything's locked -- just show live standings, no optimization
+  %(prog)s --week 10 --mode locked
 
   # With live Vegas odds
   %(prog)s --week 10 --mode midweek --live-odds
@@ -70,9 +218,11 @@ Examples:
     parser.add_argument(
         "--mode",
         "-m",
-        choices=["beginning", "midweek"],
+        choices=["beginning", "midweek", "locked"],
         required=True,
-        help='Optimization mode: "beginning" (all games pending) or "midweek" (some games completed)',
+        help='Optimization mode: "beginning" (all games pending), "midweek" '
+        '(some games completed), or "locked" (every entry is locked -- no '
+        'optimization, just live standings + game importance)',
     )
 
     # Optional features
@@ -101,6 +251,14 @@ Examples:
         "--html",
         action="store_true",
         help="Also write an interactive HTML report alongside the .txt report",
+    )
+    parser.add_argument(
+        "--player",
+        "-p",
+        type=str,
+        help="Your entry name (or a substring of it) -- highlights your row "
+        "in the standings. Locked mode only; beginning/midweek prompt for "
+        "this interactively instead.",
     )
 
     # Synthetic opponents (for private games outside your Yahoo league)
@@ -173,7 +331,7 @@ Examples:
     algo = "greedy" if args.greedy else "hill_climb" if args.hill_climb else "analytic"
 
     # Validate arguments
-    if args.fast and args.mode == "midweek":
+    if args.fast and args.mode != "beginning":
         print("❌ Error: --fast mode is only available for beginning-of-week optimization")
         return 1
 
@@ -185,13 +343,22 @@ Examples:
         )
         return 1
 
-    if args.num_opponents is not None and args.mode == "midweek":
+    if args.num_opponents is not None and args.mode != "beginning":
         print("❌ Error: --num-opponents is only available for beginning-of-week optimization")
-        print("   (Midweek mode requires real player data to track completed games)")
+        print("   (Midweek/locked modes require real player data to track completed games)")
         return 1
 
     if args.num_opponents is not None and args.num_opponents < 1:
         print("❌ Error: --num-opponents must be at least 1")
+        return 1
+
+    if args.mode == "locked" and (args.greedy or args.hill_climb):
+        print("❌ Error: --greedy/--hill-climb don't apply to --mode locked (nothing to optimize)")
+        return 1
+
+    if args.player is not None and args.mode != "locked":
+        print("❌ Error: --player is only available for --mode locked")
+        print("   (beginning/midweek prompt for your player interactively)")
         return 1
 
     # Determine simulation count
@@ -206,12 +373,18 @@ Examples:
     confidence_range = 4  # Original scripts all used 4
 
     # Print banner
-    mode_str = "MID-WEEK" if args.mode == "midweek" else "BEGINNING-OF-WEEK"
+    mode_str = {"midweek": "MID-WEEK", "locked": "LOCKED", "beginning": "BEGINNING-OF-WEEK"}[
+        args.mode
+    ]
     odds_str = " + LIVE ODDS" if args.live_odds else ""
     fast_str = " (FAST MODE)" if args.fast else ""
-    algo_str = {"analytic": " | ANALYTIC", "hill_climb": " | HILL CLIMB", "greedy": " | GREEDY"}[
-        algo
-    ]
+    algo_str = (
+        ""
+        if args.mode == "locked"
+        else {"analytic": " | ANALYTIC", "hill_climb": " | HILL CLIMB", "greedy": " | GREEDY"}[
+            algo
+        ]
+    )
     algo_label = {
         "analytic": "Analytical P(win)",
         "hill_climb": "Hill Climbing",
@@ -274,7 +447,7 @@ Examples:
         print(f"   ✅ {len(completed_games)} completed")
         print(f"   ⏳ {remaining_games_count} remaining")
 
-        if args.mode == "midweek" and len(completed_games) > 0:
+        if args.mode in ("midweek", "locked") and len(completed_games) > 0:
             print(f"\n🏆 COMPLETED GAMES:")
             for game in completed_games[:5]:  # Show first 5
                 winner = game.get("winner", "Unknown")
@@ -283,7 +456,7 @@ Examples:
                 print(f"     ... and {len(completed_games) - 5} more")
 
         # Setup simulator
-        print(f"\n🎲 Setting up optimizer...")
+        print(f"\n🎲 Setting up {'board' if args.mode == 'locked' else 'optimizer'}...")
         simulator = ConfidencePickEmSimulator(num_sims=num_sims)
 
         # Convert games to simulator format
@@ -322,9 +495,9 @@ Examples:
                 f"{matchup:<30} {favorite:<10} {home_prob*100:>6.1f}%     {spread:>5.1f}     {is_home_fav}"
             )
 
-            # Determine actual outcome if mid-week mode
+            # Determine actual outcome if mid-week or locked mode
             actual_outcome = None
-            if args.mode == "midweek":
+            if args.mode in ("midweek", "locked"):
                 for completed in yahoo.results:
                     if completed["winner"]:
                         game_teams = {completed["favorite"], completed["underdog"]}
@@ -348,6 +521,9 @@ Examples:
             )
 
         simulator.add_games_from_dataframe(pd.DataFrame(games_data))
+
+        if args.mode == "locked":
+            return _run_locked_mode(args, yahoo, simulator)
 
         # Calculate current standings if mid-week
         current_standings = {}
