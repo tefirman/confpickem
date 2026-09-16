@@ -58,28 +58,35 @@ across the most win-probability-competitive restarts shows they agree on
 14-16 of 16 games; the "most different" competitive pair disagreed on only 2
 games (both close to toss-ups).
 
-Digging further into *why* restarts converge so tightly in team-pick space
-regardless of where they started: comparing chalk (all Vegas favorites, ranked
-by |vegas_win_prob - 0.5|) to the best solution found showed only 1 of 16
-teams actually differs, yet win probability jumped 6.5x (0.0072 -> 0.0467).
-Tracking a walk's team-set overlap with its own random starting point over
-its full 400-iteration run showed the same thing from the other direction:
-overlap drops from 16/16 to ~14-15/16 within the first ~40 evaluations and
-then stays there -- nearly all of the remaining win-probability gain (the
-bulk of the climb) comes from re-ranking *confidence* on a team-set that's
-already close to converged, not from picking different teams. So the tight
-clustering isn't restarts failing to explore team-pick space and accidentally
-landing near each other -- it's that against a large, mostly-favorite-picking
-real crowd, there's a small, easy-to-find optimal (or near-optimal) team-set
-(essentially chalk), and the real optimization signal -- and the real
-differentiator between a winning and a losing slate -- is confidence
-ordering: which likely-to-hit picks you stack your highest confidence on,
-not which underdogs you take a flyer on. That is a more useful and more
-surprising trust-building takeaway than "many diverse good strategies exist,"
-and it's specific to this large/real-field regime -- the synthetic 6-player
-field's findings (isolated restart basins, annealing not helping, perturbed
-restarts helping) were about a much smaller field where team choice mattered
-more because there was much less crowd competition to blend into.
+Digging further into *why* restarts converge so tightly in team-pick space:
+the initial version of this analysis seeded every restart from chalk plus a
+handful of perturbations (copied from confpickem.analytical.optimize_slate's
+own seeding) -- so "restarts converge regardless of start" wasn't actually
+tested, since every restart started a few moves from chalk by construction.
+Re-run with random_start_fraction=1.0 (every non-greedy restart a genuinely
+random team+confidence assignment, mirroring
+ConfidencePickEmSimulator._generate_random_picks) gives the real test: a
+fully-random restart's OWN final slate overlaps its OWN random starting point
+on only 6-9 of 16 teams -- real, substantial travel through pick-set space,
+unlike the chalk-perturbed restarts (which barely move: 14-16/16 overlap with
+their own start, since they began close by). But every restart's final
+slate -- chalk-seeded or fully-random -- overlaps chalk's own best solution on
+14/16 teams and lands in the same ~0.041-0.046 win-probability band. So the
+answer is both things at once: restarts genuinely do travel significantly
+across pick-set space during optimization, AND they converge to the same
+neighborhood regardless of where they started. That's a real, verified
+property of this real field's landscape, not an artifact of biased seeding
+-- against a large, mostly-favorite-picking real crowd there's one dominant,
+broadly-reachable near-optimal team-set (close to chalk), and the remaining
+differentiation between competitive slates is mostly confidence ordering
+(which likely-to-hit picks get the highest confidence), not which underdogs
+to gamble on. That's a more useful and more surprising trust-building
+takeaway than "many diverse good strategies exist," and it's specific to
+this large/real-field regime -- the synthetic 6-player field's findings
+(isolated restart basins, annealing not helping, perturbed restarts helping)
+were about a much smaller field where team choice mattered more because
+there was much less crowd competition to blend into. Use
+--random-start-fraction 1.0 to reproduce this test.
 """
 import argparse
 import json
@@ -184,7 +191,8 @@ def build_yahoo_week(week: int, league_id: int, cookies_file: str = "cookies.txt
 
 def analytic_hill_climb_with_history(simulator, player_name: str,
                                       iterations: int = 300, restarts: int = 15,
-                                      n_outcomes: int = 6000, seed: int = 51):
+                                      n_outcomes: int = 6000, seed: int = 51,
+                                      random_start_fraction: float = 0.0):
     """Random-restart hill climb on the exact analytical P(win) (see
     confpickem.analytical), tracking every candidate explored -- the
     candidate-tracking equivalent of optimize_picks_hill_climb, but using the
@@ -195,6 +203,18 @@ def analytic_hill_climb_with_history(simulator, player_name: str,
     (simulate_all over the whole field) costs seconds each, and gets noisy at
     the sim counts that make it fast. pwin from the analytical field model is
     a closed-form Poisson-binomial calculation -- both fast and exact.
+
+    By default (random_start_fraction=0), non-greedy restarts start from chalk
+    plus a handful of random perturbations (mirroring confpickem.analytical's
+    own optimize_slate seeding) -- NOT a fully random slate. That matters: it
+    means every restart starts within a few moves of chalk, so restarts
+    converging to a similar team-set is close to guaranteed by construction,
+    not a discovered property of the search space. Set random_start_fraction
+    > 0 to make that fraction of non-greedy restarts start from a genuinely
+    random team+confidence assignment instead (mirroring
+    ConfidencePickEmSimulator._generate_random_picks), to actually test
+    whether the search converges to the same neighborhood regardless of
+    starting point.
 
     Returns (best_picks_dict, all_combinations) where all_combinations is a
     list of (picks_dict, win_probability, restart_index) triples, matching
@@ -211,13 +231,21 @@ def analytic_hill_climb_with_history(simulator, player_name: str,
         return {(games[i].home_team if pick_home[i] else games[i].away_team): int(points[i])
                 for i in range(n)}
 
+    def random_slate():
+        ph = rng.random(n) < 0.5
+        pts = rng.permutation(np.arange(1, n + 1))
+        return ph, pts
+
     all_combinations = []
     best_picks, best_val = None, -1.0
     free = np.arange(n)
+    num_random = round(random_start_fraction * max(restarts - 1, 0))
 
     for restart in range(restarts):
         if restart == 0:
             ph, pts = _an.chalk_slate(vegas_home)
+        elif restart <= num_random:
+            ph, pts = random_slate()
         else:
             ph, pts = _an.chalk_slate(vegas_home)
             for _ in range(int(rng.integers(2, 6))):
@@ -283,6 +311,10 @@ def main():
     parser.add_argument("--league-id", type=int, default=11465, help="Yahoo league ID (--yahoo only)")
     parser.add_argument("--player", default="Firman's Educated Guesses",
                          help="which yahoo.players entry to optimize for (--yahoo only)")
+    parser.add_argument("--random-start-fraction", type=float, default=0.0,
+                         help="fraction of non-greedy --yahoo restarts that start from a "
+                              "genuinely random slate instead of a chalk perturbation "
+                              "(0 = all start near chalk, matching optimize_slate's seeding)")
     parser.add_argument("--out", default="pickset_landscape.png", help="output image path")
     args = parser.parse_args()
 
@@ -314,9 +346,11 @@ def main():
         # that size, so use the exact analytical P(win) engine instead. This path
         # doesn't (yet) support --temperature/--perturb-fraction.
         print(f"Running analytical hill-climb optimization "
-              f"({args.restarts} restarts x {args.iterations} iterations)...")
+              f"({args.restarts} restarts x {args.iterations} iterations, "
+              f"random_start_fraction={args.random_start_fraction})...")
         _, all_combinations = analytic_hill_climb_with_history(
             simulator, player_name, iterations=args.iterations, restarts=args.restarts,
+            random_start_fraction=args.random_start_fraction,
         )
     else:
         print(f"Running hill-climb optimization ({args.restarts} restarts x {args.iterations} iterations, "
