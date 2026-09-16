@@ -312,7 +312,7 @@ Examples:
         help="Analytic optimizer hill-climb steps per restart (default: 400)",
     )
     parser.add_argument(
-        "--an-restarts", type=int, default=4, help="Analytic optimizer random restarts (default: 4)"
+        "--an-restarts", type=int, default=10, help="Analytic optimizer random restarts (default: 10)"
     )
     parser.add_argument(
         "--an-outcomes",

@@ -616,7 +616,7 @@ class ConfidencePickEmSimulator:
 
     def optimize_picks_analytic(self, player_name: str,
                                 fixed_picks: Dict[str, Dict[str, int]] = None,
-                                iterations: int = 400, restarts: int = 4,
+                                iterations: int = 400, restarts: int = 10,
                                 n_outcomes: int = 6000, seed: int = 51,
                                 available_points: set = None,
                                 player_data: pd.DataFrame = None,
