@@ -56,13 +56,30 @@ glance the PCA/t-SNE plot still shows many separated clusters, which reads
 like "many different competitive strategies" -- but a direct picks diff
 across the most win-probability-competitive restarts shows they agree on
 14-16 of 16 games; the "most different" competitive pair disagreed on only 2
-games (both close to toss-ups). So the apparent visual spread is mostly the
-signed-confidence encoding amplifying a couple of genuinely-close-call-game
-swaps, not evidence of many fundamentally different good strategies -- the
-real finding is that the optimizer converges to essentially one dominant
-strategy plus a small set of interchangeable picks on the toss-up games,
-which is a more useful trust-building signal than "lots of diverse options"
-would have been.
+games (both close to toss-ups).
+
+Digging further into *why* restarts converge so tightly in team-pick space
+regardless of where they started: comparing chalk (all Vegas favorites, ranked
+by |vegas_win_prob - 0.5|) to the best solution found showed only 1 of 16
+teams actually differs, yet win probability jumped 6.5x (0.0072 -> 0.0467).
+Tracking a walk's team-set overlap with its own random starting point over
+its full 400-iteration run showed the same thing from the other direction:
+overlap drops from 16/16 to ~14-15/16 within the first ~40 evaluations and
+then stays there -- nearly all of the remaining win-probability gain (the
+bulk of the climb) comes from re-ranking *confidence* on a team-set that's
+already close to converged, not from picking different teams. So the tight
+clustering isn't restarts failing to explore team-pick space and accidentally
+landing near each other -- it's that against a large, mostly-favorite-picking
+real crowd, there's a small, easy-to-find optimal (or near-optimal) team-set
+(essentially chalk), and the real optimization signal -- and the real
+differentiator between a winning and a losing slate -- is confidence
+ordering: which likely-to-hit picks you stack your highest confidence on,
+not which underdogs you take a flyer on. That is a more useful and more
+surprising trust-building takeaway than "many diverse good strategies exist,"
+and it's specific to this large/real-field regime -- the synthetic 6-player
+field's findings (isolated restart basins, annealing not helping, perturbed
+restarts helping) were about a much smaller field where team choice mattered
+more because there was much less crowd competition to blend into.
 """
 import argparse
 import json
