@@ -377,7 +377,9 @@ class ConfidencePickEmSimulator:
 
         Args:
             player_name: Name of the player to optimize picks for
-            fixed_picks: Dictionary mapping player names to their fixed picks
+            fixed_picks: Dictionary mapping player names to their fixed picks.
+                A confidence value of ``None`` pins the team but leaves its
+                confidence value for the optimizer to choose.
             confidence_range: Number of confidence values to explore for each game
             available_points: Set of confidence points available to use (if None, auto-calculate)
             player_data: DataFrame containing actual player picks for completed games
@@ -387,28 +389,32 @@ class ConfidencePickEmSimulator:
         """
         # Set consistent random seed for deterministic optimization
         np.random.seed(51)
-        
+
         # Validate player exists
         if player_name not in [p.name for p in self.players]:
             raise ValueError(f"Unknown player: {player_name}")
-            
+
         optimal = {}
         if fixed_picks is None:
             fixed_picks = {}
-        
+
         # Get current player's fixed picks if they exist
         player_fixed = fixed_picks.get(player_name, {})
-        optimal.update(player_fixed)
+        # Teams pinned with a specific confidence value are locked outright;
+        # teams pinned with None still need a confidence value chosen below.
+        locked_fixed = {team: conf for team, conf in player_fixed.items() if conf is not None}
+        pick_only_teams = {team for team, conf in player_fixed.items() if conf is None}
+        optimal.update(locked_fixed)
 
         # Track which points have been used
-        used_points = list(player_fixed.values())
-        
+        used_points = list(locked_fixed.values())
+
         # Validate no duplicate confidence points in fixed picks
         if len(used_points) != len(set(used_points)):
             raise ValueError("Fixed picks cannot have duplicate confidence points")
-        
+
         used_points = set(used_points)
-        
+
         # Use provided available_points or auto-calculate
         if available_points is None:
             # Use full confidence range (1 to total games) minus any used points
@@ -420,18 +426,25 @@ class ConfidencePickEmSimulator:
 
         # Sort games by certainty (most certain to least certain)
         # Process most certain games first so they get highest confidence
-        # Skip games that are already completed (have actual_outcome) or have fixed picks
+        # Skip games that are already completed (have actual_outcome) or fully fixed
         remaining_games = [g for g in sorted(self.games,
                                         key=lambda g: abs(g.vegas_win_prob - 0.5), reverse=True)
                         if g.actual_outcome is None  # Skip completed games
-                        and g.home_team not in player_fixed
-                        and g.away_team not in player_fixed]
+                        and g.home_team not in locked_fixed
+                        and g.away_team not in locked_fixed]
 
         # Assign picks for remaining games
         for game in remaining_games:
             if not available_points:  # Safety check
                 break
-            
+
+            # A team-pinned-only game restricts the search to that one team.
+            pinned_team = None
+            if game.home_team in pick_only_teams:
+                pinned_team = game.home_team
+            elif game.away_team in pick_only_teams:
+                pinned_team = game.away_team
+
             # Optional debug output (can be controlled via parameter)
             print(f"\nOptimizing: {game.away_team}@{game.home_team}")
 
@@ -449,46 +462,48 @@ class ConfidencePickEmSimulator:
                 points_to_try = sorted(available_points, reverse=True)[::increment]
             print(f"  Points to try: {points_to_try}")
             # points_to_try = sorted(available_points, reverse=True)[:confidence_range]
-            
+
             # Try each team with different confidence points
             for current_points in points_to_try:
-                # Try home team pick
-                home_picks = fixed_picks.copy()
-                if player_name not in home_picks:
-                    home_picks[player_name] = {}
-                home_picks[player_name] = optimal.copy()
-                home_picks[player_name][game.home_team] = current_points
-                
-                # Simulate home team pick (with consistent seed)
-                np.random.seed(51 + hash(f"{game.home_team}_{current_points}") % 10000)
-                home_results = self.simulate_all(home_picks, player_data=player_data)
-                home_prob = home_results['win_pct'][player_name]
-                
-                # Update best result if better (use >= with deterministic tie-breaking)
-                if (home_prob > best_win_prob or 
-                    (home_prob == best_win_prob and (best_pick is None or game.home_team < best_pick))):
-                    best_win_prob = home_prob
-                    best_pick = game.home_team
-                    best_points = current_points
+                # Try home team pick (skipped if a different team is pinned)
+                if pinned_team is None or pinned_team == game.home_team:
+                    home_picks = fixed_picks.copy()
+                    if player_name not in home_picks:
+                        home_picks[player_name] = {}
+                    home_picks[player_name] = optimal.copy()
+                    home_picks[player_name][game.home_team] = current_points
 
-                # Try away team pick
-                away_picks = fixed_picks.copy()
-                if player_name not in away_picks:
-                    away_picks[player_name] = {}
-                away_picks[player_name] = optimal.copy()
-                away_picks[player_name][game.away_team] = current_points
-                
-                # Simulate away team pick (with consistent seed)
-                np.random.seed(51 + hash(f"{game.away_team}_{current_points}") % 10000)
-                away_results = self.simulate_all(away_picks, player_data=player_data)
-                away_prob = away_results['win_pct'][player_name]
-                
-                # Update best result if better (use >= with deterministic tie-breaking)
-                if (away_prob > best_win_prob or 
-                    (away_prob == best_win_prob and (best_pick is None or game.away_team < best_pick))):
-                    best_win_prob = away_prob
-                    best_pick = game.away_team
-                    best_points = current_points
+                    # Simulate home team pick (with consistent seed)
+                    np.random.seed(51 + hash(f"{game.home_team}_{current_points}") % 10000)
+                    home_results = self.simulate_all(home_picks, player_data=player_data)
+                    home_prob = home_results['win_pct'][player_name]
+
+                    # Update best result if better (use >= with deterministic tie-breaking)
+                    if (home_prob > best_win_prob or
+                        (home_prob == best_win_prob and (best_pick is None or game.home_team < best_pick))):
+                        best_win_prob = home_prob
+                        best_pick = game.home_team
+                        best_points = current_points
+
+                # Try away team pick (skipped if a different team is pinned)
+                if pinned_team is None or pinned_team == game.away_team:
+                    away_picks = fixed_picks.copy()
+                    if player_name not in away_picks:
+                        away_picks[player_name] = {}
+                    away_picks[player_name] = optimal.copy()
+                    away_picks[player_name][game.away_team] = current_points
+
+                    # Simulate away team pick (with consistent seed)
+                    np.random.seed(51 + hash(f"{game.away_team}_{current_points}") % 10000)
+                    away_results = self.simulate_all(away_picks, player_data=player_data)
+                    away_prob = away_results['win_pct'][player_name]
+
+                    # Update best result if better (use >= with deterministic tie-breaking)
+                    if (away_prob > best_win_prob or
+                        (away_prob == best_win_prob and (best_pick is None or game.away_team < best_pick))):
+                        best_win_prob = away_prob
+                        best_pick = game.away_team
+                        best_points = current_points
 
             # Add best pick/points combination to optimal picks
             optimal[best_pick] = best_points
@@ -690,20 +705,29 @@ class ConfidencePickEmSimulator:
         pwin, frozen, my_frozen = field['pwin'], field['frozen'], field['my_frozen']
 
         # --- this player's locked slots: fixed picks + every frozen game -----
+        # A fixed pick's value may be ``None``, meaning the team is pinned but
+        # the confidence value is left for the optimizer to choose.
         fixed_picks = fixed_picks or {}
         mine = fixed_picks.get(player_name, {})
         pick_home_fixed = np.zeros(n, dtype=bool)
         points_fixed = np.zeros(n, dtype=int)
+        pick_only_fixed = np.zeros(n, dtype=bool)
 
         for i, (ph_i, pts_i) in my_frozen.items():
             pick_home_fixed[i], points_fixed[i] = ph_i, pts_i
         for i, g in enumerate(games):
             if g.home_team in mine:
+                team_conf = mine[g.home_team]
                 pick_home_fixed[i] = True
-                points_fixed[i] = int(mine[g.home_team])
             elif g.away_team in mine:
+                team_conf = mine[g.away_team]
                 pick_home_fixed[i] = False
-                points_fixed[i] = int(mine[g.away_team])
+            else:
+                continue
+            if team_conf is None:
+                pick_only_fixed[i] = True
+            else:
+                points_fixed[i] = int(team_conf)
 
         locked_vals = points_fixed[points_fixed > 0].tolist()
         if len(locked_vals) != len(set(locked_vals)):
@@ -719,8 +743,9 @@ class ConfidencePickEmSimulator:
 
         ph, pts, val = _an.optimize_slate(
             pwin, vegas_home,
-            pick_home_fixed=pick_home_fixed if points_fixed.any() else None,
+            pick_home_fixed=pick_home_fixed if (points_fixed.any() or pick_only_fixed.any()) else None,
             points_fixed=points_fixed if points_fixed.any() else None,
+            pick_only_fixed=pick_only_fixed if pick_only_fixed.any() else None,
             iterations=iterations, restarts=restarts, rng=rng)
 
         if verbose:
@@ -1008,7 +1033,9 @@ class ConfidencePickEmSimulator:
 
         Args:
             player_name: Name of the player to optimize picks for
-            fixed_picks: Dictionary mapping player names to their fixed picks
+            fixed_picks: Dictionary mapping player names to their fixed picks.
+                A confidence value of ``None`` pins the team but leaves its
+                confidence value for the optimizer to choose.
             iterations: Number of hill climbing iterations per restart
             restarts: Number of random restarts
             available_points: Set of confidence points available to use (if None, auto-calculate)
@@ -1062,8 +1089,11 @@ class ConfidencePickEmSimulator:
         if fixed_picks is None:
             fixed_picks = {}
 
-        # Get current player's fixed picks if they exist
-        player_fixed = fixed_picks.get(player_name, {})
+        # Get current player's fixed picks if they exist. A confidence value
+        # of None pins the team but leaves its confidence for the optimizer.
+        raw_player_fixed = fixed_picks.get(player_name, {})
+        player_fixed = {team: conf for team, conf in raw_player_fixed.items() if conf is not None}
+        pick_only_teams = {team for team, conf in raw_player_fixed.items() if conf is None}
 
         # Track which points have been used in fixed picks
         used_points = set(player_fixed.values())
@@ -1078,11 +1108,20 @@ class ConfidencePickEmSimulator:
         else:
             available_points = available_points - used_points
 
-        # Get games that need picks (not completed, not in fixed picks)
+        # Get games that need picks (not completed, not fully fixed) -- a
+        # team-pinned-only game stays in this list since its confidence is
+        # still free, but pinned_teams (below) restricts it to one team.
         games_to_pick = [g for g in self.games
                         if g.actual_outcome is None
                         and g.home_team not in player_fixed
                         and g.away_team not in player_fixed]
+
+        # Keyed by id(game) since Game is unhashable (dataclass without frozen=True).
+        pinned_teams = {
+            id(g): (g.home_team if g.home_team in pick_only_teams else g.away_team)
+            for g in games_to_pick
+            if g.home_team in pick_only_teams or g.away_team in pick_only_teams
+        }
 
         if len(games_to_pick) == 0:
             print("No games to optimize (all fixed or completed)")
@@ -1105,7 +1144,7 @@ class ConfidencePickEmSimulator:
         all_combinations = []
 
         greedy_picks = self._generate_greedy_picks(
-            player_name, player_fixed, games_to_pick, available_points, fixed_picks
+            player_name, player_fixed, games_to_pick, available_points, fixed_picks, pinned_teams
         )
         # First `num_perturbed` non-greedy restarts start near the greedy
         # solution instead of fully random -- see perturbed_restart_fraction.
@@ -1127,12 +1166,12 @@ class ConfidencePickEmSimulator:
                 current_picks = greedy_picks.copy()
                 for _ in range(num_kicks):
                     current_picks = self._get_neighbor_solution(
-                        current_picks, games_to_pick, player_fixed
+                        current_picks, games_to_pick, player_fixed, pinned_teams
                     )
             else:
                 # Remaining restarts: use random solutions
                 print("   Starting from random solution...")
-                current_picks = self._generate_random_picks(games_to_pick, available_points)
+                current_picks = self._generate_random_picks(games_to_pick, available_points, pinned_teams)
 
             # Combine with fixed picks
             current_picks.update(player_fixed)
@@ -1157,7 +1196,7 @@ class ConfidencePickEmSimulator:
             for i in range(iterations):
                 # Generate neighbor solution
                 neighbor_picks = self._get_neighbor_solution(
-                    current_picks, games_to_pick, player_fixed
+                    current_picks, games_to_pick, player_fixed, pinned_teams
                 )
 
                 # Evaluate neighbor
@@ -1317,8 +1356,14 @@ class ConfidencePickEmSimulator:
 
     def _generate_greedy_picks(self, player_name: str, player_fixed: Dict[str, int],
                                games_to_pick: List[Game], available_points: set,
-                               fixed_picks: Dict[str, Dict[str, int]]) -> Dict[str, int]:
-        """Generate initial picks using a simple greedy heuristic based on Vegas odds."""
+                               fixed_picks: Dict[str, Dict[str, int]],
+                               pinned_teams: Dict[int, str] = None) -> Dict[str, int]:
+        """Generate initial picks using a simple greedy heuristic based on Vegas odds.
+
+        ``pinned_teams`` maps ``id(game)`` (Game is unhashable) to the team a
+        team-pinned-only fixed pick requires for that game.
+        """
+        pinned_teams = pinned_teams or {}
         picks = {}
         remaining_points = sorted(list(available_points), reverse=True)
 
@@ -1329,8 +1374,11 @@ class ConfidencePickEmSimulator:
             if i >= len(remaining_points):
                 break
 
-            # Pick the team favored by Vegas
-            if game.vegas_win_prob >= 0.5:
+            # A team-pinned-only game always uses its pinned team.
+            if id(game) in pinned_teams:
+                picks[pinned_teams[id(game)]] = remaining_points[i]
+            # Otherwise pick the team favored by Vegas
+            elif game.vegas_win_prob >= 0.5:
                 picks[game.home_team] = remaining_points[i]
             else:
                 picks[game.away_team] = remaining_points[i]
@@ -1338,8 +1386,14 @@ class ConfidencePickEmSimulator:
         return picks
 
     def _generate_random_picks(self, games_to_pick: List[Game],
-                               available_points: set) -> Dict[str, int]:
-        """Generate random picks for initial solution."""
+                               available_points: set,
+                               pinned_teams: Dict[int, str] = None) -> Dict[str, int]:
+        """Generate random picks for initial solution.
+
+        ``pinned_teams`` maps ``id(game)`` to the team a team-pinned-only
+        fixed pick requires for that game.
+        """
+        pinned_teams = pinned_teams or {}
         picks = {}
         points_list = list(available_points)
         np.random.shuffle(points_list)
@@ -1348,8 +1402,12 @@ class ConfidencePickEmSimulator:
             if i >= len(points_list):
                 break
 
-            # Randomly pick home or away
-            team = game.home_team if np.random.random() < 0.5 else game.away_team
+            # A team-pinned-only game always uses its pinned team; otherwise
+            # randomly pick home or away.
+            if id(game) in pinned_teams:
+                team = pinned_teams[id(game)]
+            else:
+                team = game.home_team if np.random.random() < 0.5 else game.away_team
             picks[team] = points_list[i]
 
         return picks
@@ -1368,22 +1426,35 @@ class ConfidencePickEmSimulator:
 
     def _get_neighbor_solution(self, current_picks: Dict[str, int],
                                games_to_pick: List[Game],
-                               player_fixed: Dict[str, int]) -> Dict[str, int]:
+                               player_fixed: Dict[str, int],
+                               pinned_teams: Dict[int, str] = None) -> Dict[str, int]:
         """Generate a neighbor solution by making a small change.
 
         Possible changes:
-        1. Swap which team we pick in a random game (50% probability)
+        1. Swap which team we pick in a random game (50% probability) --
+           never a team-pinned-only game, since its team is fixed.
         2. Swap confidence values between two random games (50% probability)
+           -- may include a team-pinned-only game, whose confidence is free.
+
+        ``pinned_teams`` maps ``id(game)`` to the team a team-pinned-only
+        fixed pick requires for that game.
         """
+        pinned_teams = pinned_teams or {}
         neighbor = current_picks.copy()
 
-        # Get teams that are not fixed (can be modified)
-        modifiable_teams = [team for team in neighbor.keys() if team not in player_fixed]
+        pinned_team_names = set(pinned_teams.values())
+        # Teams whose game+confidence are both free (can flip to the other team)
+        modifiable_teams = [
+            team for team in neighbor.keys()
+            if team not in player_fixed and team not in pinned_team_names
+        ]
+        # Teams whose confidence is free, including team-pinned-only games
+        swappable_teams = [team for team in neighbor.keys() if team not in player_fixed]
 
-        if len(modifiable_teams) < 2:
+        if len(swappable_teams) < 2:
             return neighbor  # Can't make meaningful changes
 
-        if np.random.random() < 0.5:
+        if np.random.random() < 0.5 and len(modifiable_teams) >= 1:
             # Operation 1: Swap which team we pick in a game
             # Find a game where we picked one of the teams
             game_to_swap = None
@@ -1407,8 +1478,8 @@ class ConfidencePickEmSimulator:
                 neighbor[other_team] = confidence
         else:
             # Operation 2: Swap confidence values between two games
-            if len(modifiable_teams) >= 2:
-                team1, team2 = np.random.choice(modifiable_teams, size=2, replace=False)
+            if len(swappable_teams) >= 2:
+                team1, team2 = np.random.choice(swappable_teams, size=2, replace=False)
                 neighbor[team1], neighbor[team2] = neighbor[team2], neighbor[team1]
 
         return neighbor

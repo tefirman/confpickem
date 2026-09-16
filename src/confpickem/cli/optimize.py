@@ -690,8 +690,9 @@ Examples:
             print(f"   ... and {len(remaining_games) - 5} more")
 
         # Fixed picks
-        print(f"\n📌 Lock in any high-confidence picks?")
-        print(f"   Examples: 'SF 16, KC 15' or just press Enter to optimize all")
+        print(f"\n📌 Lock in any high-confidence picks, or just a team you want to win?")
+        print(f"   Examples: 'SF 16, KC 15, DAL' (DAL's confidence is optimized) "
+              f"or just press Enter to optimize all")
         fixed_input = input("Fixed picks: ").strip()
 
         fixed_picks = None
@@ -700,8 +701,11 @@ Examples:
             for pick in fixed_input.split(","):
                 try:
                     parts = pick.strip().split()
-                    if len(parts) >= 2:
-                        team_input, conf = parts[0].strip(), int(parts[1])
+                    if len(parts) >= 1:
+                        team_input = parts[0].strip()
+                        # A team with no number pins the team but leaves its
+                        # confidence value for the optimizer to choose.
+                        conf = int(parts[1]) if len(parts) >= 2 else None
 
                         matched_team = None
                         for team in available_teams:
@@ -711,7 +715,7 @@ Examples:
 
                         if matched_team:
                             fixed_picks[matched_team] = conf
-                            print(f"✅ {matched_team} ({conf} pts)")
+                            print(f"✅ {matched_team}" + (f" ({conf} pts)" if conf is not None else " (confidence TBD)"))
                         else:
                             print(f"❌ Team '{team_input}' not available")
                 except Exception as e:

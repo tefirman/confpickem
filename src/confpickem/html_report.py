@@ -44,10 +44,10 @@ def _build_picks_rows(
 
 
 def _build_importance_rows(
-    importance_sorted: pd.DataFrame, remaining_games: List[Dict[str, str]], limit: int = 8
+    importance_sorted: pd.DataFrame, remaining_games: List[Dict[str, str]]
 ) -> List[Dict]:
     rows = []
-    for _, row in importance_sorted.head(limit).iterrows():
+    for _, row in importance_sorted.iterrows():
         game_desc = row["game"]
         away_team, home_team = game_desc.split("@")
         is_remaining = any(
