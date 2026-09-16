@@ -61,7 +61,7 @@ confpickem --week WEEK --mode MODE [OPTIONS]
 --hc-restarts      Random restarts (default: 10)
 --hc-top-n         Top combinations for robustness analysis (default: 1000)
 --an-iterations    Analytic hill-climb steps per restart (default: 400)
---an-restarts      Analytic random restarts (default: 4)
+--an-restarts      Analytic random restarts (default: 10)
 --an-outcomes      Outcome-vector draws for the analytic P(win) (default: 6000)
 ```
 
