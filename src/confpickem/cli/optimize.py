@@ -1312,6 +1312,7 @@ Examples:
                         num_remaining_games=num_remaining,
                         total_games=len(simulator.games),
                         summary_stats=summary_stats,
+                        comparison_df=comparison_df,
                     )
                     with open(html_filename, "w") as f:
                         f.write(html_report)
