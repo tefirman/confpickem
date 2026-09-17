@@ -63,6 +63,8 @@ confpickem --week WEEK --mode MODE [OPTIONS]
 --an-iterations    Analytic hill-climb steps per restart (default: 400)
 --an-restarts      Analytic random restarts (default: 10)
 --an-outcomes      Outcome-vector draws for the analytic P(win) (default: 6000)
+--compare-slate    Score a full pick set head-to-head against the optimizer's
+                   own picks (repeatable) -- 'label:TEAM CONF,TEAM CONF,...'
 ```
 
 **Examples:**
@@ -88,6 +90,9 @@ confpickem --week 18 --mode midweek --live-odds --hill-climb \
 
 # Also write an interactive HTML report alongside the .txt report
 confpickem --week 10 --mode midweek --html
+
+# Compare a manual slate against the optimizer's own picks
+confpickem --week 10 --mode midweek --compare-slate "manual:KC 16, SF 15, MIN 14"
 ```
 
 **Which optimizer:**
@@ -130,6 +135,22 @@ your row in the standings and the `.txt`/`.html` reports -- e.g.
 `--player "Educated Guesses"`. It must match exactly one entrant; an ambiguous
 or unmatched substring is an error rather than a silent guess. Omit it and the
 report still shows everyone's standings, just without a highlighted row.
+
+**`--compare-slate`:**
+
+Score one or more full pick sets you supply against the optimizer's own picks,
+on the exact same modeled opponent field and outcome draws -- so differences
+between slates reflect the slate choice itself, not simulation noise from
+re-running the sim per slate. Repeatable; each value is
+`'label:TEAM CONF,TEAM CONF,...'` covering every game not already
+finished/kicked-off (those are filled in automatically). Reports, per slate,
+`win_probability` and `win_std` (standard deviation of P(win) across simulated
+weeks -- higher means the slate's fate swings more between a good week and a
+bad one). Two slates with similar win probability but different `win_std`
+differ in risk, not just expected value: one big-impact pick (e.g. max
+confidence on a coin-flip game) concentrates the week into a sharper
+win/lose boundary than spreading confidence across a few moderate-impact
+picks. Not available in `--mode locked` (nothing to optimize against).
 
 ---
 

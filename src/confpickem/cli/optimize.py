@@ -42,6 +42,42 @@ from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Play
 from src.confpickem.html_report import generate_html_report, generate_locked_board_html_report
 
 
+def parse_compare_slate(raw: str) -> tuple:
+    """Parse one ``--compare-slate`` value into ``(label, {TEAM: confidence})``.
+
+    Expected format: ``'label:TEAM CONF,TEAM CONF,...'``, e.g.
+    ``'manual:KC 16, SF 15, MIN 14'``. Raises ``ValueError`` with a
+    human-readable message on malformed input.
+    """
+    if ":" not in raw:
+        raise ValueError(
+            f"--compare-slate {raw!r} is missing a label -- expected "
+            f"'label:TEAM CONF,TEAM CONF,...'"
+        )
+    label, picks_str = raw.split(":", 1)
+    label = label.strip()
+    if not label:
+        raise ValueError(f"--compare-slate {raw!r} has an empty label")
+
+    picks = {}
+    for pick in picks_str.split(","):
+        parts = pick.strip().split()
+        if len(parts) != 2:
+            raise ValueError(
+                f"--compare-slate {raw!r}: could not parse pick {pick.strip()!r} "
+                f"(expected 'TEAM CONF')"
+            )
+        team, conf_str = parts
+        try:
+            picks[team] = int(conf_str)
+        except ValueError:
+            raise ValueError(
+                f"--compare-slate {raw!r}: confidence {conf_str!r} for {team!r} "
+                f"is not an integer"
+            )
+    return label, picks
+
+
 def _run_locked_mode(args, yahoo, simulator):
     """--mode locked: every entry is locked, nothing to optimize -- just score
     the board with `standings_analytic` and write the standings + game
@@ -205,6 +241,9 @@ Examples:
 
   # Old greedy optimizer, quick pass
   %(prog)s --week 10 --mode beginning --greedy --fast
+
+  # Compare a manual slate against the optimizer's own picks
+  %(prog)s --week 10 --mode midweek --compare-slate "manual:KC 16, SF 15, MIN 14"
         """,
     )
 
@@ -320,6 +359,16 @@ Examples:
         default=6000,
         help="Outcome-vector draws for the analytic P(win) estimate (default: 6000)",
     )
+    parser.add_argument(
+        "--compare-slate",
+        action="append",
+        metavar="LABEL:PICKS",
+        help="Score a full pick set head-to-head against the optimizer's own "
+        "picks on the same analytical field, e.g. "
+        '\'manual:KC 16, SF 15, MIN 14\'. Repeatable -- pass multiple times '
+        "to compare several slates at once. Reports win_probability and "
+        "win_std (how much the slate's fate swings week to week).",
+    )
 
     args = parser.parse_args()
 
@@ -360,6 +409,24 @@ Examples:
         print("❌ Error: --player is only available for --mode locked")
         print("   (beginning/midweek prompt for your player interactively)")
         return 1
+
+    if args.compare_slate and args.mode == "locked":
+        print("❌ Error: --compare-slate doesn't apply to --mode locked (nothing to optimize)")
+        return 1
+
+    parsed_compare_slates = []
+    if args.compare_slate:
+        try:
+            for raw in args.compare_slate:
+                label, picks = parse_compare_slate(raw)
+                parsed_compare_slates.append((label, picks))
+        except ValueError as e:
+            print(f"❌ Error: {e}")
+            return 1
+        labels = [label for label, _ in parsed_compare_slates]
+        if len(labels) != len(set(labels)):
+            print("❌ Error: --compare-slate labels must be unique")
+            return 1
 
     # Determine simulation count
     if args.num_sims:
@@ -1011,6 +1078,31 @@ Examples:
                 except Exception as e:
                     print(f"   ⚠️  Could not calculate: {e}")
 
+                # Compare user-supplied slates against the optimizer's own picks
+                comparison_df = None
+                if parsed_compare_slates:
+                    print(f"\n⚖️  SLATE COMPARISON:")
+                    try:
+                        slates_to_compare = {"optimized": optimal_picks}
+                        slates_to_compare.update(dict(parsed_compare_slates))
+                        comparison_df = simulator.compare_slates(
+                            player_name=selected,
+                            slates=slates_to_compare,
+                            player_data=yahoo.players if args.mode == "midweek" else None,
+                            as_of=datetime.now() if args.mode == "midweek" else None,
+                            n_outcomes=args.an_outcomes,
+                        )
+                        print(f"   {'Rank':<6} {'Label':<20} {'Win %':<10} {'Win Std'}")
+                        print(f"   {'-'*6} {'-'*20} {'-'*10} {'-'*10}")
+                        for _, row in comparison_df.iterrows():
+                            print(
+                                f"   {int(row['rank']):<6} {row['label']:<20} "
+                                f"{row['win_probability']:>6.1%}     {row['win_std']:.4f}"
+                            )
+                    except ValueError as e:
+                        print(f"   ⚠️  Could not compare slates: {e}")
+                        comparison_df = None
+
                 # Display summary statistics if available (from hill climbing)
                 if summary_stats is not None and len(summary_stats) > 0:
                     print(f"\n📊 PICK ROBUSTNESS ANALYSIS:")
@@ -1136,6 +1228,17 @@ Examples:
                     except Exception as e:
                         f.write(f"\nGame importance analysis: Could not calculate ({e})\n")
 
+                    # Write slate comparison if available
+                    if comparison_df is not None and len(comparison_df) > 0:
+                        f.write(f"\nSLATE COMPARISON:\n")
+                        f.write(f"{'Rank':<6} {'Label':<20} {'Win %':<10} {'Win Std'}\n")
+                        f.write(f"{'-'*6} {'-'*20} {'-'*10} {'-'*10}\n")
+                        for _, row in comparison_df.iterrows():
+                            f.write(
+                                f"{int(row['rank']):<6} {row['label']:<20} "
+                                f"{row['win_probability']:>6.1%}     {row['win_std']:.4f}\n"
+                            )
+
                     # Write summary statistics if available
                     if summary_stats is not None and len(summary_stats) > 0:
                         f.write(f"\nPICK ROBUSTNESS ANALYSIS:\n")
@@ -1209,6 +1312,7 @@ Examples:
                         num_remaining_games=num_remaining,
                         total_games=len(simulator.games),
                         summary_stats=summary_stats,
+                        comparison_df=comparison_df,
                     )
                     with open(html_filename, "w") as f:
                         f.write(html_report)

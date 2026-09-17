@@ -160,6 +160,33 @@ def test_robustness_section_omitted_when_no_summary_stats():
     assert "Pick Robustness" not in html
 
 
+def _comparison_df():
+    return pd.DataFrame(
+        [
+            {"label": "optimized", "win_probability": 0.42, "win_std": 0.31, "rank": 1},
+            {"label": "manual", "win_probability": 0.38, "win_std": 0.22, "rank": 2},
+        ]
+    )
+
+
+def test_comparison_section_included_when_comparison_df_present():
+    html = generate_html_report(**_base_kwargs(comparison_df=_comparison_df()))
+    assert "Slate Comparison" in html
+    assert "comparison-table" in html
+    assert '"label": "optimized"' in html
+    assert '"win_std": 0.31' in html
+
+
+def test_comparison_section_omitted_when_no_comparison_df():
+    html = generate_html_report(**_base_kwargs(comparison_df=None))
+    assert "Slate Comparison" not in html
+
+
+def test_comparison_section_omitted_when_default_not_passed():
+    html = generate_html_report(**_base_kwargs())
+    assert "Slate Comparison" not in html
+
+
 def test_rank_and_edge_values_rendered():
     html = generate_html_report(
         **_base_kwargs(
