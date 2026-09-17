@@ -111,7 +111,9 @@ The optimizer will prompt you to (`beginning`/`midweek` only -- `locked` mode
 never prompts, since there's nothing left to pick):
 1. **Select your player** - Choose which player to optimize for
 2. **Enter fixed picks** (optional) - Lock in specific picks you want to keep
-   - Format: `PHI:16,KC:15,SF:14` (TEAM:CONFIDENCE pairs, comma-separated)
+   - Format: `PHI 16, KC 15, SF 14` (`TEAM CONFIDENCE` pairs, comma-separated)
+   - Give just a team with no number (e.g. `PHI 16, KC 15, DAL`) to pin that
+     team's pick while leaving its confidence value for the optimizer to choose
    - Useful for constraining optimization or testing specific pick combinations
    - Leave blank to optimize all games freely
 

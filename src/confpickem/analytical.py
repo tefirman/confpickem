@@ -439,15 +439,17 @@ def chalk_slate(vegas_home: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 
 
 def _neighbor(pick_home: np.ndarray, points: np.ndarray,
-              free: np.ndarray, rng: np.random.Generator,
+              free: np.ndarray, pts_free: np.ndarray, rng: np.random.Generator,
               ) -> Tuple[np.ndarray, np.ndarray]:
-    """One move away, touching only ``free`` games: flip a pick, or swap two
-    confidence values (both between free games, so the permutation stays valid)."""
+    """One move away: flip a pick (only among ``free`` games, whose team is not
+    pinned), or swap two confidence values (both among ``pts_free`` games,
+    which may include team-pinned games whose confidence is still open, so the
+    permutation stays valid)."""
     ph, pts = pick_home.copy(), points.copy()
-    if rng.random() < 0.5 or len(free) < 2:
+    if (rng.random() < 0.5 or len(pts_free) < 2) and len(free) > 0:
         ph[int(rng.choice(free))] ^= True
     else:
-        a, b = rng.choice(free, size=2, replace=False)
+        a, b = rng.choice(pts_free, size=2, replace=False)
         pts[a], pts[b] = pts[b], pts[a]
     return ph, pts
 
@@ -455,11 +457,16 @@ def _neighbor(pick_home: np.ndarray, points: np.ndarray,
 def _seed_slate(vegas_home: np.ndarray, locked: np.ndarray,
                 pick_home_fixed: Optional[np.ndarray],
                 points_fixed: Optional[np.ndarray],
+                pick_only_locked: Optional[np.ndarray] = None,
                 ) -> Tuple[np.ndarray, np.ndarray]:
     """Chalk on the free games using the leftover confidence values; fixed games
-    kept exactly. Always a valid 1..n permutation."""
+    kept exactly, team-pinned-only games keep their pinned team. Always a
+    valid 1..n permutation."""
     n = len(vegas_home)
     ph, pts = chalk_slate(vegas_home)
+    if pick_only_locked is not None and pick_only_locked.any():
+        ph = ph.copy()
+        ph[pick_only_locked] = pick_home_fixed[pick_only_locked]
     if not locked.any():
         return ph, pts
     ph = ph.copy()
@@ -480,6 +487,7 @@ def optimize_slate(pwin: Callable[[np.ndarray, np.ndarray], float],
                    vegas_home: np.ndarray,
                    pick_home_fixed: Optional[np.ndarray] = None,
                    points_fixed: Optional[np.ndarray] = None,
+                   pick_only_fixed: Optional[np.ndarray] = None,
                    iterations: int = 400, restarts: int = 4,
                    rng: Optional[np.random.Generator] = None,
                    ) -> Tuple[np.ndarray, np.ndarray, float]:
@@ -487,8 +495,12 @@ def optimize_slate(pwin: Callable[[np.ndarray, np.ndarray], float],
 
     ``pick_home_fixed`` / ``points_fixed``: optional ``[n]`` arrays; where
     ``points_fixed[i] > 0`` that game's pick and confidence are held constant
-    (used to respect already-locked midweek picks). The free games always carry
-    a valid permutation of the leftover confidence values.
+    (used to respect already-locked midweek picks). ``pick_only_fixed``:
+    optional ``[n]`` boolean array marking games whose team (from
+    ``pick_home_fixed``) is pinned but whose confidence is still free to
+    optimize -- e.g. a user who wants a specific team but no preferred point
+    value. A game in both masks is treated as fully locked. The free games
+    always carry a valid permutation of the leftover confidence values.
 
     Returns ``(pick_home, points, pwin_value)`` -- ``points`` is always a
     permutation of ``1..n``.
@@ -496,13 +508,16 @@ def optimize_slate(pwin: Callable[[np.ndarray, np.ndarray], float],
     rng = rng or np.random.default_rng(51)
     n = len(vegas_home)
     locked = (points_fixed > 0) if points_fixed is not None else np.zeros(n, bool)
-    free = np.where(~locked)[0]
+    pick_only = pick_only_fixed.copy() if pick_only_fixed is not None else np.zeros(n, bool)
+    pick_only &= ~locked
+    free = np.where(~locked & ~pick_only)[0]
+    pts_free = np.where(~locked)[0]
 
-    base_ph, base_pts = _seed_slate(vegas_home, locked, pick_home_fixed, points_fixed)
+    base_ph, base_pts = _seed_slate(vegas_home, locked, pick_home_fixed, points_fixed, pick_only)
     best_ph, best_pts = base_ph.copy(), base_pts.copy()
     best_val = pwin(best_ph, best_pts)
 
-    if len(free) == 0:
+    if len(pts_free) == 0:
         # Every game is locked -- the slate is fully determined, nothing to search.
         return best_ph, best_pts, best_val
 
@@ -511,17 +526,18 @@ def optimize_slate(pwin: Callable[[np.ndarray, np.ndarray], float],
             ph, pts = base_ph.copy(), base_pts.copy()
         else:
             ph, pts = base_ph.copy(), base_pts.copy()
-            if len(free) >= 2:
+            if len(pts_free) >= 2:
                 for _ in range(int(rng.integers(2, 6))):
-                    a, b = rng.choice(free, size=2, replace=False)
+                    a, b = rng.choice(pts_free, size=2, replace=False)
                     pts[a], pts[b] = pts[b], pts[a]
-                for _ in range(int(rng.integers(0, 3))):
-                    ph[int(rng.choice(free))] ^= True
+                if len(free) > 0:
+                    for _ in range(int(rng.integers(0, 3))):
+                        ph[int(rng.choice(free))] ^= True
         val = pwin(ph, pts)
 
         no_improve = 0
         for _ in range(iterations):
-            cand_ph, cand_pts = _neighbor(ph, pts, free, rng)
+            cand_ph, cand_pts = _neighbor(ph, pts, free, pts_free, rng)
             cand_val = pwin(cand_ph, cand_pts)
             if cand_val > val + 1e-9:
                 ph, pts, val = cand_ph, cand_pts, cand_val
