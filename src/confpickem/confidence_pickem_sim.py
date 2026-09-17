@@ -846,6 +846,91 @@ class ConfidencePickEmSimulator:
         results = pd.DataFrame(rows)
         return results.sort_values('total_impact', ascending=False, key=abs)
 
+    def compare_slates(self, player_name: str,
+                       slates: Dict[str, Dict[str, int]],
+                       player_data: pd.DataFrame = None,
+                       as_of: datetime = None,
+                       n_outcomes: int = 6000, seed: int = 51,
+                       max_opponent_types: int = 16) -> pd.DataFrame:
+        """Compare full pick sets head-to-head on the same analytical field.
+
+        Each slate in ``slates`` is scored with :func:`analytical.make_pwin`'s
+        ``pwin`` against the *same* modeled opponent field and the *same*
+        outcome draws, so differences between slates reflect the slate choice
+        itself rather than simulation noise -- unlike re-running
+        :meth:`simulate_all` per slate, which draws fresh outcomes each time.
+
+        Args:
+            player_name: player the slates belong to (must be in ``self.players``).
+            slates: ``{label: {TEAM: confidence}}`` -- each value a full
+                1..N confidence assignment for the games not already frozen
+                (completed or kicked off per ``as_of``); frozen games are
+                filled in automatically from ``player_data`` and need not be
+                included.
+            player_data: ``yahoo.players`` DataFrame -- required to fill in
+                frozen-game picks/confidence and to model opponents' actual
+                picks midweek; omit for a beginning-of-week comparison.
+            as_of: optional timestamp; games kicked off at or before it count
+                as frozen (see :meth:`optimize_picks_analytic`).
+            n_outcomes: outcome-vector draws for the analytical P(win) estimate.
+            seed: RNG seed (deterministic given identical inputs).
+            max_opponent_types: midweek cap on distinct modeled opponent types.
+
+        Returns:
+            DataFrame with one row per slate label, columns ``label``,
+            ``win_probability``, ``win_std`` (standard deviation of
+            ``P(win | draw)`` across outcome draws -- higher means the slate's
+            fate swings more between a good week and a bad one) and ``rank``
+            (1 = highest ``win_probability``), sorted by ``win_probability``
+            descending. Two slates with similar ``win_probability`` but very
+            different ``win_std`` differ in *risk*, not just expected value --
+            e.g. one big-swing pick vs. several moderate ones can produce the
+            same average win probability with very different week-to-week
+            volatility. Raises ``ValueError`` if a slate leaves any non-frozen
+            game unassigned or reuses a confidence value.
+        """
+        field = self._build_analytic_field(
+            player_name, n_outcomes, seed, player_data=player_data,
+            as_of=as_of, max_opponent_types=max_opponent_types)
+        games, n = field['games'], field['n']
+        pwin, frozen, my_frozen = field['pwin'], field['frozen'], field['my_frozen']
+
+        rows = []
+        for label, picks in slates.items():
+            pick_home = np.zeros(n, dtype=bool)
+            points = np.zeros(n, dtype=int)
+
+            for i, (ph_i, pts_i) in my_frozen.items():
+                pick_home[i], points[i] = ph_i, pts_i
+
+            for i, g in enumerate(games):
+                if frozen[i]:
+                    continue
+                if g.home_team in picks:
+                    pick_home[i], points[i] = True, int(picks[g.home_team])
+                elif g.away_team in picks:
+                    pick_home[i], points[i] = False, int(picks[g.away_team])
+
+            missing = [f"{games[i].away_team}@{games[i].home_team}"
+                       for i in range(n) if not frozen[i] and points[i] == 0]
+            if missing:
+                raise ValueError(f"Slate {label!r} is missing a pick for: {', '.join(missing)}")
+            if sorted(points.tolist()) != list(range(1, n + 1)):
+                raise ValueError(
+                    f"Slate {label!r} is not a valid 1..{n} confidence "
+                    f"permutation: {sorted(points.tolist())}")
+
+            per_outcome = pwin.per_outcome(pick_home, points)  # type: ignore[attr-defined]
+            rows.append({
+                'label': label,
+                'win_probability': float(per_outcome.mean()),
+                'win_std': float(per_outcome.std()),
+            })
+
+        results = pd.DataFrame(rows).sort_values('win_probability', ascending=False)
+        results['rank'] = range(1, len(results) + 1)
+        return results.reset_index(drop=True)
+
     def standings_analytic(self, player_data: pd.DataFrame,
                            n_outcomes: int = 6000, seed: int = 51,
                            fill_missing: bool = False, player_name: str = None):
