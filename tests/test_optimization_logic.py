@@ -90,6 +90,29 @@ class TestOptimizationBasics:
         used_points = set(optimal.values())
         assert used_points == all_points
 
+    def test_optimize_respects_team_only_fixed_pick(self, basic_simulator):
+        """A confidence value of None pins the team but leaves the point value free."""
+        fixed_picks = {"Expert": {"CIN": None}}
+        optimal = basic_simulator.optimize_picks("Expert", fixed_picks, confidence_range=3)
+
+        assert "CIN" in optimal
+        assert "BAL" not in optimal
+
+        all_points = set(range(1, len(basic_simulator.games) + 1))
+        used_points = set(optimal.values())
+        assert used_points == all_points
+
+    def test_optimize_respects_mixed_locked_and_team_only_fixed_picks(self, basic_simulator):
+        fixed_picks = {"Expert": {"SF": 3, "CIN": None}}
+        optimal = basic_simulator.optimize_picks("Expert", fixed_picks, confidence_range=3)
+
+        assert optimal["SF"] == 3
+        assert "CIN" in optimal and optimal["CIN"] != 3
+        assert "BAL" not in optimal
+
+        all_points = set(range(1, len(basic_simulator.games) + 1))
+        assert set(optimal.values()) == all_points
+
 class TestOptimizationBehavior:
     """Test optimization behavior and decision-making"""
     
@@ -408,6 +431,22 @@ class TestHillClimbingOptimization:
         all_points = set(range(1, len(basic_simulator.games) + 1))
         used_points = set(optimal.values())
         assert used_points == all_points
+
+    def test_hill_climb_respects_team_only_fixed_pick(self, basic_simulator):
+        """A confidence value of None pins the team but leaves the point value free."""
+        fixed_picks = {"Expert": {"SF": 3, "CIN": None}}
+
+        with patch('builtins.print'):
+            optimal, _ = basic_simulator.optimize_picks_hill_climb(
+                "Expert", fixed_picks=fixed_picks, iterations=50, restarts=2
+            )
+
+        assert optimal["SF"] == 3
+        assert "CIN" in optimal and optimal["CIN"] != 3
+        assert "BAL" not in optimal
+
+        all_points = set(range(1, len(basic_simulator.games) + 1))
+        assert set(optimal.values()) == all_points
 
     def test_hill_climb_vs_greedy_comparison(self, basic_simulator):
         """Test that hill climbing can find solutions at least as good as greedy"""

@@ -367,6 +367,29 @@ def test_optimize_picks_analytic_respects_fixed_picks(analytic_simulator):
     assert sorted(optimal.values()) == list(range(1, n + 1))
 
 
+def test_optimize_picks_analytic_team_only_fixed_pick(analytic_simulator):
+    """A confidence value of None pins the team but leaves its point value free."""
+    optimal = analytic_simulator.optimize_picks_analytic(
+        "Me", fixed_picks={"Me": {"CIN": None}}, iterations=60, restarts=2,
+        n_outcomes=1500, seed=2,
+    )
+    assert "CIN" in optimal
+    assert "BAL" not in optimal
+    n = len(analytic_simulator.games)
+    assert sorted(optimal.values()) == list(range(1, n + 1))
+
+
+def test_optimize_picks_analytic_mixes_locked_and_team_only_fixed_picks(analytic_simulator):
+    optimal = analytic_simulator.optimize_picks_analytic(
+        "Me", fixed_picks={"Me": {"SF": 4, "CIN": None}}, iterations=60, restarts=2,
+        n_outcomes=1500, seed=2,
+    )
+    assert optimal["SF"] == 4
+    assert "CIN" in optimal and optimal["CIN"] != 4
+    n = len(analytic_simulator.games)
+    assert sorted(optimal.values()) == list(range(1, n + 1))
+
+
 def test_optimize_picks_analytic_unknown_player(analytic_simulator):
     with pytest.raises(ValueError):
         analytic_simulator.optimize_picks_analytic("Nobody")
