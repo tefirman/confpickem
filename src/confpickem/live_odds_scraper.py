@@ -4,12 +4,35 @@ Live odds scraper for NFL games using multiple sources
 Provides real-time Vegas odds and spreads
 """
 
+import logging
 import requests
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Union
 import json
 import os
+
+logger = logging.getLogger(__name__)
+
+
+def moneyline_to_implied_prob(american_odds: float) -> float:
+    """Convert American moneyline odds to (vig-included) implied win probability"""
+    if american_odds > 0:
+        return 100.0 / (american_odds + 100.0)
+    return -american_odds / (-american_odds + 100.0)
+
+
+def devig_moneyline_pair(home_odds: float, away_odds: float) -> float:
+    """
+    Convert a pair of American moneyline odds into a fair (no-vig) home win probability.
+
+    Each side's raw implied probability includes the bookmaker's margin (the "vig"),
+    so the two raw probabilities sum to slightly more than 1.0. Normalizing them to
+    sum to 1.0 removes that margin and yields the market's true probability estimate.
+    """
+    home_implied = moneyline_to_implied_prob(home_odds)
+    away_implied = moneyline_to_implied_prob(away_odds)
+    return home_implied / (home_implied + away_implied)
 
 
 class LiveOddsScraper:
@@ -40,7 +63,7 @@ class LiveOddsScraper:
             week = data.get('week', {}).get('number', 1)
             return week
         except Exception as e:
-            print(f"Warning: Could not get current week from ESPN: {e}")
+            logger.warning("Could not get current week from ESPN: %s", e)
             # Fallback to date-based estimation
             now = datetime.now()
             if now.month < 3:  # Jan-Feb, probably still current season
@@ -96,45 +119,34 @@ class LiveOddsScraper:
 
     def get_live_odds(self, week: Optional[int] = None) -> pd.DataFrame:
         """
-        Get live NFL odds for specified week
+        Get live NFL odds for specified week from The Odds API.
 
         Args:
             week: NFL week number (if None, uses current week)
 
         Returns:
-            DataFrame with columns: home_team, away_team, home_spread, total_points, home_win_prob
+            DataFrame with columns: home_team, away_team, home_spread, total_points,
+            home_win_prob. Empty if no API key is configured or no odds are available --
+            callers should fall back to Yahoo's own odds in that case rather than
+            treating an empty result as 50/50 games.
         """
         if week is None:
             week = self.get_current_week()
 
-        # First try The Odds API if we have a key
-        if self.odds_api_key:
-            print(f"🔑 Using Odds API with key: {self.odds_api_key[:8]}...")
-            odds_data = self._get_odds_from_api(week=week)
-            if not odds_data.empty:
-                print(f"✅ Retrieved live odds for {len(odds_data)} games from Odds API")
-                return odds_data
-            else:
-                print(f"⚠️ Odds API returned no games for week {week}")
+        if not self.odds_api_key:
+            logger.warning(
+                "No Odds API key provided - set ODDS_API_KEY environment variable "
+                "or pass --odds-api-key. Falling back to Yahoo odds."
+            )
+            return pd.DataFrame()
+
+        logger.debug("Using Odds API with key: %s...", self.odds_api_key[:8])
+        odds_data = self._get_odds_from_api(week=week)
+        if odds_data.empty:
+            logger.warning("Odds API returned no games for week %s; falling back to Yahoo odds", week)
         else:
-            print("❌ No Odds API key provided - set ODDS_API_KEY environment variable or pass --odds-api-key")
-            print("   Without an API key, live odds cannot be retrieved!")
-
-        # Fallback: Get ESPN schedule and scrape odds from ESPN website
-        try:
-            espn_games = self._get_espn_schedule(week)
-            odds_data = self._scrape_espn_odds_html(espn_games)
-
-            if odds_data.empty:
-                print("⚠️ No odds data available, using ESPN schedule with estimated spreads")
-                return espn_games
-
-            print(f"✅ Retrieved live odds for {len(odds_data)} games from ESPN website")
-            return odds_data
-
-        except Exception as e:
-            print(f"❌ Failed to get live odds: {e}")
-            return pd.DataFrame()  # Return empty DataFrame on failure
+            logger.info("Retrieved live odds for %d games from Odds API", len(odds_data))
+        return odds_data
 
     def _get_odds_from_api(self, week: int = 4) -> pd.DataFrame:
         """Get odds from The Odds API and filter for specified NFL week"""
@@ -142,7 +154,7 @@ class LiveOddsScraper:
             params = {
                 'apiKey': self.odds_api_key,
                 'regions': 'us',
-                'markets': 'spreads,totals',
+                'markets': 'h2h,spreads,totals',
                 'bookmakers': 'draftkings,fanduel',
                 'oddsFormat': 'american'
             }
@@ -153,13 +165,13 @@ class LiveOddsScraper:
 
             # Calculate date range for the specified NFL week
             week_start, week_end = self._get_week_date_range(week)
+            logger.debug(
+                "Odds API returned %d games; filtering for week %s (%s - %s)",
+                len(data), week, week_start.strftime('%m/%d'), week_end.strftime('%m/%d'),
+            )
 
             games_data = []
-            print(f"📊 Raw Odds API returned {len(data)} games:")
-            print(f"🗓️ Filtering for Week {week} games ({week_start.strftime('%m/%d')} - {week_end.strftime('%m/%d')}):")
-
-            filtered_count = 0
-            for i, game in enumerate(data, 1):
+            for game in data:
                 try:
                     # Parse game time and ensure it's timezone-aware
                     game_time = pd.to_datetime(game['commence_time'])
@@ -168,32 +180,21 @@ class LiveOddsScraper:
                     elif game_time.tz != week_start.tz:
                         game_time = game_time.tz_convert('UTC')
 
-                    in_week = week_start <= game_time <= week_end
+                    if not (week_start <= game_time <= week_end):
+                        continue
 
-                    status = "✅" if in_week else "❌"
-
-                    # Debug the first few games to see the actual comparison
-                    if i <= 3:
-                        print(f"   {i:2d}. {game.get('away_team', 'Unknown')} @ {game.get('home_team', 'Unknown')} ({game_time.strftime('%m/%d %H:%M')}) {status}")
-                        print(f"       Debug: game_time={game_time} | week_start={week_start} | week_end={week_end}")
-                        print(f"       Comparison: {week_start} <= {game_time} <= {week_end} = {in_week}")
-                    else:
-                        print(f"   {i:2d}. {game.get('away_team', 'Unknown')} @ {game.get('home_team', 'Unknown')} ({game_time.strftime('%m/%d %H:%M')}) {status}")
-
-                    if in_week:
-                        game_data = self._parse_odds_api_game(game)
-                        if game_data:
-                            games_data.append(game_data)
-                            filtered_count += 1
+                    game_data = self._parse_odds_api_game(game)
+                    if game_data:
+                        games_data.append(game_data)
                 except Exception as e:
-                    print(f"Warning: Failed to parse Odds API game: {e}")
+                    logger.warning("Failed to parse Odds API game: %s", e)
                     continue
 
-            print(f"🎯 Filtered to {filtered_count} games for Week {week}")
+            logger.debug("Filtered to %d games for week %s", len(games_data), week)
             return pd.DataFrame(games_data)
 
         except Exception as e:
-            print(f"Warning: Odds API failed: {e}")
+            logger.warning("Odds API request failed: %s", e)
             return pd.DataFrame()
 
     def _parse_odds_api_game(self, game: Dict) -> Optional[Dict]:
@@ -205,32 +206,53 @@ class LiveOddsScraper:
             # Get the best available odds (prefer DraftKings, fallback to FanDuel)
             spread = 0.0
             total_points = 0.0
+            home_moneyline: Optional[float] = None
+            away_moneyline: Optional[float] = None
 
             bookmakers = game.get('bookmakers', [])
             for bookmaker in bookmakers:
-                if bookmaker['key'] in ['draftkings', 'fanduel']:
-                    markets = bookmaker.get('markets', [])
+                if bookmaker['key'] not in ('draftkings', 'fanduel'):
+                    continue
+                markets = bookmaker.get('markets', [])
 
-                    for market in markets:
-                        if market['key'] == 'spreads':
-                            for outcome in market['outcomes']:
-                                if outcome['name'] == home_team:
-                                    spread = float(outcome['point'])
-                                    break
+                for market in markets:
+                    if market['key'] == 'h2h':
+                        for outcome in market['outcomes']:
+                            if outcome['name'] == home_team:
+                                home_moneyline = float(outcome['price'])
+                            elif outcome['name'] == away_team:
+                                away_moneyline = float(outcome['price'])
 
-                        elif market['key'] == 'totals':
-                            total_points = float(market['outcomes'][0]['point'])
+                    elif market['key'] == 'spreads':
+                        for outcome in market['outcomes']:
+                            if outcome['name'] == home_team:
+                                spread = float(outcome['point'])
+                                break
 
-                    if spread != 0.0:  # Found spread data, use this bookmaker
-                        break
+                    elif market['key'] == 'totals':
+                        total_points = float(market['outcomes'][0]['point'])
 
-            # Calculate win probability from spread
-            home_win_prob = min(max(-spread * 0.031 + 0.5, 0.0), 1.0)
+                # Found a bookmaker with usable data; stop looking
+                if home_moneyline is not None and away_moneyline is not None:
+                    break
+
+            # Prefer moneyline-derived probability: moneylines are the market's
+            # direct probability quote, whereas spread-to-probability requires an
+            # approximation curve that breaks down for large spreads (it either
+            # saturates at 0/1 for blowout lines or is inaccurate near a pick'em).
+            if home_moneyline is not None and away_moneyline is not None:
+                home_win_prob = devig_moneyline_pair(home_moneyline, away_moneyline)
+            else:
+                # No moneyline available from either bookmaker; fall back to the
+                # spread-based approximation so a game isn't dropped entirely.
+                home_win_prob = min(max(-spread * 0.031 + 0.5, 0.01), 0.99)
 
             return {
                 'home_team': home_team,
                 'away_team': away_team,
                 'home_spread': spread,
+                'home_moneyline': home_moneyline,
+                'away_moneyline': away_moneyline,
                 'total_points': total_points,
                 'home_win_prob': home_win_prob,
                 'kickoff_time': pd.to_datetime(game['commence_time']),
@@ -240,245 +262,7 @@ class LiveOddsScraper:
             }
 
         except Exception as e:
-            print(f"Warning: Error parsing Odds API game: {e}")
-            return None
-
-    def _get_espn_schedule(self, week: int) -> pd.DataFrame:
-        """Get ESPN schedule data without odds"""
-        try:
-            url = f"{self.espn_base_url}/scoreboard"
-            params = {'week': week}
-
-            response = self.session.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
-
-            games_data = []
-            events = data.get('events', [])
-
-            for event in events:
-                try:
-                    game_data = self._parse_espn_schedule_game(event)
-                    if game_data:
-                        games_data.append(game_data)
-                except Exception as e:
-                    print(f"Warning: Failed to parse ESPN schedule: {e}")
-                    continue
-
-            return pd.DataFrame(games_data)
-
-        except Exception as e:
-            print(f"Error getting ESPN schedule: {e}")
-            return pd.DataFrame()
-
-    def _parse_espn_schedule_game(self, event: Dict) -> Optional[Dict]:
-        """Parse ESPN schedule game (no odds, just teams and timing)"""
-        try:
-            competitions = event.get('competitions', [])
-            if not competitions:
-                return None
-
-            competition = competitions[0]
-            competitors = competition.get('competitors', [])
-
-            if len(competitors) != 2:
-                return None
-
-            # Get team info
-            home_team = None
-            away_team = None
-
-            for competitor in competitors:
-                team_name = competitor.get('team', {}).get('abbreviation', '')
-                if competitor.get('homeAway') == 'home':
-                    home_team = team_name
-                else:
-                    away_team = team_name
-
-            if not home_team or not away_team:
-                return None
-
-            # Get kickoff time
-            kickoff_time = pd.Timestamp.now()
-            date_str = event.get('date')
-            if date_str:
-                try:
-                    kickoff_time = pd.to_datetime(date_str)
-                except:
-                    pass
-
-            return {
-                'home_team': home_team,
-                'away_team': away_team,
-                'home_spread': 0.0,  # No odds from ESPN API
-                'total_points': 0.0,
-                'home_win_prob': 0.5,  # Default
-                'kickoff_time': kickoff_time,
-                'game_completed': False,
-                'winner': None,
-                'source': 'ESPN_Schedule'
-            }
-
-        except Exception as e:
-            print(f"Warning: Error parsing ESPN schedule: {e}")
-            return None
-
-    def _scrape_espn_odds_html(self, espn_games: pd.DataFrame) -> pd.DataFrame:
-        """Try to scrape odds from ESPN NFL page HTML (basic implementation)"""
-        # This is a placeholder - in practice, you'd scrape ESPN's NFL page
-        # For testing purposes, let's add some mock realistic spreads for Week 4 2024
-        print("ℹ️ HTML scraping not implemented, using mock realistic spreads for testing")
-
-        # Mock realistic Week 4 2024 spreads (based on what the actual lines were)
-        mock_spreads = {
-            ('SEA', 'ARI'): ('SEA', 1.0),    # SEA -1 @ ARI
-            ('MIN', 'PIT'): ('MIN', 2.5),    # MIN -2.5 @ PIT
-            ('WSH', 'ATL'): ('ATL', 1.0),    # ATL -1 vs WSH
-            ('NO', 'BUF'): ('BUF', 7.5),     # BUF -7.5 vs NO
-            ('CLE', 'DET'): ('DET', 6.0),    # DET -6 vs CLE
-            ('CAR', 'NE'): ('NE', 1.0),      # NE -1 vs CAR
-            ('LAC', 'NYG'): ('LAC', 6.5),    # LAC -6.5 vs NYG (This was the actual line!)
-            ('PHI', 'TB'): ('PHI', 2.5),     # PHI -2.5 vs TB
-            ('TEN', 'HOU'): ('HOU', 3.0),    # HOU -3 vs TEN
-            ('IND', 'LAR'): ('LAR', 3.5),    # LAR -3.5 vs IND
-            ('JAX', 'SF'): ('SF', 7.0),      # SF -7 vs JAX
-            ('BAL', 'KC'): ('KC', 2.5),      # KC -2.5 vs BAL
-            ('CHI', 'LV'): ('CHI', 1.5),     # CHI -1.5 @ LV
-            ('GB', 'DAL'): ('GB', 3.0),      # GB -3 @ DAL
-            ('NYJ', 'MIA'): ('MIA', 1.0),    # MIA -1 vs NYJ
-            ('CIN', 'DEN'): ('CIN', 1.5),    # CIN -1.5 @ DEN
-        }
-
-        mock_games = []
-        for _, game in espn_games.iterrows():
-            home_team = game['home_team']
-            away_team = game['away_team']
-            game_key = (away_team, home_team)
-
-            if game_key in mock_spreads:
-                favorite, spread = mock_spreads[game_key]
-
-                # Calculate home spread (negative if home favored, positive if away favored)
-                if favorite == home_team:
-                    home_spread = -spread  # Home team favored
-                    home_win_prob = min(max(spread * 0.031 + 0.5, 0.1), 0.9)
-                else:
-                    home_spread = spread   # Away team favored
-                    home_win_prob = min(max(-spread * 0.031 + 0.5, 0.1), 0.9)
-
-                mock_games.append({
-                    'home_team': home_team,
-                    'away_team': away_team,
-                    'home_spread': home_spread,
-                    'total_points': 45.0,  # Mock total
-                    'home_win_prob': home_win_prob,
-                    'kickoff_time': game['kickoff_time'],
-                    'game_completed': False,
-                    'winner': None,
-                    'source': 'MockRealistic'
-                })
-
-        if mock_games:
-            print(f"✅ Generated {len(mock_games)} mock realistic spreads for testing")
-            return pd.DataFrame(mock_games)
-
-        return pd.DataFrame()  # Return empty if no mock data
-
-    def _parse_espn_game(self, event: Dict) -> Optional[Dict]:
-        """Parse individual game data from ESPN API response"""
-        try:
-            competitions = event.get('competitions', [])
-            if not competitions:
-                return None
-
-            competition = competitions[0]
-            competitors = competition.get('competitors', [])
-
-            if len(competitors) != 2:
-                return None
-
-            # Get team info
-            home_team = None
-            away_team = None
-
-            for competitor in competitors:
-                team_name = competitor.get('team', {}).get('abbreviation', '')
-                if competitor.get('homeAway') == 'home':
-                    home_team = team_name
-                else:
-                    away_team = team_name
-
-            if not home_team or not away_team:
-                return None
-
-            # Get odds data
-            odds = competition.get('odds', [])
-            spread = 0.0
-            total_points = 0.0
-            home_win_prob = 0.5
-
-            if odds:
-                # ESPN provides odds data here
-                odds_data = odds[0]  # Take first odds provider
-
-                # Get spread (negative means home team favored)
-                spread = float(odds_data.get('spread', 0.0))
-
-                # Get total points
-                total_points = float(odds_data.get('overUnder', 0.0))
-
-                # Calculate win probability from spread
-                # Using same formula as existing code: spread * 0.031 + 0.5
-                # But adjusting for home team perspective
-                home_win_prob = min(max(-spread * 0.031 + 0.5, 0.0), 1.0)
-
-            # Get game status and outcome if completed
-            status = competition.get('status', {})
-            game_completed = status.get('type', {}).get('completed', False)
-            winner = None
-
-            if game_completed:
-                # Determine winner from score
-                home_score = 0
-                away_score = 0
-
-                for competitor in competitors:
-                    score = int(competitor.get('score', 0))
-                    if competitor.get('homeAway') == 'home':
-                        home_score = score
-                    else:
-                        away_score = score
-
-                if home_score > away_score:
-                    winner = home_team
-                elif away_score > home_score:
-                    winner = away_team
-
-            # Get kickoff time
-            kickoff_time = pd.Timestamp.now()
-            date_str = event.get('date')
-            if date_str:
-                try:
-                    kickoff_time = pd.to_datetime(date_str)
-                except:
-                    pass
-
-            return {
-                'home_team': home_team,
-                'away_team': away_team,
-                'home_spread': spread,  # Negative means home favored
-                'total_points': total_points,
-                'home_win_prob': home_win_prob,
-                'kickoff_time': kickoff_time,
-                'game_completed': game_completed,
-                'winner': winner,
-                'home_score': home_score if game_completed else None,
-                'away_score': away_score if game_completed else None,
-                'source': 'ESPN_API'
-            }
-
-        except Exception as e:
-            print(f"Warning: Error parsing ESPN game data: {e}")
+            logger.warning("Error parsing Odds API game: %s", e)
             return None
 
     def update_yahoo_odds(self, yahoo_games: pd.DataFrame, live_odds: Optional[pd.DataFrame] = None) -> pd.DataFrame:
@@ -492,11 +276,11 @@ class LiveOddsScraper:
         Returns:
             Updated DataFrame with live odds where available, Yahoo odds as fallback
         """
-        if live_odds is None or live_odds.empty:
+        if live_odds is None:
             live_odds = self.get_live_odds()
 
         if live_odds.empty:
-            print("⚠️ No live odds available, keeping Yahoo odds")
+            logger.info("No live odds available, keeping Yahoo odds")
             fallback = yahoo_games.copy()
             fallback['live_odds_source'] = 'Yahoo_Fallback'
             return fallback
@@ -531,24 +315,6 @@ class LiveOddsScraper:
 
         updated_games = yahoo_games.copy()
         matches_found = 0
-
-        print(f"\n🔍 DEBUGGING TEAM NAME MATCHING:")
-        print(f"Yahoo games ({len(yahoo_games)}):")
-        for i, (_, yahoo_game) in enumerate(yahoo_games.iterrows(), 1):
-            # Determine actual home/away based on home_favorite flag
-            if yahoo_game.get('home_favorite', True):
-                # Favorite is home
-                matchup = f"{yahoo_game['underdog']} @ {yahoo_game['favorite']}"
-            else:
-                # Favorite is away (underdog is home)
-                matchup = f"{yahoo_game['favorite']} @ {yahoo_game['underdog']}"
-            print(f"   {i:2d}. {matchup}")
-
-        print(f"\nLive odds games ({len(live_odds)}):")
-        for i, (_, live_game) in enumerate(live_odds.iterrows(), 1):
-            live_home = normalize_team_name(live_game['home_team'])
-            live_away = normalize_team_name(live_game['away_team'])
-            print(f"   {i:2d}. {live_game['away_team']} @ {live_game['home_team']} -> {live_away} @ {live_home}")
 
         for idx, yahoo_game in updated_games.iterrows():
             # Get Yahoo teams (keep original format)
@@ -623,11 +389,32 @@ class LiveOddsScraper:
                     updated_games.at[idx, 'total_points'] = live_game.get('total_points', 0.0)
                     updated_games.at[idx, 'last_updated'] = datetime.now()
 
+                    # live_game's home/away moneylines are in the *live data's* home-team
+                    # frame. live_home == yahoo_home_team tells us that frame lines up with
+                    # Yahoo's (rather than being flipped); home_is_betting_favorite tells us
+                    # whether Yahoo's home team is the betting favorite. Together they say
+                    # whether live_game's home_moneyline belongs to the favorite or underdog.
+                    home_moneyline = live_game.get('home_moneyline')
+                    away_moneyline = live_game.get('away_moneyline')
+                    if pd.notna(home_moneyline) and pd.notna(away_moneyline):
+                        live_home_is_favorite = (
+                            home_is_betting_favorite if live_home == yahoo_home_team
+                            else not home_is_betting_favorite
+                        )
+                        if live_home_is_favorite:
+                            updated_games.at[idx, 'favorite_moneyline'] = home_moneyline
+                            updated_games.at[idx, 'underdog_moneyline'] = away_moneyline
+                        else:
+                            updated_games.at[idx, 'favorite_moneyline'] = away_moneyline
+                            updated_games.at[idx, 'underdog_moneyline'] = home_moneyline
+
                     matches_found += 1
-                    print(f"🔴 Matched: {yahoo_away_team} @ {yahoo_home_team} → Live spread: {spread_magnitude}")
+                    logger.debug(
+                        "Matched %s @ %s -> live spread %s", yahoo_away_team, yahoo_home_team, spread_magnitude
+                    )
                     break
 
-        print(f"✅ Updated {matches_found}/{len(yahoo_games)} games with live odds")
+        logger.info("Updated %d/%d games with live odds", matches_found, len(yahoo_games))
 
         # Add metadata for games without live odds
         for idx, game in updated_games.iterrows():
