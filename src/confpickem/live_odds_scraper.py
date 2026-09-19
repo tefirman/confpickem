@@ -74,8 +74,27 @@ class LiveOddsScraper:
             weeks_since_start = (now - season_start).days // 7
             return min(max(1, weeks_since_start), 18)
 
-    def _get_week_date_range(self, week: int) -> Tuple[pd.Timestamp, pd.Timestamp]:
-        """Get date range for a given NFL week"""
+    def _get_week_date_range(
+        self, week: int, yahoo_games: Optional[pd.DataFrame] = None
+    ) -> Tuple[pd.Timestamp, pd.Timestamp]:
+        """
+        Get date range for a given NFL week.
+
+        Prefers deriving the range from yahoo_games['kickoff_time'] (the real
+        schedule for this week) when available, padded by a day on each side to
+        tolerate timezone edges and odds being posted before Yahoo's kickoff
+        times settle. Falls back to a hardcoded per-season calendar only when
+        Yahoo's kickoff times aren't available -- that calendar assumes a fixed
+        Thursday-Sep-5 season start and drifts in years where the season starts
+        on a different date.
+        """
+        if yahoo_games is not None and "kickoff_time" in yahoo_games.columns and len(yahoo_games):
+            kickoff_times = pd.to_datetime(yahoo_games["kickoff_time"], utc=True)
+            return (
+                kickoff_times.min() - pd.Timedelta(days=1),
+                kickoff_times.max() + pd.Timedelta(days=1),
+            )
+
         # Determine current NFL season year based on current date
         now = datetime.now()
         if now.month >= 9:  # September or later = current year season
@@ -117,12 +136,17 @@ class LiveOddsScraper:
 
         return week_start, week_end
 
-    def get_live_odds(self, week: Optional[int] = None) -> pd.DataFrame:
+    def get_live_odds(
+        self, week: Optional[int] = None, yahoo_games: Optional[pd.DataFrame] = None
+    ) -> pd.DataFrame:
         """
         Get live NFL odds for specified week from The Odds API.
 
         Args:
             week: NFL week number (if None, uses current week)
+            yahoo_games: Yahoo's games DataFrame for this week, if available. Its
+                kickoff_time column is used to pin down the real date range for the
+                week instead of a hardcoded per-season calendar.
 
         Returns:
             DataFrame with columns: home_team, away_team, home_spread, total_points,
@@ -141,14 +165,16 @@ class LiveOddsScraper:
             return pd.DataFrame()
 
         logger.debug("Using Odds API with key: %s...", self.odds_api_key[:8])
-        odds_data = self._get_odds_from_api(week=week)
+        odds_data = self._get_odds_from_api(week=week, yahoo_games=yahoo_games)
         if odds_data.empty:
             logger.warning("Odds API returned no games for week %s; falling back to Yahoo odds", week)
         else:
             logger.info("Retrieved live odds for %d games from Odds API", len(odds_data))
         return odds_data
 
-    def _get_odds_from_api(self, week: int = 4) -> pd.DataFrame:
+    def _get_odds_from_api(
+        self, week: int = 4, yahoo_games: Optional[pd.DataFrame] = None
+    ) -> pd.DataFrame:
         """Get odds from The Odds API and filter for specified NFL week"""
         try:
             params = {
@@ -164,7 +190,7 @@ class LiveOddsScraper:
             data = response.json()
 
             # Calculate date range for the specified NFL week
-            week_start, week_end = self._get_week_date_range(week)
+            week_start, week_end = self._get_week_date_range(week, yahoo_games=yahoo_games)
             logger.debug(
                 "Odds API returned %d games; filtering for week %s (%s - %s)",
                 len(data), week, week_start.strftime('%m/%d'), week_end.strftime('%m/%d'),
@@ -277,7 +303,7 @@ class LiveOddsScraper:
             Updated DataFrame with live odds where available, Yahoo odds as fallback
         """
         if live_odds is None:
-            live_odds = self.get_live_odds()
+            live_odds = self.get_live_odds(yahoo_games=yahoo_games)
 
         if live_odds.empty:
             logger.info("No live odds available, keeping Yahoo odds")
@@ -453,4 +479,5 @@ def update_odds_with_live_data(yahoo_games: pd.DataFrame, week: Optional[int] = 
         Updated DataFrame with live odds
     """
     scraper = LiveOddsScraper(odds_api_key=odds_api_key)
-    return scraper.update_yahoo_odds(yahoo_games, scraper.get_live_odds(week))
+    live_odds = scraper.get_live_odds(week, yahoo_games=yahoo_games)
+    return scraper.update_yahoo_odds(yahoo_games, live_odds)
