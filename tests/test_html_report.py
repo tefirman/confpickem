@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """Tests for src.confpickem.html_report"""
 
+import json
+
 import pandas as pd
 
 from src.confpickem.html_report import generate_html_report, generate_locked_board_html_report
@@ -154,8 +156,6 @@ def test_picks_matchup_details_missing_for_locked_games():
     html = generate_html_report(**_base_kwargs(remaining_games=[]))
     data_start = html.index("var DATA = ") + len("var DATA = ")
     data_json = html[data_start : html.index(";\n", data_start)]
-    import json
-
     data = json.loads(data_json)
     for pick in data["picks"]:
         assert pick["locked"] is True
@@ -251,6 +251,55 @@ def test_rank_and_edge_values_rendered():
     assert "#2" in html
     assert "33.8%" in html
     assert "18.1%" in html
+
+
+def _large_field_win_probs(your_index=48, size=50):
+    return [
+        {
+            "player": f"Player{i+1}",
+            "win_pct": 0.9 - i * 0.01,
+            "total_expected": 150 - i,
+            "current_pts": 60,
+            "is_you": i == your_index,
+        }
+        for i in range(size)
+    ]
+
+
+def test_rank_denominator_uses_full_field_not_displayed_rows():
+    """Current Rank's "/ N" must count every entrant, not just the displayed top 25."""
+    html = generate_html_report(
+        **_base_kwargs(
+            mode="midweek",
+            current_standings={f"Player{i+1}": 60 for i in range(50)},
+            all_win_probs=_large_field_win_probs(),
+            your_rank=49,
+            your_points=62,
+        )
+    )
+    assert "#49" in html
+    idx = html.index("Current Rank")
+    assert "/ 50" in html[idx : idx + 200]
+    assert "/ 25" not in html[idx : idx + 200]
+
+
+def test_standings_table_includes_your_row_when_outside_top_25():
+    html = generate_html_report(
+        **_base_kwargs(
+            mode="midweek",
+            current_standings={f"Player{i+1}": 60 for i in range(50)},
+            all_win_probs=_large_field_win_probs(),
+            your_rank=49,
+            your_points=62,
+        )
+    )
+    data_start = html.index("var DATA = ") + len("var DATA = ")
+    data_json = html[data_start : html.index(";\n", data_start)]
+    data = json.loads(data_json)
+    assert len(data["standings"]) == 26
+    assert data["standings"][-1]["name"] == "Player49"
+    assert data["standings"][-1]["rank"] == 49
+    assert data["standings"][-1]["you"] is True
 
 
 # ---------------------------------------------------------------------------

@@ -104,26 +104,33 @@ def _build_importance_rows(
     return rows
 
 
+def _standings_row(i: int, p: Dict, has_standings: bool) -> Dict:
+    total_exp = p["total_expected"]
+    current_pts = p["current_pts"]
+    return {
+        "rank": i,
+        "name": p["player"],
+        "win_pct": float(p["win_pct"]),
+        "total": float(total_exp),
+        "current": float(current_pts) if has_standings else None,
+        "remaining": float(total_exp - current_pts) if has_standings else None,
+        "you": bool(p["is_you"]),
+    }
+
+
 def _build_standings_rows(
     all_win_probs: List[Dict],
     has_standings: bool,
     limit: int = 25,
 ) -> List[Dict]:
-    rows = []
-    for i, p in enumerate(all_win_probs[:limit], 1):
-        total_exp = p["total_expected"]
-        current_pts = p["current_pts"]
-        rows.append(
-            {
-                "rank": i,
-                "name": p["player"],
-                "win_pct": float(p["win_pct"]),
-                "total": float(total_exp),
-                "current": float(current_pts) if has_standings else None,
-                "remaining": float(total_exp - current_pts) if has_standings else None,
-                "you": bool(p["is_you"]),
-            }
-        )
+    """Top-`limit` rows by win %, plus your own row if it fell outside that cut."""
+    rows = [
+        _standings_row(i, p, has_standings) for i, p in enumerate(all_win_probs[:limit], 1)
+    ]
+    if not any(r["you"] for r in rows):
+        your_index = next((i for i, p in enumerate(all_win_probs) if p["is_you"]), None)
+        if your_index is not None:
+            rows.append(_standings_row(your_index + 1, all_win_probs[your_index], has_standings))
     return rows
 
 
@@ -231,8 +238,9 @@ def generate_html_report(
         if has_standings and your_points is not None
         else f"confidence 1&ndash;{num_remaining_games} still in play"
     )
+    total_entrants = len(all_win_probs)
     rank_value = f"#{your_rank}" if your_rank is not None else "&mdash;"
-    rank_sub = f"of {len(standings_rows)} tracked" if standings_rows else "no league standings"
+    rank_sub = f"of {total_entrants} tracked" if total_entrants else "no league standings"
 
     robustness_section = ""
     if robustness_rows:
@@ -682,6 +690,7 @@ def generate_html_report(
   table.standings tbody tr:hover{{ background:var(--surface-2); }}
   table.standings tbody tr.you{{ background:var(--accent-soft); }}
   table.standings tbody tr.you td{{ font-weight:600; }}
+  table.standings tbody tr.gap-before td{{ border-top:2px dashed var(--line-strong); }}
   .rank-badge{{
     display:inline-flex;
     align-items:center;
@@ -763,7 +772,7 @@ def generate_html_report(
     </div>
     <div class="stat">
       <span class="stat-label">Current Rank</span>
-      <span class="stat-value">{rank_value}<span style="font-size:15px;color:var(--ink-faint);"> / {len(standings_rows)}</span></span>
+      <span class="stat-value">{rank_value}<span style="font-size:15px;color:var(--ink-faint);"> / {total_entrants}</span></span>
       <span class="stat-sub">{summary_note}</span>
     </div>
     <div class="stat">
@@ -981,9 +990,12 @@ def generate_html_report(
     tr0.appendChild(td0);
     tbody.appendChild(tr0);
   }}
-  DATA.standings.forEach(function(s){{
+  DATA.standings.forEach(function(s, idx){{
     var tr = document.createElement('tr');
-    if(s.you) tr.className = 'you';
+    var rowClasses = [];
+    if(s.you) rowClasses.push('you');
+    if(idx > 0 && s.rank !== DATA.standings[idx-1].rank + 1) rowClasses.push('gap-before');
+    tr.className = rowClasses.join(' ');
 
     var tdRank = document.createElement('td');
     var badge = document.createElement('span');
