@@ -113,6 +113,58 @@ def test_player_name_is_escaped():
     assert "&lt;script&gt;" in html
 
 
+def test_picks_include_matchup_details_from_picked_teams_perspective():
+    html = generate_html_report(
+        **_base_kwargs(
+            remaining_games=[
+                {
+                    "home": "SF",
+                    "away": "ARI",
+                    "spread": -6.5,
+                    "favorite": "SF",
+                    "home_win_prob": 0.78,
+                    "home_pick_pct": 0.82,
+                    "kickoff_time": pd.Timestamp("2026-09-20 13:00:00"),
+                },
+                {
+                    "home": "NO",
+                    "away": "KC",
+                    "spread": -3.0,
+                    "favorite": "KC",
+                    "home_win_prob": 0.41,
+                    "home_pick_pct": 0.35,
+                    "kickoff_time": pd.Timestamp("2026-09-21 20:20:00"),
+                },
+            ]
+        )
+    )
+    # SF is home and the favorite: spread/win/crowd stay as-is.
+    assert '"spread": -6.5' in html
+    assert '"winProb": 0.78' in html
+    assert '"crowdPct": 0.82' in html
+    assert '"kickoff": "Sun 1:00 PM"' in html
+    # KC is away and the favorite: spread stays negative, win/crowd flip to KC's perspective.
+    assert '"spread": -3.0' in html
+    assert '"winProb": 0.59' in html
+    assert '"crowdPct": 0.65' in html
+    assert '"kickoff": "Mon 8:20 PM"' in html
+
+
+def test_picks_matchup_details_missing_for_locked_games():
+    html = generate_html_report(**_base_kwargs(remaining_games=[]))
+    data_start = html.index("var DATA = ") + len("var DATA = ")
+    data_json = html[data_start : html.index(";\n", data_start)]
+    import json
+
+    data = json.loads(data_json)
+    for pick in data["picks"]:
+        assert pick["locked"] is True
+        assert pick["spread"] is None
+        assert pick["winProb"] is None
+        assert pick["crowdPct"] is None
+        assert pick["kickoff"] is None
+
+
 def test_importance_rows_include_win_and_loss_probability():
     html = generate_html_report(
         **_base_kwargs(

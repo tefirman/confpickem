@@ -18,6 +18,16 @@ def _esc(value) -> str:
     return html.escape(str(value), quote=True)
 
 
+def _format_kickoff(kickoff_time) -> Optional[str]:
+    if kickoff_time is None or pd.isna(kickoff_time):
+        return None
+    try:
+        return kickoff_time.strftime("%a %-I:%M %p")
+    except ValueError:
+        # Some platforms (e.g. Windows) don't support "-" as a no-pad flag.
+        return kickoff_time.strftime("%a %I:%M %p").replace(" 0", " ")
+
+
 def _build_picks_rows(
     sorted_picks: List[tuple],
     remaining_games: List[Dict[str, str]],
@@ -27,19 +37,46 @@ def _build_picks_rows(
     for team, conf in sorted_picks:
         opponent = "Unknown"
         is_remaining = False
+        matchup = None
         for game in remaining_games:
             if team in (game["home"], game["away"]):
                 opponent = game["away"] if team == game["home"] else game["home"]
                 is_remaining = True
+                matchup = game
                 break
-        rows.append(
-            {
-                "conf": int(conf),
-                "team": team,
-                "opp": opponent,
-                "locked": not is_remaining,
-            }
-        )
+
+        row = {
+            "conf": int(conf),
+            "team": team,
+            "opp": opponent,
+            "locked": not is_remaining,
+            "spread": None,
+            "winProb": None,
+            "crowdPct": None,
+            "kickoff": None,
+        }
+
+        if matchup is not None:
+            is_home = team == matchup["home"]
+            home_win_prob = matchup.get("home_win_prob")
+            home_pick_pct = matchup.get("home_pick_pct")
+            spread = matchup.get("spread")
+            favorite = matchup.get("favorite")
+
+            if spread is not None and favorite is not None:
+                # `spread` is stored relative to the favorite (positive = favorite's
+                # margin). Flip the sign when the picked team is the underdog.
+                row["spread"] = spread if team == favorite else -spread
+
+            if home_win_prob is not None:
+                row["winProb"] = home_win_prob if is_home else 1 - home_win_prob
+
+            if home_pick_pct is not None:
+                row["crowdPct"] = home_pick_pct if is_home else 1 - home_pick_pct
+
+            row["kickoff"] = _format_kickoff(matchup.get("kickoff_time"))
+
+        rows.append(row)
     return rows
 
 
@@ -472,7 +509,7 @@ def generate_html_report(
   .ticket{{ list-style:none; margin:0; padding:0; }}
   .ticket-row{{
     display:grid;
-    grid-template-columns:44px 1fr auto auto;
+    grid-template-columns:44px 1fr auto auto auto;
     align-items:center;
     gap:12px;
     padding:9px 18px;
@@ -503,6 +540,21 @@ def generate_html_report(
   .matchup{{ display:flex; flex-direction:column; gap:1px; min-width:0; }}
   .pick-team{{ font-weight:600; font-size:14.5px; }}
   .vs-opp{{ font-size:12px; color:var(--ink-faint); }}
+  .pick-meta{{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:2px;
+    padding-right:2px;
+  }}
+  .pick-meta-item{{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    font-variant-numeric:tabular-nums;
+    white-space:nowrap;
+  }}
+  .pick-meta-label{{ color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.03em; }}
   .status-pill{{
     font-family:"IBM Plex Mono", monospace;
     font-size:10.5px;
@@ -797,6 +849,37 @@ def generate_html_report(
     vs.textContent = 'vs ' + p.opp;
     matchup.appendChild(team);
     matchup.appendChild(vs);
+    if(p.kickoff){{
+      var kickoffEl = document.createElement('span');
+      kickoffEl.className = 'vs-opp';
+      kickoffEl.textContent = p.kickoff;
+      matchup.appendChild(kickoffEl);
+    }}
+
+    var meta = document.createElement('span');
+    meta.className = 'pick-meta';
+    if(p.spread !== null){{
+      var spreadSign = p.spread > 0 ? '+' : '';
+      var spreadEl = document.createElement('span');
+      spreadEl.className = 'pick-meta-item';
+      spreadEl.innerHTML = '<span class="pick-meta-label">Spread</span> '
+        + spreadSign + p.spread.toFixed(1);
+      meta.appendChild(spreadEl);
+    }}
+    if(p.winProb !== null){{
+      var winEl = document.createElement('span');
+      winEl.className = 'pick-meta-item';
+      winEl.innerHTML = '<span class="pick-meta-label">Win</span> '
+        + Math.round(p.winProb*100) + '%';
+      meta.appendChild(winEl);
+    }}
+    if(p.crowdPct !== null){{
+      var crowdEl = document.createElement('span');
+      crowdEl.className = 'pick-meta-item';
+      crowdEl.innerHTML = '<span class="pick-meta-label">Crowd</span> '
+        + Math.round(p.crowdPct*100) + '%';
+      meta.appendChild(crowdEl);
+    }}
 
     var pill = document.createElement('span');
     pill.className = 'status-pill ' + (p.locked ? 'locked' : 'upcoming');
@@ -804,7 +887,7 @@ def generate_html_report(
 
     li.appendChild(chip);
     li.appendChild(matchup);
-    li.appendChild(document.createElement('span'));
+    li.appendChild(meta);
     li.appendChild(pill);
     ticket.appendChild(li);
   }});

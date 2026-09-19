@@ -746,7 +746,18 @@ Examples:
             if game_sim.actual_outcome is None:
                 available_teams.add(game_sim.home_team)
                 available_teams.add(game_sim.away_team)
-                remaining_games.append({"home": game_sim.home_team, "away": game_sim.away_team})
+                game_row = enhanced_games.iloc[i]
+                remaining_games.append(
+                    {
+                        "home": game_sim.home_team,
+                        "away": game_sim.away_team,
+                        "spread": float(game_row.get("spread", 0.0)),
+                        "favorite": game_row.get("favorite"),
+                        "home_win_prob": float(game_sim.vegas_win_prob),
+                        "home_pick_pct": float(game_sim.crowd_home_pick_pct),
+                        "kickoff_time": game_sim.kickoff_time,
+                    }
+                )
 
         available_teams = sorted(list(available_teams))
 
