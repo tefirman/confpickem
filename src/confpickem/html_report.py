@@ -21,6 +21,12 @@ def _esc(value) -> str:
 def _format_kickoff(kickoff_time) -> Optional[str]:
     if kickoff_time is None or pd.isna(kickoff_time):
         return None
+    if kickoff_time.tzinfo is not None:
+        # Sources store kickoff times in whatever zone they scraped it in
+        # (Yahoo: Eastern, Odds API: UTC) -- convert to the machine's local
+        # zone so displayed times match what the user actually sees on TV.
+        local_tz = datetime.now().astimezone().tzinfo
+        kickoff_time = kickoff_time.tz_convert(local_tz)
     try:
         return kickoff_time.strftime("%a %-I:%M %p")
     except ValueError:
