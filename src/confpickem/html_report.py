@@ -73,9 +73,11 @@ def _build_picks_rows(
             favorite = matchup.get("favorite")
 
             if spread is not None and favorite is not None:
-                # `spread` is stored relative to the favorite (positive = favorite's
-                # margin). Flip the sign when the picked team is the underdog.
-                row["spread"] = spread if team == favorite else -spread
+                # `spread` is stored as a positive number representing the favorite's
+                # margin (see win_prob = spread * 0.031 + 0.5 in the scraper). Standard
+                # spread notation shows the favorite as negative, so flip the sign for
+                # the favorite and keep it positive for the underdog.
+                row["spread"] = -spread if team == favorite else spread
 
             if home_win_prob is not None:
                 row["winProb"] = home_win_prob if is_home else 1 - home_win_prob
