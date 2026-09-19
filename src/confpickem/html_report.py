@@ -18,28 +18,76 @@ def _esc(value) -> str:
     return html.escape(str(value), quote=True)
 
 
+def _format_kickoff(kickoff_time) -> Optional[str]:
+    if kickoff_time is None or pd.isna(kickoff_time):
+        return None
+    try:
+        return kickoff_time.strftime("%a %-I:%M %p")
+    except ValueError:
+        # Some platforms (e.g. Windows) don't support "-" as a no-pad flag.
+        return kickoff_time.strftime("%a %I:%M %p").replace(" 0", " ")
+
+
 def _build_picks_rows(
     sorted_picks: List[tuple],
     remaining_games: List[Dict[str, str]],
+    all_games: Optional[List[Dict[str, str]]] = None,
 ) -> List[Dict]:
-    """Map (team, confidence) pairs to the same fields the CLI prints per pick."""
+    """Map (team, confidence) pairs to the same fields the CLI prints per pick.
+
+    Locked status comes from `remaining_games` (games not yet played); matchup
+    details (spread/win%/crowd%/kickoff) are looked up from `all_games` so
+    they're shown for locked picks too. `all_games` falls back to
+    `remaining_games` for callers that don't distinguish the two.
+    """
+    all_games = all_games if all_games is not None else remaining_games
     rows = []
     for team, conf in sorted_picks:
         opponent = "Unknown"
-        is_remaining = False
-        for game in remaining_games:
+        is_remaining = any(team in (g["home"], g["away"]) for g in remaining_games)
+        matchup = None
+        for game in all_games:
             if team in (game["home"], game["away"]):
                 opponent = game["away"] if team == game["home"] else game["home"]
-                is_remaining = True
+                matchup = game
                 break
-        rows.append(
-            {
-                "conf": int(conf),
-                "team": team,
-                "opp": opponent,
-                "locked": not is_remaining,
-            }
-        )
+
+        row = {
+            "conf": int(conf),
+            "team": team,
+            "opp": opponent,
+            "locked": not is_remaining,
+            "isHome": None,
+            "spread": None,
+            "winProb": None,
+            "crowdPct": None,
+            "kickoff": None,
+        }
+
+        if matchup is not None:
+            is_home = team == matchup["home"]
+            row["isHome"] = is_home
+            home_win_prob = matchup.get("home_win_prob")
+            home_pick_pct = matchup.get("home_pick_pct")
+            spread = matchup.get("spread")
+            favorite = matchup.get("favorite")
+
+            if spread is not None and favorite is not None:
+                # `spread` is stored as a positive number representing the favorite's
+                # margin (see win_prob = spread * 0.031 + 0.5 in the scraper). Standard
+                # spread notation shows the favorite as negative, so flip the sign for
+                # the favorite and keep it positive for the underdog.
+                row["spread"] = -spread if team == favorite else spread
+
+            if home_win_prob is not None:
+                row["winProb"] = home_win_prob if is_home else 1 - home_win_prob
+
+            if home_pick_pct is not None:
+                row["crowdPct"] = home_pick_pct if is_home else 1 - home_pick_pct
+
+            row["kickoff"] = _format_kickoff(matchup.get("kickoff_time"))
+
+        rows.append(row)
     return rows
 
 
@@ -67,26 +115,33 @@ def _build_importance_rows(
     return rows
 
 
+def _standings_row(i: int, p: Dict, has_standings: bool) -> Dict:
+    total_exp = p["total_expected"]
+    current_pts = p["current_pts"]
+    return {
+        "rank": i,
+        "name": p["player"],
+        "win_pct": float(p["win_pct"]),
+        "total": float(total_exp),
+        "current": float(current_pts) if has_standings else None,
+        "remaining": float(total_exp - current_pts) if has_standings else None,
+        "you": bool(p["is_you"]),
+    }
+
+
 def _build_standings_rows(
     all_win_probs: List[Dict],
     has_standings: bool,
     limit: int = 25,
 ) -> List[Dict]:
-    rows = []
-    for i, p in enumerate(all_win_probs[:limit], 1):
-        total_exp = p["total_expected"]
-        current_pts = p["current_pts"]
-        rows.append(
-            {
-                "rank": i,
-                "name": p["player"],
-                "win_pct": float(p["win_pct"]),
-                "total": float(total_exp),
-                "current": float(current_pts) if has_standings else None,
-                "remaining": float(total_exp - current_pts) if has_standings else None,
-                "you": bool(p["is_you"]),
-            }
-        )
+    """Top-`limit` rows by win %, plus your own row if it fell outside that cut."""
+    rows = [
+        _standings_row(i, p, has_standings) for i, p in enumerate(all_win_probs[:limit], 1)
+    ]
+    if not any(r["you"] for r in rows):
+        your_index = next((i for i, p in enumerate(all_win_probs) if p["is_you"]), None)
+        if your_index is not None:
+            rows.append(_standings_row(your_index + 1, all_win_probs[your_index], has_standings))
     return rows
 
 
@@ -147,6 +202,7 @@ def generate_html_report(
     your_points: Optional[float],
     num_remaining_games: int,
     total_games: int,
+    all_games: Optional[List[Dict[str, str]]] = None,
     summary_stats: Optional[pd.DataFrame] = None,
     comparison_df: Optional[pd.DataFrame] = None,
     generated_at: Optional[datetime] = None,
@@ -159,7 +215,7 @@ def generate_html_report(
     generated_at = generated_at or datetime.now()
     has_standings = mode == "midweek" and bool(current_standings)
 
-    picks_rows = _build_picks_rows(sorted_picks, remaining_games)
+    picks_rows = _build_picks_rows(sorted_picks, remaining_games, all_games)
     importance_rows = (
         _build_importance_rows(importance_sorted, remaining_games)
         if importance_sorted is not None and len(importance_sorted) > 0
@@ -194,8 +250,9 @@ def generate_html_report(
         if has_standings and your_points is not None
         else f"confidence 1&ndash;{num_remaining_games} still in play"
     )
+    total_entrants = len(all_win_probs)
     rank_value = f"#{your_rank}" if your_rank is not None else "&mdash;"
-    rank_sub = f"of {len(standings_rows)} tracked" if standings_rows else "no league standings"
+    rank_sub = f"of {total_entrants} tracked" if total_entrants else "no league standings"
 
     robustness_section = ""
     if robustness_rows:
@@ -472,7 +529,7 @@ def generate_html_report(
   .ticket{{ list-style:none; margin:0; padding:0; }}
   .ticket-row{{
     display:grid;
-    grid-template-columns:44px 1fr auto auto;
+    grid-template-columns:44px 1fr auto auto auto;
     align-items:center;
     gap:12px;
     padding:9px 18px;
@@ -503,6 +560,21 @@ def generate_html_report(
   .matchup{{ display:flex; flex-direction:column; gap:1px; min-width:0; }}
   .pick-team{{ font-weight:600; font-size:14.5px; }}
   .vs-opp{{ font-size:12px; color:var(--ink-faint); }}
+  .pick-meta{{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:2px;
+    padding-right:2px;
+  }}
+  .pick-meta-item{{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    font-variant-numeric:tabular-nums;
+    white-space:nowrap;
+  }}
+  .pick-meta-label{{ color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.03em; }}
   .status-pill{{
     font-family:"IBM Plex Mono", monospace;
     font-size:10.5px;
@@ -630,6 +702,7 @@ def generate_html_report(
   table.standings tbody tr:hover{{ background:var(--surface-2); }}
   table.standings tbody tr.you{{ background:var(--accent-soft); }}
   table.standings tbody tr.you td{{ font-weight:600; }}
+  table.standings tbody tr.gap-before td{{ border-top:2px dashed var(--line-strong); }}
   .rank-badge{{
     display:inline-flex;
     align-items:center;
@@ -711,13 +784,13 @@ def generate_html_report(
     </div>
     <div class="stat">
       <span class="stat-label">Current Rank</span>
-      <span class="stat-value">{rank_value}<span style="font-size:15px;color:var(--ink-faint);"> / {len(standings_rows)}</span></span>
-      <span class="stat-sub">{summary_note}</span>
+      <span class="stat-value">{rank_value}<span style="font-size:15px;color:var(--ink-faint);"> / {total_entrants}</span></span>
+      <span class="stat-sub">{rank_sub}</span>
     </div>
     <div class="stat">
       <span class="stat-label">Games Remaining</span>
       <span class="stat-value">{num_remaining_games}<span style="font-size:15px;color:var(--ink-faint);"> / {total_games}</span></span>
-      <span class="stat-sub">{rank_sub}</span>
+      <span class="stat-sub">{summary_note}</span>
     </div>
   </section>
 
@@ -794,9 +867,40 @@ def generate_html_report(
     team.textContent = p.team;
     var vs = document.createElement('span');
     vs.className = 'vs-opp';
-    vs.textContent = 'vs ' + p.opp;
+    vs.textContent = (p.isHome === false ? '@ ' : 'vs ') + p.opp;
     matchup.appendChild(team);
     matchup.appendChild(vs);
+    if(p.kickoff){{
+      var kickoffEl = document.createElement('span');
+      kickoffEl.className = 'vs-opp';
+      kickoffEl.textContent = p.kickoff;
+      matchup.appendChild(kickoffEl);
+    }}
+
+    var meta = document.createElement('span');
+    meta.className = 'pick-meta';
+    if(p.spread !== null){{
+      var spreadSign = p.spread > 0 ? '+' : '';
+      var spreadEl = document.createElement('span');
+      spreadEl.className = 'pick-meta-item';
+      spreadEl.innerHTML = '<span class="pick-meta-label">Spread</span> '
+        + spreadSign + p.spread.toFixed(1);
+      meta.appendChild(spreadEl);
+    }}
+    if(p.winProb !== null){{
+      var winEl = document.createElement('span');
+      winEl.className = 'pick-meta-item';
+      winEl.innerHTML = '<span class="pick-meta-label">Win</span> '
+        + Math.round(p.winProb*100) + '%';
+      meta.appendChild(winEl);
+    }}
+    if(p.crowdPct !== null){{
+      var crowdEl = document.createElement('span');
+      crowdEl.className = 'pick-meta-item';
+      crowdEl.innerHTML = '<span class="pick-meta-label">Crowd</span> '
+        + Math.round(p.crowdPct*100) + '%';
+      meta.appendChild(crowdEl);
+    }}
 
     var pill = document.createElement('span');
     pill.className = 'status-pill ' + (p.locked ? 'locked' : 'upcoming');
@@ -804,7 +908,7 @@ def generate_html_report(
 
     li.appendChild(chip);
     li.appendChild(matchup);
-    li.appendChild(document.createElement('span'));
+    li.appendChild(meta);
     li.appendChild(pill);
     ticket.appendChild(li);
   }});
@@ -898,9 +1002,12 @@ def generate_html_report(
     tr0.appendChild(td0);
     tbody.appendChild(tr0);
   }}
-  DATA.standings.forEach(function(s){{
+  DATA.standings.forEach(function(s, idx){{
     var tr = document.createElement('tr');
-    if(s.you) tr.className = 'you';
+    var rowClasses = [];
+    if(s.you) rowClasses.push('you');
+    if(idx > 0 && s.rank !== DATA.standings[idx-1].rank + 1) rowClasses.push('gap-before');
+    tr.className = rowClasses.join(' ');
 
     var tdRank = document.createElement('td');
     var badge = document.createElement('span');
