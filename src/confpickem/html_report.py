@@ -57,6 +57,7 @@ def _build_picks_rows(
             "team": team,
             "opp": opponent,
             "locked": not is_remaining,
+            "isHome": None,
             "spread": None,
             "winProb": None,
             "crowdPct": None,
@@ -65,6 +66,7 @@ def _build_picks_rows(
 
         if matchup is not None:
             is_home = team == matchup["home"]
+            row["isHome"] = is_home
             home_win_prob = matchup.get("home_win_prob")
             home_pick_pct = matchup.get("home_pick_pct")
             spread = matchup.get("spread")
@@ -863,7 +865,7 @@ def generate_html_report(
     team.textContent = p.team;
     var vs = document.createElement('span');
     vs.className = 'vs-opp';
-    vs.textContent = 'vs ' + p.opp;
+    vs.textContent = (p.isHome === false ? '@ ' : 'vs ') + p.opp;
     matchup.appendChild(team);
     matchup.appendChild(vs);
     if(p.kickoff){{

@@ -141,15 +141,42 @@ def test_picks_include_matchup_details_from_picked_teams_perspective():
         )
     )
     # SF is home and the favorite: spread/win/crowd stay as-is.
+    assert '"isHome": true' in html
     assert '"spread": -6.5' in html
     assert '"winProb": 0.78' in html
     assert '"crowdPct": 0.82' in html
     assert '"kickoff": "Sun 1:00 PM"' in html
     # KC is away and the favorite: spread stays negative, win/crowd flip to KC's perspective.
+    assert '"isHome": false' in html
     assert '"spread": -3.0' in html
     assert '"winProb": 0.59' in html
     assert '"crowdPct": 0.65' in html
     assert '"kickoff": "Mon 8:20 PM"' in html
+
+
+def test_picks_opponent_prefix_reflects_home_or_away():
+    """The team below each pick should read '@ OPP' when the picked team is
+    away and 'vs OPP' when it's home."""
+    html = generate_html_report(
+        **_base_kwargs(
+            remaining_games=[
+                {"home": "SF", "away": "ARI"},  # SF (picked) is home
+                {"home": "NO", "away": "KC"},  # KC (picked) is away
+            ]
+        )
+    )
+    assert "p.isHome === false ? '@ ' : 'vs '" in html
+    data_start = html.index("var DATA = ") + len("var DATA = ")
+    data_json = html[data_start : html.index(";\n", data_start)]
+    data = json.loads(data_json)
+
+    sf_pick = next(p for p in data["picks"] if p["team"] == "SF")
+    assert sf_pick["isHome"] is True
+    assert sf_pick["opp"] == "ARI"
+
+    kc_pick = next(p for p in data["picks"] if p["team"] == "KC")
+    assert kc_pick["isHome"] is False
+    assert kc_pick["opp"] == "NO"
 
 
 def test_picks_matchup_details_missing_when_no_all_games_given():
