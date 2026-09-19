@@ -773,12 +773,12 @@ def generate_html_report(
     <div class="stat">
       <span class="stat-label">Current Rank</span>
       <span class="stat-value">{rank_value}<span style="font-size:15px;color:var(--ink-faint);"> / {total_entrants}</span></span>
-      <span class="stat-sub">{summary_note}</span>
+      <span class="stat-sub">{rank_sub}</span>
     </div>
     <div class="stat">
       <span class="stat-label">Games Remaining</span>
       <span class="stat-value">{num_remaining_games}<span style="font-size:15px;color:var(--ink-faint);"> / {total_games}</span></span>
-      <span class="stat-sub">{rank_sub}</span>
+      <span class="stat-sub">{summary_note}</span>
     </div>
   </section>
 

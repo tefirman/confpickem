@@ -283,6 +283,29 @@ def test_rank_denominator_uses_full_field_not_displayed_rows():
     assert "/ 25" not in html[idx : idx + 200]
 
 
+def test_stat_strip_subtitles_match_their_own_stat():
+    """"of N tracked" belongs under Current Rank; the points/games note belongs
+    under Games Remaining -- they were swapped in a previous version."""
+    html = generate_html_report(
+        **_base_kwargs(
+            mode="midweek",
+            current_standings={"You": 62, "OneNDone": 68},
+            all_win_probs=_all_win_probs(),
+            your_rank=2,
+            your_points=62,
+        )
+    )
+    rank_idx = html.index("Current Rank")
+    rank_block = html[rank_idx : rank_idx + 300]
+    games_idx = html.index("Games Remaining")
+    games_block = html[games_idx : games_idx + 300]
+
+    assert "tracked" in rank_block
+    assert "tracked" not in games_block
+    assert "completed games" in games_block
+    assert "completed games" not in rank_block
+
+
 def test_standings_table_includes_your_row_when_outside_top_25():
     html = generate_html_report(
         **_base_kwargs(
