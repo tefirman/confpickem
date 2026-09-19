@@ -460,7 +460,15 @@ class TestHillClimbingOptimization:
         greedy_fixed = {"Expert": greedy_picks}
         hill_fixed = {"Expert": hill_picks}
 
+        # simulate_all draws its own outcome simulations and doesn't seed
+        # np.random itself, so back-to-back calls on identical fixed picks can
+        # swing win_pct by 10+ points on this small (num_sims=100) fixture --
+        # noise on the same order as the gap this test is trying to measure.
+        # Seed identically before each call so both solutions are scored
+        # against the same simulated outcomes.
+        np.random.seed(2024)
         greedy_stats = basic_simulator.simulate_all(greedy_fixed)
+        np.random.seed(2024)
         hill_stats = basic_simulator.simulate_all(hill_fixed)
 
         greedy_win_pct = greedy_stats['win_pct']['Expert']
@@ -470,9 +478,6 @@ class TestHillClimbingOptimization:
         print(f"Hill climb win %: {hill_win_pct:.3f}")
 
         # Hill climbing should be at least competitive with greedy (allow variance)
-        # Note: Due to stochastic nature with small iteration counts (100 iters, 3 restarts),
-        # we allow hill climb to be somewhat worse. In practice, with more iterations,
-        # hill climbing typically matches or exceeds greedy.
         assert hill_win_pct >= greedy_win_pct - 0.2, \
             f"Hill climbing ({hill_win_pct:.3f}) should be competitive with greedy ({greedy_win_pct:.3f})"
 
