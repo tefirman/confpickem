@@ -152,7 +152,9 @@ def test_picks_include_matchup_details_from_picked_teams_perspective():
     assert '"kickoff": "Mon 8:20 PM"' in html
 
 
-def test_picks_matchup_details_missing_for_locked_games():
+def test_picks_matchup_details_missing_when_no_all_games_given():
+    """Without `all_games`, matchup lookup falls back to `remaining_games` alone,
+    so locked picks (not in `remaining_games`) get no details."""
     html = generate_html_report(**_base_kwargs(remaining_games=[]))
     data_start = html.index("var DATA = ") + len("var DATA = ")
     data_json = html[data_start : html.index(";\n", data_start)]
@@ -163,6 +165,51 @@ def test_picks_matchup_details_missing_for_locked_games():
         assert pick["winProb"] is None
         assert pick["crowdPct"] is None
         assert pick["kickoff"] is None
+
+
+def test_picks_matchup_details_shown_for_locked_games_when_all_games_given():
+    """Locked picks still show spread/win/crowd/kickoff when `all_games` is
+    passed, since that's the full slate rather than just games left to play."""
+    all_games = [
+        {
+            "home": "SF",
+            "away": "ARI",
+            "spread": -6.5,
+            "favorite": "SF",
+            "home_win_prob": 0.78,
+            "home_pick_pct": 0.82,
+            "kickoff_time": pd.Timestamp("2026-09-18 13:00:00"),
+        },
+        {
+            "home": "NO",
+            "away": "KC",
+            "spread": -3.0,
+            "favorite": "KC",
+            "home_win_prob": 0.41,
+            "home_pick_pct": 0.35,
+            "kickoff_time": pd.Timestamp("2026-09-21 20:20:00"),
+        },
+    ]
+    html = generate_html_report(
+        **_base_kwargs(
+            remaining_games=[all_games[1]],  # SF@ARI already played; NO@KC remains
+            all_games=all_games,
+        )
+    )
+    data_start = html.index("var DATA = ") + len("var DATA = ")
+    data_json = html[data_start : html.index(";\n", data_start)]
+    data = json.loads(data_json)
+
+    sf_pick = next(p for p in data["picks"] if p["team"] == "SF")
+    assert sf_pick["locked"] is True
+    assert sf_pick["spread"] == -6.5
+    assert sf_pick["winProb"] == 0.78
+    assert sf_pick["crowdPct"] == 0.82
+    assert sf_pick["kickoff"] == "Fri 1:00 PM"
+
+    kc_pick = next(p for p in data["picks"] if p["team"] == "KC")
+    assert kc_pick["locked"] is False
+    assert kc_pick["spread"] == -3.0
 
 
 def test_importance_rows_include_win_and_loss_probability():

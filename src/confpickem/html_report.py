@@ -31,17 +31,24 @@ def _format_kickoff(kickoff_time) -> Optional[str]:
 def _build_picks_rows(
     sorted_picks: List[tuple],
     remaining_games: List[Dict[str, str]],
+    all_games: Optional[List[Dict[str, str]]] = None,
 ) -> List[Dict]:
-    """Map (team, confidence) pairs to the same fields the CLI prints per pick."""
+    """Map (team, confidence) pairs to the same fields the CLI prints per pick.
+
+    Locked status comes from `remaining_games` (games not yet played); matchup
+    details (spread/win%/crowd%/kickoff) are looked up from `all_games` so
+    they're shown for locked picks too. `all_games` falls back to
+    `remaining_games` for callers that don't distinguish the two.
+    """
+    all_games = all_games if all_games is not None else remaining_games
     rows = []
     for team, conf in sorted_picks:
         opponent = "Unknown"
-        is_remaining = False
+        is_remaining = any(team in (g["home"], g["away"]) for g in remaining_games)
         matchup = None
-        for game in remaining_games:
+        for game in all_games:
             if team in (game["home"], game["away"]):
                 opponent = game["away"] if team == game["home"] else game["home"]
-                is_remaining = True
                 matchup = game
                 break
 
@@ -191,6 +198,7 @@ def generate_html_report(
     your_points: Optional[float],
     num_remaining_games: int,
     total_games: int,
+    all_games: Optional[List[Dict[str, str]]] = None,
     summary_stats: Optional[pd.DataFrame] = None,
     comparison_df: Optional[pd.DataFrame] = None,
     generated_at: Optional[datetime] = None,
@@ -203,7 +211,7 @@ def generate_html_report(
     generated_at = generated_at or datetime.now()
     has_standings = mode == "midweek" and bool(current_standings)
 
-    picks_rows = _build_picks_rows(sorted_picks, remaining_games)
+    picks_rows = _build_picks_rows(sorted_picks, remaining_games, all_games)
     importance_rows = (
         _build_importance_rows(importance_sorted, remaining_games)
         if importance_sorted is not None and len(importance_sorted) > 0
