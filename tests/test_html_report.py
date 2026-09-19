@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """Tests for src.confpickem.html_report"""
 
+import json
+
 import pandas as pd
 
 from src.confpickem.html_report import generate_html_report, generate_locked_board_html_report
@@ -113,6 +115,162 @@ def test_player_name_is_escaped():
     assert "&lt;script&gt;" in html
 
 
+def test_picks_include_matchup_details_from_picked_teams_perspective():
+    # `spread` is stored as a positive number representing the favorite's
+    # margin (see yahoo_pickem_scraper's win_prob = spread * 0.031 + 0.5).
+    html = generate_html_report(
+        **_base_kwargs(
+            remaining_games=[
+                {
+                    "home": "SF",
+                    "away": "ARI",
+                    "spread": 6.5,
+                    "favorite": "SF",
+                    "home_win_prob": 0.78,
+                    "home_pick_pct": 0.82,
+                    "kickoff_time": pd.Timestamp("2026-09-20 13:00:00"),
+                },
+                {
+                    "home": "NO",
+                    "away": "KC",
+                    "spread": 3.0,
+                    "favorite": "KC",
+                    "home_win_prob": 0.41,
+                    "home_pick_pct": 0.35,
+                    "kickoff_time": pd.Timestamp("2026-09-21 20:20:00"),
+                },
+            ]
+        )
+    )
+    # SF is home and the favorite: displayed spread flips negative, win/crowd stay as-is.
+    assert '"isHome": true' in html
+    assert '"spread": -6.5' in html
+    assert '"winProb": 0.78' in html
+    assert '"crowdPct": 0.82' in html
+    assert '"kickoff": "Sun 1:00 PM"' in html
+    # KC is away and the favorite: spread flips negative, win/crowd flip to KC's perspective.
+    assert '"isHome": false' in html
+    assert '"spread": -3.0' in html
+    assert '"winProb": 0.59' in html
+    assert '"crowdPct": 0.65' in html
+    assert '"kickoff": "Mon 8:20 PM"' in html
+
+
+def test_picks_spread_shows_negative_for_favorite_positive_for_underdog():
+    """Standard spread notation: the favorite is shown negative (e.g. -13.5),
+    the underdog positive (e.g. +13.5), regardless of which one was picked."""
+    html = generate_html_report(
+        **_base_kwargs(
+            sorted_picks=[("SF", 16), ("ARI", 15)],
+            remaining_games=[
+                {
+                    "home": "SF",
+                    "away": "ARI",
+                    "spread": 13.5,
+                    "favorite": "SF",
+                    "home_win_prob": 0.92,
+                    "home_pick_pct": 0.95,
+                    "kickoff_time": pd.Timestamp("2026-09-20 13:00:00"),
+                },
+            ],
+        )
+    )
+    data_start = html.index("var DATA = ") + len("var DATA = ")
+    data_json = html[data_start : html.index(";\n", data_start)]
+    data = json.loads(data_json)
+
+    sf_pick = next(p for p in data["picks"] if p["team"] == "SF")
+    assert sf_pick["spread"] == -13.5  # favorite
+
+    ari_pick = next(p for p in data["picks"] if p["team"] == "ARI")
+    assert ari_pick["spread"] == 13.5  # underdog
+
+
+def test_picks_opponent_prefix_reflects_home_or_away():
+    """The team below each pick should read '@ OPP' when the picked team is
+    away and 'vs OPP' when it's home."""
+    html = generate_html_report(
+        **_base_kwargs(
+            remaining_games=[
+                {"home": "SF", "away": "ARI"},  # SF (picked) is home
+                {"home": "NO", "away": "KC"},  # KC (picked) is away
+            ]
+        )
+    )
+    assert "p.isHome === false ? '@ ' : 'vs '" in html
+    data_start = html.index("var DATA = ") + len("var DATA = ")
+    data_json = html[data_start : html.index(";\n", data_start)]
+    data = json.loads(data_json)
+
+    sf_pick = next(p for p in data["picks"] if p["team"] == "SF")
+    assert sf_pick["isHome"] is True
+    assert sf_pick["opp"] == "ARI"
+
+    kc_pick = next(p for p in data["picks"] if p["team"] == "KC")
+    assert kc_pick["isHome"] is False
+    assert kc_pick["opp"] == "NO"
+
+
+def test_picks_matchup_details_missing_when_no_all_games_given():
+    """Without `all_games`, matchup lookup falls back to `remaining_games` alone,
+    so locked picks (not in `remaining_games`) get no details."""
+    html = generate_html_report(**_base_kwargs(remaining_games=[]))
+    data_start = html.index("var DATA = ") + len("var DATA = ")
+    data_json = html[data_start : html.index(";\n", data_start)]
+    data = json.loads(data_json)
+    for pick in data["picks"]:
+        assert pick["locked"] is True
+        assert pick["spread"] is None
+        assert pick["winProb"] is None
+        assert pick["crowdPct"] is None
+        assert pick["kickoff"] is None
+
+
+def test_picks_matchup_details_shown_for_locked_games_when_all_games_given():
+    """Locked picks still show spread/win/crowd/kickoff when `all_games` is
+    passed, since that's the full slate rather than just games left to play."""
+    all_games = [
+        {
+            "home": "SF",
+            "away": "ARI",
+            "spread": 6.5,
+            "favorite": "SF",
+            "home_win_prob": 0.78,
+            "home_pick_pct": 0.82,
+            "kickoff_time": pd.Timestamp("2026-09-18 13:00:00"),
+        },
+        {
+            "home": "NO",
+            "away": "KC",
+            "spread": 3.0,
+            "favorite": "KC",
+            "home_win_prob": 0.41,
+            "home_pick_pct": 0.35,
+            "kickoff_time": pd.Timestamp("2026-09-21 20:20:00"),
+        },
+    ]
+    html = generate_html_report(
+        **_base_kwargs(
+            remaining_games=[all_games[1]],  # SF@ARI already played; NO@KC remains
+            all_games=all_games,
+        )
+    )
+    data_start = html.index("var DATA = ") + len("var DATA = ")
+    data_json = html[data_start : html.index(";\n", data_start)]
+    data = json.loads(data_json)
+
+    sf_pick = next(p for p in data["picks"] if p["team"] == "SF")
+    assert sf_pick["locked"] is True
+    assert sf_pick["spread"] == -6.5
+    assert sf_pick["winProb"] == 0.78
+    assert sf_pick["crowdPct"] == 0.82
+    assert sf_pick["kickoff"] == "Fri 1:00 PM"
+
+    kc_pick = next(p for p in data["picks"] if p["team"] == "KC")
+    assert kc_pick["locked"] is False
+    assert kc_pick["spread"] == -3.0
+
+
 def test_importance_rows_include_win_and_loss_probability():
     html = generate_html_report(
         **_base_kwargs(
@@ -199,6 +357,78 @@ def test_rank_and_edge_values_rendered():
     assert "#2" in html
     assert "33.8%" in html
     assert "18.1%" in html
+
+
+def _large_field_win_probs(your_index=48, size=50):
+    return [
+        {
+            "player": f"Player{i+1}",
+            "win_pct": 0.9 - i * 0.01,
+            "total_expected": 150 - i,
+            "current_pts": 60,
+            "is_you": i == your_index,
+        }
+        for i in range(size)
+    ]
+
+
+def test_rank_denominator_uses_full_field_not_displayed_rows():
+    """Current Rank's "/ N" must count every entrant, not just the displayed top 25."""
+    html = generate_html_report(
+        **_base_kwargs(
+            mode="midweek",
+            current_standings={f"Player{i+1}": 60 for i in range(50)},
+            all_win_probs=_large_field_win_probs(),
+            your_rank=49,
+            your_points=62,
+        )
+    )
+    assert "#49" in html
+    idx = html.index("Current Rank")
+    assert "/ 50" in html[idx : idx + 200]
+    assert "/ 25" not in html[idx : idx + 200]
+
+
+def test_stat_strip_subtitles_match_their_own_stat():
+    """"of N tracked" belongs under Current Rank; the points/games note belongs
+    under Games Remaining -- they were swapped in a previous version."""
+    html = generate_html_report(
+        **_base_kwargs(
+            mode="midweek",
+            current_standings={"You": 62, "OneNDone": 68},
+            all_win_probs=_all_win_probs(),
+            your_rank=2,
+            your_points=62,
+        )
+    )
+    rank_idx = html.index("Current Rank")
+    rank_block = html[rank_idx : rank_idx + 300]
+    games_idx = html.index("Games Remaining")
+    games_block = html[games_idx : games_idx + 300]
+
+    assert "tracked" in rank_block
+    assert "tracked" not in games_block
+    assert "completed games" in games_block
+    assert "completed games" not in rank_block
+
+
+def test_standings_table_includes_your_row_when_outside_top_25():
+    html = generate_html_report(
+        **_base_kwargs(
+            mode="midweek",
+            current_standings={f"Player{i+1}": 60 for i in range(50)},
+            all_win_probs=_large_field_win_probs(),
+            your_rank=49,
+            your_points=62,
+        )
+    )
+    data_start = html.index("var DATA = ") + len("var DATA = ")
+    data_json = html[data_start : html.index(";\n", data_start)]
+    data = json.loads(data_json)
+    assert len(data["standings"]) == 26
+    assert data["standings"][-1]["name"] == "Player49"
+    assert data["standings"][-1]["rank"] == 49
+    assert data["standings"][-1]["you"] is True
 
 
 # ---------------------------------------------------------------------------

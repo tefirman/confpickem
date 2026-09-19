@@ -742,11 +742,23 @@ Examples:
         # Get available teams for remaining games
         available_teams = set()
         remaining_games = []
+        all_games = []
         for i, game_sim in enumerate(simulator.games):
+            game_row = enhanced_games.iloc[i]
+            game_entry = {
+                "home": game_sim.home_team,
+                "away": game_sim.away_team,
+                "spread": float(game_row.get("spread", 0.0)),
+                "favorite": game_row.get("favorite"),
+                "home_win_prob": float(game_sim.vegas_win_prob),
+                "home_pick_pct": float(game_sim.crowd_home_pick_pct),
+                "kickoff_time": game_sim.kickoff_time,
+            }
+            all_games.append(game_entry)
             if game_sim.actual_outcome is None:
                 available_teams.add(game_sim.home_team)
                 available_teams.add(game_sim.away_team)
-                remaining_games.append({"home": game_sim.home_team, "away": game_sim.away_team})
+                remaining_games.append(game_entry)
 
         available_teams = sorted(list(available_teams))
 
@@ -1300,6 +1312,7 @@ Examples:
                         algo_label=algo_label,
                         sorted_picks=sorted_picks,
                         remaining_games=remaining_games,
+                        all_games=all_games,
                         opt_win=opt_win,
                         rand_win=rand_win,
                         importance_sorted=(
