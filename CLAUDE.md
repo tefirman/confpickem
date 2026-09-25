@@ -39,7 +39,10 @@ Pipeline: **scrape Yahoo → convert to simulator format → Monte Carlo simulat
 - **`confidence_pickem_sim.py`** — the engine. `Game` and `Player` are dataclasses; `Player` carries three 0–1 behavioral knobs: `skill_level`, `crowd_following`, `confidence_following`. `ConfidencePickEmSimulator`:
   - `add_games_from_dataframe()`, then `simulate_picks(fixed_picks, player_data)` — fully vectorized (NumPy matrices of shape `(num_sims, num_players, num_games)`). `fixed_picks` is `{player_name: {TEAM: confidence_int}}`; `player_data` (from `yahoo.players`) lets midweek runs exclude confidence values already spent on completed games.
   - `simulate_outcomes()` → boolean win matrix; `analyze_results(picks_df, outcomes)` → expected points, win %, game importance.
-  - `optimize_picks(player_name, ...)` — **greedy**: assign highest confidence to the pick that most raises win probability, descending.
+  - `optimize_picks_analytic(player_name, ...)` — **the CLI default**. Computes P(win) in closed form (Poisson-binomial over a seeded field built by `_build_analytic_field`) and hill-climbs that noise-free objective; runs in seconds. Tuned via `--an-iterations` / `--an-restarts` / `--an-outcomes`. See `docs/optimization-methodology.md`.
+  - `compare_slates(player_name, slates, ...)` — scores several full pick sets on the same seeded outcome draws (win probability + `win_std`); backs `--compare-slate`.
+  - `standings_analytic(player_data, ...)` — whole-league win % / expected points once everything's locked; backs `--mode locked`.
+  - `optimize_picks(player_name, ...)` — **greedy** (`--greedy`): assign highest confidence to the pick that most raises win probability, descending.
   - `optimize_picks_hill_climb(player_name, hc_iterations, hc_restarts, hc_top_n, ...)` — random-restart hill climbing; explores more of the space and reports per-team robustness across the top-N solutions. Writes progress to `hill_climb_checkpoint.txt` between restarts.
 
 - **`live_odds_scraper.py`** — `LiveOddsScraper(odds_api_key)`. Pulls schedule/scores from ESPN's public API and betting lines from **The Odds API** (`ODDS_API_KEY` env var or `--odds-api-key`). `update_odds_with_live_data()` overwrites Yahoo's implied `win_prob` with live-derived probabilities; **falls back to Yahoo data per-game** when the API is unavailable (look for `live_odds_source == 'Yahoo_Fallback'`).
@@ -50,12 +53,16 @@ Pipeline: **scrape Yahoo → convert to simulator format → Monte Carlo simulat
 
 ### Modes
 
-- `beginning` — all games pending; may synthesize opponents (`--num-opponents`) and supports `--fast` (2000 sims, reduced confidence search).
-- `midweek` — some games complete; requires real `yahoo.players` data to know spent confidence. `--fast` and `--num-opponents` are rejected here.
+- `beginning` — all games pending; may synthesize opponents (`--num-opponents`). `--fast` (2000 sims, reduced confidence search) applies only with `--greedy`.
+- `midweek` — some games finished or kicked off; locks those to the entry's submitted picks and optimizes the rest over unspent confidence. Requires real `yahoo.players` data. `--fast` and `--num-opponents` are rejected here.
+- `locked` — from the first Sunday kickoff Yahoo locks every entry, so there's nothing to optimize: reports league-wide live standings and the remaining games' swing on first place. No prompts (`--player` highlights your row); missing picks are auto-filled with the underdog at the lowest remaining confidence.
+
+`beginning`/`midweek` prompt on stdin for the player, then fixed picks (`TEAM CONF`, or a bare `TEAM` to pin the pick but let the optimizer choose its confidence), so scripted runs pipe both lines in. The `/picks` skill (`.claude/skills/picks/`) automates the weekly scenario runs.
 
 ## Repo-specific conventions
 
 - **Runtime data lives in the repo root and is gitignored**: `cookies.txt` (Mozilla cookie-jar format, Yahoo session, expires in days), `current_player_skills*.json`, `player_skills_*.json`, `PickEmCache*/`, `PreviousWeeks/`, `.cache/`, `hill_climb_checkpoint.txt`, and generated `NFL_Week*_*.txt`/`.html` reports (the latter written next to the `.txt` report when `optimize.py` is run with `--html`). Default league ID is `11465`.
 - Packaging uses **hatchling** (not setuptools, despite a leftover `[tool.setuptools]` block). Bump `version` in `pyproject.toml` and `__version__` in `src/confpickem/__init__.py` together. A GitHub **release** triggers `publish.yml` → PyPI.
+- Kickoff times: the scraper rewrites Yahoo's "EDT" to "EST" before parsing, so tz-aware `kickoff_time` values are an hour late during DST (the wall-clock time is correct ET).
 - `--live-odds` and `--no-cache` both wipe `.cache/` before loading so odds aren't served stale.
 - Tests run offline — network-touching code (Yahoo, ESPN, Odds API) is mocked; keep it that way.
