@@ -17,7 +17,14 @@ Run from the repo root. Use `.venv/bin/confpickem` if it exists, else `confpicke
 Pass WEEK if the user gave one; otherwise the script infers it from the latest
 `NFL_Week*` report and rolls forward once that week has a result for every game.
 It prints JSON with `week`, `max_confidence` (= number of games), `players_scraped`,
-`recommended_mode`, and the `opener` game (earliest kickoff, with `started`).
+`recommended_mode`, the `opener` game (earliest kickoff, with `started`),
+`slate_lock_et`, and `early_sunday_games`.
+
+`slate_lock_et` is when Yahoo locks every remaining entry: the first Sunday
+kickoff at or after 1:00 PM ET, **not** the first Sunday kickoff. International
+games (~9:30 AM ET / 6:30 AM PT) show up in `early_sunday_games` and lock
+individually like Thursday's -- the week is still `midweek` until
+`slate_lock_et`. Trust `recommended_mode`; don't re-derive it from kickoff times.
 
 Stop and tell the user to re-export `cookies.txt` (Mozilla cookie-jar format,
 repo root) if the output has an `error` or `players_scraped` is 0 -- the Yahoo
@@ -28,7 +35,7 @@ session has expired. Don't try to work around it.
 | `recommended_mode` | Scenarios |
 |---|---|
 | `beginning` (opener not started) | `<AWAY>AllIn`, `<HOME>AllIn`, then `Neutral` |
-| `midweek` | `Neutral` only |
+| `midweek` | `Neutral` only (any started early-Sunday game is locked to your submitted pick automatically) |
 | `locked` | one locked-mode run, no scenarios (see step 4) |
 
 - **All-in** = that opener team pinned at `max_confidence` (e.g. `Atl 16`), everything
@@ -85,7 +92,12 @@ remaining games by swing on first place.
 ## 5. Summarize
 
 Keep it short:
-- Week, mode, whether live odds were used, and the opener matchup.
+- Week, mode, whether live odds were used, the opener matchup, and `slate_lock_et`
+  (in ET and Pacific).
+- If `early_sunday_games` has a game that hasn't finished, flag the re-run window:
+  run `/picks` again once it's over (or mid-game, where it's treated as locked but
+  undecided) and before `slate_lock_et`, since its result can reshuffle the rest
+  of the slate. This is an edge -- make it prominent.
 - The `SLATE COMPARISON` table (`optimized` = Neutral).
 - Recommendation: the highest win % slate. If the top two are within ~1 pp, say
   it's effectively a tie, and point to win std as the tiebreaker (lower = steadier,

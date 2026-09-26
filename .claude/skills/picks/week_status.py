@@ -47,6 +47,18 @@ def to_et(ts):
     return ts.tz_localize(ET)
 
 
+def slate_lock(kickoffs):
+    """When Yahoo locks every remaining entry: the first Sunday kickoff at or
+    after 1:00 PM ET. Earlier Sunday games (international, ~9:30 AM ET) lock
+    individually like Thursday's, so the slate stays open until the main
+    window. Falls back to the first Sunday kickoff if there's no 1 PM game."""
+    sunday = sorted(k for k in kickoffs if k.dayofweek == 6)
+    main_window = [k for k in sunday if k.hour >= 13]
+    if main_window:
+        return main_window[0]
+    return sunday[0] if sunday else None
+
+
 def load(week, league_id):
     # The scraper prints progress chatter; keep stdout clean for the JSON.
     with contextlib.redirect_stdout(io.StringIO()):
@@ -69,13 +81,13 @@ def status(week, league_id):
         rows.append({"away": away, "home": home, "kickoff": kick, "started": kick <= now})
     rows.sort(key=lambda r: r["kickoff"])
 
-    sunday = [r for r in rows if r["kickoff"].dayofweek == 6]
-    first_sunday = sunday[0]["kickoff"] if sunday else None
+    lock = slate_lock([r["kickoff"] for r in rows])
+    early = [r for r in rows if r["kickoff"].dayofweek == 6 and lock and r["kickoff"] < lock]
     started = sum(r["started"] for r in rows)
     player_count = 0 if yahoo.players is None else len(yahoo.players)
     finished = sum(1 for r in (yahoo.results or []) if r.get("winner"))
 
-    if first_sunday is not None and now >= first_sunday:
+    if lock is not None and now >= lock:
         mode = "locked"
     elif started == 0:
         mode = "beginning"
@@ -99,9 +111,16 @@ def status(week, league_id):
             "kickoff_et": opener["kickoff"].strftime("%a %b %d %I:%M %p"),
             "started": opener["started"],
         },
-        "first_sunday_kickoff_et": (
-            first_sunday.strftime("%a %b %d %I:%M %p") if first_sunday is not None else None
-        ),
+        "slate_lock_et": lock.strftime("%a %b %d %I:%M %p") if lock is not None else None,
+        "early_sunday_games": [
+            {
+                "away": r["away"],
+                "home": r["home"],
+                "kickoff_et": r["kickoff"].strftime("%a %b %d %I:%M %p"),
+                "started": r["started"],
+            }
+            for r in early
+        ],
     }
 
 
