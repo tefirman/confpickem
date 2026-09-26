@@ -18,6 +18,23 @@ from datetime import datetime
 from pathlib import Path
 from datetime import timedelta
 
+KICKOFF_TZ = "America/New_York"
+
+
+def parse_kickoff(text: str, season: int) -> pd.Timestamp:
+    """Parse a Yahoo kickoff header like ``'Sunday, Oct 4, 9:30 am EDT'``.
+
+    Yahoo's wall-clock time is always US Eastern, so the trailing zone
+    abbreviation is dropped and the time localized to America/New_York --
+    that gets EDT vs. EST right without trusting the label. Yahoo omits the
+    year; games in January-March belong to the calendar year after ``season``.
+    """
+    stamp = text.strip().rsplit(" ", 1)[0]
+    parsed = datetime.strptime(stamp, "%A, %b %d, %I:%M %p")
+    year = season + 1 if parsed.month <= 3 else season
+    return pd.Timestamp(parsed.replace(year=year)).tz_localize(KICKOFF_TZ)
+
+
 class PageCache:
     def __init__(self, cache_dir: str = ".cache"):
         """Initialize cache with specified directory"""
@@ -218,15 +235,11 @@ class YahooPickEm:
                 time_element = game.find('div', class_='hd')
                 if time_element:
                     try:
-                        kickoff_time = pd.to_datetime(
-                            time_element.text.strip().replace(" EDT", " EST") + f", {season}", 
-                            format="%A, %b %d, %I:%M %p %Z, %Y"
-                        )
-                        game_dict['kickoff_time'] = kickoff_time
+                        game_dict['kickoff_time'] = parse_kickoff(time_element.text, season)
                     except Exception:
-                        game_dict['kickoff_time'] = pd.Timestamp.now()
+                        game_dict['kickoff_time'] = pd.Timestamp.now(tz=KICKOFF_TZ)
                 else:
-                    game_dict['kickoff_time'] = pd.Timestamp.now()
+                    game_dict['kickoff_time'] = pd.Timestamp.now(tz=KICKOFF_TZ)
 
                 games_data.append(game_dict)
                 

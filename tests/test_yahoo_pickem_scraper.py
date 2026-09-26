@@ -4,7 +4,9 @@ import pandas as pd
 from pathlib import Path
 import requests
 
-from src.confpickem.yahoo_pickem_scraper import YahooPickEm, PageCache, calculate_player_stats
+from src.confpickem.yahoo_pickem_scraper import (
+    YahooPickEm, PageCache, calculate_player_stats, parse_kickoff
+)
 
 # Sample HTML content for testing
 SAMPLE_PICK_DIST_HTML = """
@@ -403,6 +405,37 @@ def test_parse_pick_distribution(yahoo_pickem):
     assert games_df.iloc[0]['favorite_confidence'] == 6.8
     assert games_df.iloc[0]['underdog_confidence'] == 3.7
     assert games_df.iloc[0]['spread'] == 3.0
+
+def test_parse_kickoff_uses_eastern_dst():
+    """Yahoo's EDT times must land on the right absolute instant (UTC-4), not
+    an hour late as they did when "EDT" was rewritten to "EST"."""
+    kickoff = parse_kickoff("Sunday, Oct 4, 9:30 am EDT", 2026)
+    assert kickoff == pd.Timestamp("2026-10-04 13:30", tz="UTC")
+    assert kickoff.hour == 9 and kickoff.minute == 30
+
+
+def test_parse_kickoff_uses_eastern_standard_time():
+    kickoff = parse_kickoff("Sunday, Dec 27, 1:00 pm EST", 2026)
+    assert kickoff == pd.Timestamp("2026-12-27 18:00", tz="UTC")
+
+
+def test_parse_kickoff_january_rolls_into_next_year():
+    """Late-season games in January belong to the calendar year after the season."""
+    kickoff = parse_kickoff("Sunday, Jan 3, 1:00 pm EST", 2026)
+    assert kickoff == pd.Timestamp("2027-01-03 13:00", tz="America/New_York")
+
+
+def test_parse_kickoff_tolerates_whitespace():
+    kickoff = parse_kickoff("  Thursday, Oct 1, 8:15 pm EDT\n", 2026)
+    assert kickoff == pd.Timestamp("2026-10-01 20:15", tz="America/New_York")
+
+
+def test_scraped_kickoff_times_are_eastern(yahoo_pickem):
+    kickoff = yahoo_pickem.games.iloc[0]["kickoff_time"]
+    assert str(kickoff.tz) == "America/New_York"
+    assert (kickoff.hour, kickoff.minute) == (20, 20)
+    assert kickoff.utcoffset() == pd.Timedelta(hours=-4)
+
 
 def test_parse_confidence_picks(yahoo_pickem):
     """Test parsing of confidence picks page"""
