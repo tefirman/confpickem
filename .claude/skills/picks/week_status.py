@@ -38,9 +38,9 @@ def latest_report_week():
 
 
 def to_et(ts):
-    # The scraper rewrites Yahoo's "EDT" to "EST" before parsing, so an aware
-    # timestamp is an hour off during DST. Its wall-clock time is correct ET,
-    # so drop whatever zone it carries and re-localize to America/New_York.
+    # Yahoo's wall-clock kickoff is always ET. Older scraper versions tagged it
+    # with a fixed EST offset (an hour off during DST), so rather than trust the
+    # zone, drop it and re-localize to America/New_York.
     ts = pd.Timestamp(ts)
     if ts.tzinfo is not None:
         ts = ts.tz_localize(None)

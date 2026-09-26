@@ -63,6 +63,5 @@ Pipeline: **scrape Yahoo → convert to simulator format → Monte Carlo simulat
 
 - **Runtime data lives in the repo root and is gitignored**: `cookies.txt` (Mozilla cookie-jar format, Yahoo session, expires in days), `current_player_skills*.json`, `player_skills_*.json`, `PickEmCache*/`, `PreviousWeeks/`, `.cache/`, `hill_climb_checkpoint.txt`, and generated `NFL_Week*_*.txt`/`.html` reports (the latter written next to the `.txt` report when `optimize.py` is run with `--html`). Default league ID is `11465`.
 - Packaging uses **hatchling** (not setuptools, despite a leftover `[tool.setuptools]` block). Bump `version` in `pyproject.toml` and `__version__` in `src/confpickem/__init__.py` together. A GitHub **release** triggers `publish.yml` → PyPI.
-- Kickoff times: the scraper rewrites Yahoo's "EDT" to "EST" before parsing, so tz-aware `kickoff_time` values are an hour late during DST (the wall-clock time is correct ET).
 - `--live-odds` and `--no-cache` both wipe `.cache/` before loading so odds aren't served stale.
 - Tests run offline — network-touching code (Yahoo, ESPN, Odds API) is mocked; keep it that way.
