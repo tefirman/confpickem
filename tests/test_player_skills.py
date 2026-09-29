@@ -356,6 +356,67 @@ class TestCombineRawStats:
         assert 'Player2025' in combined
 
 
+def _raw(picks, correct, weeks):
+    return {
+        'total_picks': picks,
+        'total_correct': correct,
+        'total_points': correct * 8,
+        'total_possible_points': picks * 8,
+        'weeks_played': weeks,
+        'confidence_distribution': {},
+        'pick_accuracy_by_confidence': {},
+    }
+
+
+def _write_year(directory, name, raw_stats):
+    (directory / name).write_text(json.dumps({
+        'player_skills': {},
+        'raw_player_stats': raw_stats,
+        'distribution_stats': {},
+    }))
+
+
+class TestLoadSkillDataAllYears:
+    """load_skill_data(None) combines every player_skills_<year>.json"""
+
+    def test_available_years_ignores_backups(self, tmp_path):
+        for name in ['player_skills_2026.json', 'player_skills_2024.json',
+                     'player_skills_2024_orig.json', 'player_skills_notes.json']:
+            (tmp_path / name).write_text('{}')
+        assert apply_realistic_skills.available_skill_years(tmp_path) == [2024, 2026]
+
+    def test_combines_three_seasons(self, tmp_path, monkeypatch):
+        _write_year(tmp_path, 'player_skills_2024.json', {'A': _raw(150, 90, 10)})
+        _write_year(tmp_path, 'player_skills_2025.json', {'A': _raw(160, 100, 10)})
+        _write_year(tmp_path, 'player_skills_2026.json',
+                    {'A': _raw(64, 40, 4), 'B': _raw(64, 36, 4)})
+        _write_year(tmp_path, 'player_skills_2024_orig.json', {'A': _raw(999, 999, 99)})
+        monkeypatch.chdir(tmp_path)
+
+        with patch('builtins.print'):
+            result = apply_realistic_skills.load_skill_data()
+
+        skills = result['player_skills']
+        assert set(skills) == {'A', 'B'}
+        assert skills['A']['weeks_played'] == 24
+        assert skills['A']['total_picks'] == 374
+        assert skills['B']['weeks_played'] == 4
+
+    def test_single_year_returned_as_is(self, tmp_path, monkeypatch):
+        _write_year(tmp_path, 'player_skills_2026.json', {'A': _raw(64, 40, 4)})
+        monkeypatch.chdir(tmp_path)
+
+        with patch('builtins.print'):
+            result = apply_realistic_skills.load_skill_data()
+
+        assert result['raw_player_stats']['A']['weeks_played'] == 4
+
+    def test_no_files_returns_none(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        with patch('builtins.print'):
+            assert apply_realistic_skills.load_skill_data() is None
+
+
 class TestMatchPlayersToSkills:
     """Test player matching functionality"""
 

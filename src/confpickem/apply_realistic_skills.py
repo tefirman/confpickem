@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Apply realistic skill levels to current players"""
 
+import re
 import sys
 from pathlib import Path
 import json
@@ -66,11 +67,26 @@ def calculate_skills_from_stats(raw_stats):
     """
     return skills_from_raw_stats(raw_stats)
 
+def available_skill_years(directory="."):
+    """Seasons with a ``player_skills_<year>.json`` in ``directory``, oldest first.
+
+    Only exact four-digit years count, so backups like
+    ``player_skills_2024_orig.json`` are ignored.
+    """
+    years = []
+    for path in Path(directory).glob("player_skills_*.json"):
+        match = re.fullmatch(r"player_skills_(\d{4})\.json", path.name)
+        if match:
+            years.append(int(match.group(1)))
+    return sorted(years)
+
+
 def load_skill_data(year=None):
     """Load skill analysis from specified year(s)
 
-    If year is None, loads both 2024 and 2025, aggregates raw stats, and recalculates skills.
-    If year is specified, only loads that year's data.
+    If year is None, loads every available ``player_skills_<year>.json``,
+    aggregates their raw stats, and recalculates skills. If year is specified,
+    only loads that year's data.
     """
     if year:
         # Load specific year
@@ -81,64 +97,56 @@ def load_skill_data(year=None):
         except FileNotFoundError:
             print(f"❌ {filename} not found. Run analyze_player_skills.py --year {year} first.")
             return None
-    else:
-        # Load both years and combine raw stats with equal weight
-        data_2024 = None
-        data_2025 = None
 
-        try:
-            with open('player_skills_2024.json', 'r') as f:
-                data_2024 = json.load(f)
-                print("✅ Loaded 2024 player skills")
-        except FileNotFoundError:
-            print("⚠️ player_skills_2024.json not found")
+    years = available_skill_years()
+    if not years:
+        print("❌ No skill data found. Run analyze_player_skills.py first.")
+        return None
 
-        try:
-            with open('player_skills_2025.json', 'r') as f:
-                data_2025 = json.load(f)
-                print("✅ Loaded 2025 player skills")
-        except FileNotFoundError:
-            print("⚠️ player_skills_2025.json not found")
+    data_by_year = {}
+    for y in years:
+        with open(f'player_skills_{y}.json', 'r') as f:
+            data_by_year[y] = json.load(f)
+        print(f"✅ Loaded {y} player skills")
 
-        if not data_2024 and not data_2025:
-            print("❌ No skill data found. Run analyze_player_skills.py first.")
-            return None
+    latest = data_by_year[years[-1]]
+    if len(years) == 1:
+        return latest
 
-        # Combine raw stats and recalculate skills
-        if data_2024 and data_2025:
-            # Check if raw stats are available
-            if 'raw_player_stats' not in data_2024 or 'raw_player_stats' not in data_2025:
-                print("⚠️ Raw stats not found in JSON files. Re-run analyze_player_skills.py to generate them.")
-                print("   Falling back to using 2025 data only...")
-                return data_2025
+    # Combine raw stats and recalculate skills
+    missing_raw = [y for y in years if 'raw_player_stats' not in data_by_year[y]]
+    if missing_raw:
+        print(f"⚠️ Raw stats not found for {missing_raw}. Re-run analyze_player_skills.py "
+              f"to generate them.")
+        print(f"   Falling back to using {years[-1]} data only...")
+        return latest
 
-            print("📊 Combining raw statistics from both years with equal weight...")
-            combined_raw = combine_raw_stats(data_2024['raw_player_stats'], data_2025['raw_player_stats'])
+    print(f"📊 Combining raw statistics from {', '.join(map(str, years))} with equal weight...")
+    combined_raw = data_by_year[years[0]]['raw_player_stats']
+    for y in years[1:]:
+        combined_raw = combine_raw_stats(combined_raw, data_by_year[y]['raw_player_stats'])
 
-            print(f"   📈 Combined stats for {len(combined_raw)} players")
+    print(f"   📈 Combined stats for {len(combined_raw)} players")
 
-            # Recalculate skills from combined stats
-            combined_skills = calculate_skills_from_stats(combined_raw)
+    # Recalculate skills from combined stats
+    combined_skills = calculate_skills_from_stats(combined_raw)
 
-            # Calculate new distribution stats
-            skill_levels = [p['skill_level'] for p in combined_skills.values()]
-            crowd_followings = [p['crowd_following'] for p in combined_skills.values()]
-            confidence_followings = [p['confidence_following'] for p in combined_skills.values()]
+    # Calculate new distribution stats
+    skill_levels = [p['skill_level'] for p in combined_skills.values()]
+    crowd_followings = [p['crowd_following'] for p in combined_skills.values()]
+    confidence_followings = [p['confidence_following'] for p in combined_skills.values()]
 
-            result = {
-                'player_skills': combined_skills,
-                'distribution_stats': {
-                    'skill_level': {'mean': float(np.mean(skill_levels)), 'std': float(np.std(skill_levels))},
-                    'crowd_following': {'mean': float(np.mean(crowd_followings)), 'std': float(np.std(crowd_followings))},
-                    'confidence_following': {'mean': float(np.mean(confidence_followings)), 'std': float(np.std(confidence_followings))}
-                }
-            }
+    result = {
+        'player_skills': combined_skills,
+        'distribution_stats': {
+            'skill_level': {'mean': float(np.mean(skill_levels)), 'std': float(np.std(skill_levels))},
+            'crowd_following': {'mean': float(np.mean(crowd_followings)), 'std': float(np.std(crowd_followings))},
+            'confidence_following': {'mean': float(np.mean(confidence_followings)), 'std': float(np.std(confidence_followings))}
+        }
+    }
 
-            print(f"   ✅ Recalculated skills based on combined data")
-            return result
-        else:
-            # Return whichever one we have
-            return data_2025 or data_2024
+    print(f"   ✅ Recalculated skills based on combined data")
+    return result
 
 def match_players_to_skills(current_players, historical_skills):
     """Match current players to historical skill levels"""
@@ -333,7 +341,7 @@ def main():
     """Create and test realistic simulator"""
     parser = argparse.ArgumentParser(description='Apply realistic skill levels to current players')
     parser.add_argument('--year', type=int, default=None,
-                        help='Year to use (default: combine 2024 and 2025, with 2025 taking precedence)')
+                        help='Year to use (default: combine every available player_skills_<year>.json)')
     args = parser.parse_args()
 
     result = create_realistic_simulator(args.year)
