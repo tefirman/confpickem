@@ -49,7 +49,7 @@ Pipeline: **scrape Yahoo → convert to simulator format → Monte Carlo simulat
 
 - **`html_report.py`** — `generate_html_report(...)` renders the same picks / win-probability / game-importance / standings data `cli/optimize.py` already computes into a single self-contained, styled HTML string. Pure rendering — takes no simulator objects, only the plain dicts/DataFrames the CLI already has in scope. Written alongside the `.txt` report when `--html` is passed.
 - **`analyze_player_skills.py`** — parses cached HTML in `PickEmCache<year>/` (per season) into raw per-player hit/miss stats → `player_skills_<year>.json`.
-- **`apply_realistic_skills.py`** — combines one or more `player_skills_<year>.json`, converts raw stats to the three 0–1 knobs, fuzzy-matches historical names to the current roster, assigns distribution-sampled skills to unmatched players → `current_player_skills.json`, which `optimize.py` loads automatically if present (else default skills).
+- **`apply_realistic_skills.py`** — combines every `player_skills_<year>.json` in the repo root (exact four-digit years only), converts raw stats to the three 0–1 knobs, fuzzy-matches historical names to the current roster, assigns distribution-sampled skills to unmatched players → `current_player_skills.json`, which `optimize.py` loads automatically if present (else default skills).
 
 ### Modes
 
@@ -57,7 +57,11 @@ Pipeline: **scrape Yahoo → convert to simulator format → Monte Carlo simulat
 - `midweek` — some games finished or kicked off; locks those to the entry's submitted picks and optimizes the rest over unspent confidence. Requires real `yahoo.players` data. `--fast` and `--num-opponents` are rejected here.
 - `locked` — from the first Sunday kickoff Yahoo locks every entry, so there's nothing to optimize: reports league-wide live standings and the remaining games' swing on first place. No prompts (`--player` highlights your row); missing picks are auto-filled with the underdog at the lowest remaining confidence.
 
-`beginning`/`midweek` prompt on stdin for the player, then fixed picks (`TEAM CONF`, or a bare `TEAM` to pin the pick but let the optimizer choose its confidence), so scripted runs pipe both lines in. The `/picks` skill (`.claude/skills/picks/`) automates the weekly scenario runs.
+`beginning`/`midweek` prompt on stdin for the player, then fixed picks (`TEAM CONF`, or a bare `TEAM` to pin the pick but let the optimizer choose its confidence), so scripted runs pipe both lines in. Project skills in `.claude/skills/`:
+- `/picks` — weekly optimizer scenario runs (neutral + all-in on the opener), scored head-to-head.
+- `/refresh-skills` — after a week is final: cache it into `PickEmCache<season>/`, re-analyze, recombine every season into `current_player_skills.json`, snapshot, and diff.
+- `/release` — version bump + GitHub release (→ PyPI). User-invoked only.
+- `/archive-reports` — move finished weeks' `NFL_Week*` reports into `PreviousWeeks/`.
 
 ## Repo-specific conventions
 
