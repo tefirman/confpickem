@@ -490,7 +490,7 @@ def test_locked_board_filled_players_note_rendered_and_escaped():
         importance=_locked_importance(),
         filled_players=["<script>alert(1)</script>"],
     )
-    assert "auto-filled" in html
+    assert "score 0 points" in html
     assert "<script>alert(1)</script>" not in html
     assert "&lt;script&gt;" in html
 
@@ -499,7 +499,7 @@ def test_locked_board_no_filled_note_when_none_missing():
     html = generate_locked_board_html_report(
         week=5, league_id=11465, standings=_locked_standings(), importance=_locked_importance()
     )
-    assert "auto-filled" not in html
+    assert "score 0 points" not in html
 
 
 def test_locked_board_handles_empty_importance():

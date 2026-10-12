@@ -976,14 +976,11 @@ class ConfidencePickEmSimulator:
                 fully-locked state), unless ``fill_missing`` is set.
             n_outcomes: outcome-vector draws.
             seed: RNG seed (deterministic given identical inputs).
-            fill_missing: if ``True``, entrants missing picks on some games have
-                those games filled in rather than raising. Missing games are
-                assigned the underdog (Yahoo credits no one for games left
-                blank, and the underdog is the harsher assumption for the
-                stats) and the entrant's lowest remaining unused confidence
-                values, lowest points on the earliest-kicking missing game --
-                the same "least damage" convention most pools apply to a
-                forgotten slate.
+            fill_missing: if ``True``, entrants missing a pick (or holding
+                confidence 0) on some games are scored rather than raising.
+                Yahoo credits no points for a game with no team picked, so
+                those games are worth zero to that entrant whatever the
+                outcome -- no team or leftover confidence is invented for them.
             player_name: if given, ``importance`` also reports that entrant's
                 own ``pick``/``points_bid``/``win_probability``/
                 ``loss_probability``/``win_delta``/``loss_delta``/
@@ -1017,12 +1014,8 @@ class ConfidencePickEmSimulator:
         N = len(names)
         pick_home = np.zeros((N, n), dtype=bool)
         points = np.zeros((N, n), dtype=int)
-        all_points = set(range(1, n + 1))
-        kickoff_order = sorted(range(n), key=lambda i: games[i].kickoff_time)
         for e, name in enumerate(names):
             row = player_data.iloc[e]
-            missing = []
-            used_points = set()
             for i, g in enumerate(games):
                 got = self._player_game_pick(row, i, g)
                 if got is None:
@@ -1032,16 +1025,9 @@ class ConfidencePickEmSimulator:
                             f"{g.away_team}@{g.home_team}; standings_analytic "
                             f"needs every entrant's full slate (or pass "
                             f"fill_missing=True)")
-                    missing.append(i)
+                    # No pick, no points: leave the default zero-point slot.
                     continue
                 pick_home[e, i], points[e, i] = got
-                used_points.add(points[e, i])
-            if missing:
-                leftover = sorted(all_points - used_points)
-                for i in sorted(missing, key=lambda idx: kickoff_order.index(idx)):
-                    g = games[i]
-                    pick_home[e, i] = g.vegas_win_prob < 0.5
-                    points[e, i] = leftover.pop(0) if leftover else 0
 
         vegas_home = np.array([g.vegas_win_prob for g in games])
         completed = [g.actual_outcome is not None for g in games]

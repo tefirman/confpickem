@@ -81,8 +81,9 @@ def parse_compare_slate(raw: str) -> tuple:
 def _run_locked_mode(args, yahoo, simulator):
     """--mode locked: every entry is locked, nothing to optimize -- just score
     the board with `standings_analytic` and write the standings + game
-    importance report. Missing picks (an entrant who forgot a game) are
-    auto-filled rather than raising, since real pools always have stragglers.
+    importance report. Missing picks (an entrant who forgot a team or its
+    confidence) score 0 points on that game rather than raising, since real
+    pools always have stragglers.
     """
     print(f"\n📊 Scoring the board ({len(simulator.games)} games)...")
 
@@ -154,7 +155,7 @@ def _run_locked_mode(args, yahoo, simulator):
     if filled_players:
         print(
             f"\n⚠️  {len(filled_players)} entrant(s) missing one or more picks "
-            f"were auto-filled (underdog, lowest remaining confidence): "
+            f"are scored 0 points on those games (no team or no confidence): "
             f"{', '.join(filled_players)}"
         )
 
@@ -169,8 +170,8 @@ def _run_locked_mode(args, yahoo, simulator):
         f.write(f"Mode: LOCKED (every entry locked, no optimization)\n")
         if filled_players:
             f.write(
-                f"Auto-filled missing picks (underdog, lowest remaining "
-                f"confidence) for: {', '.join(filled_players)}\n"
+                f"Missing picks scored as 0 points (no team picked or no "
+                f"confidence assigned) for: {', '.join(filled_players)}\n"
             )
         f.write("\n")
 

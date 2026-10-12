@@ -706,7 +706,9 @@ def test_standings_analytic_requires_full_slates(analytic_simulator):
         sim.standings_analytic(pd.DataFrame(rows))
 
 
-def test_standings_analytic_fill_missing_completes_slate(analytic_simulator):
+def test_standings_analytic_fill_missing_scores_zero(analytic_simulator):
+    """A game with no team (or zero confidence) is worth 0 points -- it must
+    not be filled with the underdog plus leftover confidence."""
     sim = analytic_simulator
     n = len(sim.games)
     rows = [
@@ -716,37 +718,55 @@ def test_standings_analytic_fill_missing_completes_slate(analytic_simulator):
             **{f"game_{i+1}_confidence": i + 1 for i in range(n)},
         },
         {
-            # forgot games 2 (KC@DEN) and 3 (BAL@CIN); used points {1, 4} on
-            # the other two, so {2, 3} are left over for the fill
+            # forgot games 2 and 3; game 4 has a team but confidence 0
             "player_name": "Jayparr",
             "game_1_pick": sim.games[0].home_team,
             "game_1_confidence": 4,
             "game_4_pick": sim.games[3].home_team,
-            "game_4_confidence": 1,
+            "game_4_confidence": 0,
         },
     ]
-    pdata = pd.DataFrame(rows)
-
-    standings, importance = sim.standings_analytic(pdata, n_outcomes=1500, seed=1, fill_missing=True)
-
+    standings, importance = sim.standings_analytic(
+        pd.DataFrame(rows), n_outcomes=1500, seed=1, fill_missing=True)
     assert set(standings.player) == {"Me", "Jayparr"}
     assert len(importance) == n
 
-    # confirm the fill actually ran by comparing against a hand-filled slate:
-    # leftover points {2, 3} go lowest-first to the earliest-kicking missing
-    # game (KC@DEN, index 1), and both filled games pick the underdog
-    filled_rows = list(rows)
-    filled_rows[1] = {
+    # equivalent to a slate that only has game 1 (4 pts) and zero elsewhere
+    explicit = list(rows)
+    explicit[1] = {
         "player_name": "Jayparr",
         "game_1_pick": sim.games[0].home_team, "game_1_confidence": 4,
-        "game_2_pick": sim.games[1].away_team, "game_2_confidence": 2,
-        "game_3_pick": sim.games[2].away_team, "game_3_confidence": 3,
-        "game_4_pick": sim.games[3].home_team, "game_4_confidence": 1,
+        **{f"game_{i+1}_pick": sim.games[i].away_team for i in (1, 2, 3)},
+        **{f"game_{i+1}_confidence": 0 for i in (1, 2, 3)},
     }
-    expected_standings, expected_importance = sim.standings_analytic(
-        pd.DataFrame(filled_rows), n_outcomes=1500, seed=1, fill_missing=True)
-    pd.testing.assert_frame_equal(standings, expected_standings)
-    pd.testing.assert_frame_equal(importance, expected_importance)
+    expected, _ = sim.standings_analytic(
+        pd.DataFrame(explicit), n_outcomes=1500, seed=1, fill_missing=True)
+    pd.testing.assert_frame_equal(standings, expected)
+    # at most 4 points possible, and never the leftover {2,3,...} the old
+    # fill would have invented
+    jay = standings.set_index("player").loc["Jayparr"]
+    assert jay.expected_points <= 4.0
+
+
+def test_standings_analytic_blank_team_on_completed_game_banks_nothing(analytic_simulator):
+    sim = analytic_simulator
+    n = len(sim.games)
+    # game 1 is decided and the underdog won -- the old fill handed a blank
+    # entrant that win with their leftover confidence
+    sim.games[0].actual_outcome = False
+    try:
+        rows = [
+            {
+                "player_name": "Blank",
+                **{f"game_{i+1}_pick": sim.games[i].home_team for i in range(1, n)},
+                **{f"game_{i+1}_confidence": i for i in range(1, n)},  # 1..n-1; n unused
+            },
+        ]
+        standings, _ = sim.standings_analytic(
+            pd.DataFrame(rows), n_outcomes=500, seed=1, fill_missing=True)
+        assert standings.iloc[0].locked_points == 0
+    finally:
+        sim.games[0].actual_outcome = None
 
 
 def test_standings_analytic_fill_missing_still_requires_slate_without_flag(analytic_simulator):

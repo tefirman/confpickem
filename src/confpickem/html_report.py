@@ -1229,7 +1229,7 @@ def generate_locked_board_html_report(
         player_name: if given, highlights that entrant's row in the
             standings table (does not filter or change any values).
         filled_players: names of entrants whose slate had missing picks
-            auto-filled (via `standings_analytic(..., fill_missing=True)`) --
+            scored as 0 points on those games (via `standings_analytic(..., fill_missing=True)`) --
             rendered as a note so the report doesn't silently imply everyone
             actually submitted a full slate.
     """
@@ -1272,8 +1272,8 @@ def generate_locked_board_html_report(
         plural = "entrant" if len(filled_players) == 1 else "entrants"
         filled_note = (
             f'<div class="fill-note">&#9888;&#65039; {len(filled_players)} {plural} '
-            f"missing one or more picks had them auto-filled (underdog, lowest "
-            f"remaining confidence): <b>{names}</b></div>"
+            f"missing a team or confidence on one or more games score 0 points "
+            f"on those games: <b>{names}</b></div>"
         )
 
     return f"""<title>Week {week} Live Standings</title>

@@ -55,7 +55,7 @@ Pipeline: **scrape Yahoo → convert to simulator format → Monte Carlo simulat
 
 - `beginning` — all games pending; may synthesize opponents (`--num-opponents`). `--fast` (2000 sims, reduced confidence search) applies only with `--greedy`.
 - `midweek` — some games finished or kicked off; locks those to the entry's submitted picks and optimizes the rest over unspent confidence. Requires real `yahoo.players` data. `--fast` and `--num-opponents` are rejected here.
-- `locked` — from the first Sunday kickoff Yahoo locks every entry, so there's nothing to optimize: reports league-wide live standings and the remaining games' swing on first place. No prompts (`--player` highlights your row); missing picks are auto-filled with the underdog at the lowest remaining confidence.
+- `locked` — from the first Sunday kickoff Yahoo locks every entry, so there's nothing to optimize: reports league-wide live standings and the remaining games' swing on first place. No prompts (`--player` highlights your row); a game with no team or no confidence scores 0 points for that entrant (matches Yahoo).
 
 `beginning`/`midweek` prompt on stdin for the player, then fixed picks (`TEAM CONF`, or a bare `TEAM` to pin the pick but let the optimizer choose its confidence), so scripted runs pipe both lines in. Project skills in `.claude/skills/`:
 - `/picks` — weekly optimizer scenario runs (neutral + all-in on the opener), scored head-to-head.
