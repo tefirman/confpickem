@@ -456,7 +456,7 @@ class TestCLIIntegration:
     @patch("src.confpickem.cli.optimize.Path")
     def test_optimize_locked_mode_workflow(self, mock_path, mock_yahoo, tmp_path, monkeypatch):
         """--mode locked runs end-to-end with no prompts and no optimization,
-        auto-filling any entrant missing a pick."""
+        scoring any entrant missing a pick as 0 points on that game."""
         monkeypatch.chdir(tmp_path)
         mock_path.return_value.exists.return_value = True
 
@@ -513,7 +513,7 @@ class TestCLIIntegration:
         report = txt_files[0].read_text()
         assert "LIVE STANDINGS" in report
         assert "Jayparr" in report
-        assert "Auto-filled missing picks" in report
+        assert "Missing picks scored as 0 points" in report
 
         html = html_files[0].read_text()
         assert "Live Standings" in html

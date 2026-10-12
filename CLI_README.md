@@ -124,9 +124,9 @@ nothing left to optimize, just the live standings and which games still swing
 them. This mode skips player selection and fixed picks entirely and reports,
 for the whole league: each entrant's win probability and expected points
 (`win_pct` sums to 1 across the field), plus the undecided games with the
-largest `top_swing` on first place. Entrants who forgot to submit a pick on
-one or more games are auto-filled with the underdog at their lowest remaining
-confidence value rather than dropped, since real pools always have stragglers.
+largest `top_swing` on first place. Entrants who forgot to pick a team (or
+assign its confidence) on one or more games are kept in the field but score 0
+points on those games, matching how Yahoo scores them.
 `--fast`, `--num-opponents`, `--greedy`, and `--hill-climb` don't apply here.
 
 Since there's no interactive player-selection prompt in this mode, pass
