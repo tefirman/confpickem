@@ -51,9 +51,22 @@ session has expired. Don't try to work around it.
 
 ## 3. Run each scenario
 
-Live odds: add `--live-odds` if `ODDS_API_KEY` is set in the environment
-(`[ -n "$ODDS_API_KEY" ]`). If it isn't, run without it and say so in the
-summary -- never ask the user to paste the key into chat.
+**Live odds are the default -- always run with `--live-odds`.** Yahoo's implied
+win probabilities are noticeably less realistic (they can move win % by several
+points), so every scenario should use live odds.
+
+The Bash tool's shell often lacks `ODDS_API_KEY`; it's normally exported in
+`~/.zshrc`. Load it without printing it, in the same command as the run:
+
+```bash
+export ODDS_API_KEY="$(zsh -c 'source ~/.zshrc >/dev/null 2>&1; printf %s "$ODDS_API_KEY"')"
+[ -n "$ODDS_API_KEY" ] || echo "no key"
+```
+
+Never echo the key or ask the user to paste it into chat. If the key is still
+empty after that, or the run falls back to Yahoo for some/all games
+(`live_odds_source == 'Yahoo_Fallback'`, API errors, quota), **stop and ask the
+user before proceeding** with Yahoo's implied odds. Don't silently fall back.
 
 The optimizer prompts on stdin for the player, then fixed picks, so pipe both:
 
@@ -92,7 +105,8 @@ remaining games by swing on first place.
 ## 5. Summarize
 
 Keep it short:
-- Week, mode, whether live odds were used, the opener matchup, and `slate_lock_et`
+- Week, mode, confirmation that live odds were used (and for how many games, if
+  any fell back to Yahoo), the opener matchup, and `slate_lock_et`
   (in ET and Pacific).
 - If `early_sunday_games` has a game that hasn't finished, flag the re-run window:
   run `/picks` again once it's over (or mid-game, where it's treated as locked but
