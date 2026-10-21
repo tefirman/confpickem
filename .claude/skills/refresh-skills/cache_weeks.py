@@ -7,8 +7,10 @@ Walks weeks 1, 2, ... and, for each week not already cached, fetches the
 Yahoo pages straight into PickEmCache<season>/ -- the layout
 analyze_player_skills.py reads. A week is kept only if every game has a
 result; the first unfinished week is discarded and the walk stops there, so
-the cache only ever holds final weeks. --force-week re-fetches one week (e.g.
-if a stat correction changed a result).
+the cache only ever holds final weeks. A game with no winner in an otherwise
+finished week is a tie (Yahoo highlights neither side); the week counts as
+final once the following week has a decided game. --force-week re-fetches one
+week (e.g. if a stat correction changed a result).
 
 Prints a JSON summary on stdout; scraper chatter is suppressed.
 """
@@ -77,6 +79,23 @@ def fetch(cache_dir, week, league_id):
     return games, final, players
 
 
+def week_is_over(cache_dir, week, league_id):
+    """True once the week after `week` has a decided game (so `week` is over).
+
+    Lets a tied game, which never gets a winner, stop blocking its week. The
+    lookahead pages are fetched into a throwaway copy of the cache dir's files
+    and removed again, so nothing about the next week is kept.
+    """
+    nxt = week + 1
+    if nxt > MAX_WEEKS:
+        return False
+    had = is_cached(cache_dir, nxt)
+    _, final, _ = fetch(cache_dir, nxt, league_id)
+    if not had:
+        remove(cache_dir, nxt, KEEP + DROP)
+    return final > 0
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--season", type=int, default=default_season())
@@ -89,7 +108,7 @@ def main():
     for week in args.force_week:
         remove(cache_dir, week, KEEP + DROP)
 
-    added, already = [], []
+    added, already, ties = [], [], []
     stopped = None
     for week in range(1, MAX_WEEKS + 1):
         if is_cached(cache_dir, week):
@@ -113,9 +132,12 @@ def main():
             stopped = {"week": week, "reason": "no data yet"}
             break
         if final < games:
-            remove(cache_dir, week, KEEP)
-            stopped = {"week": week, "reason": f"not final ({final}/{games} games decided)"}
-            break
+            if week_is_over(cache_dir, week, args.league_id):
+                ties.append({"week": week, "undecided_games": games - final})
+            else:
+                remove(cache_dir, week, KEEP)
+                stopped = {"week": week, "reason": f"not final ({final}/{games} games decided)"}
+                break
         added.append(week)
 
     cached = already + added
@@ -125,6 +147,7 @@ def main():
         "weeks_added": added,
         "weeks_already_cached": already,
         "latest_final_week": max(cached) if cached else None,
+        "weeks_with_ties": ties,
         "stopped_at": stopped,
     }, indent=2))
     return 0
