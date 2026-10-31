@@ -19,10 +19,11 @@ mypy src/confpickem            # Type check
 
 CI (`.github/workflows/test.yml`) runs `pytest` across Python 3.8–3.13 on every push/PR to `main`. `conftest.py` prepends `src/` to `sys.path`, so tests import `confpickem` without an editable install.
 
-The three console entry points (defined in `[project.scripts]`) all resolve to `main()` in `src/confpickem/cli/`:
+The console entry points (defined in `[project.scripts]`) all resolve to `main()` in `src/confpickem/cli/`:
 - `confpickem` / `confpickem-optimize` → `cli/optimize.py`
 - `confpickem-win-probability` → `cli/win_probability.py`
 - `confpickem-player-skills` → `cli/player_skills.py`
+- `confpickem-season` → `cli/season.py`
 
 See `CLI_README.md` for full flag documentation. (`README_OPTIMIZATION.md` is stale — it references a deleted `optimize_week1_picks.py`.)
 
@@ -47,6 +48,7 @@ Pipeline: **scrape Yahoo → convert to simulator format → Monte Carlo simulat
 
 - **`live_odds_scraper.py`** — `LiveOddsScraper(odds_api_key)`. Pulls schedule/scores from ESPN's public API and betting lines from **The Odds API** (`ODDS_API_KEY` env var or `--odds-api-key`). `update_odds_with_live_data()` overwrites Yahoo's implied `win_prob` with live-derived probabilities; **falls back to Yahoo data per-game** when the API is unavailable (look for `live_odds_source == 'Yahoo_Fallback'`).
 
+- **`season_sim.py`** — season-long Monte Carlo (weekly $500 + season $2250/$1000/$500/$250 by total points). `SeasonSimulator.from_standings(yahoo.standings, skills, templates, completed_weeks)` simulates the remaining weeks: slates are *sampled* from finished weeks in `PickEmCache<year>/` (`load_week_templates`), outcomes are shared across players, picks use the same knob model as `simulate_picks` but with noise widened by `SEASON_NOISE_SCALE` plus a persistent per-player edge (`estimate_ability`) and a state-based skipped-week model (`participation_rates`/`infer_active`) — all calibrated against past seasons, see `docs/season-sim-calibration.md` and `scripts/calibrate_season_sim.py`. `compare_slates(..., season_standings=yahoo.standings, completed_weeks=W-1)` uses `slate_season_equity` to add `weekly_dollars`/`season_dollars`/`expected_dollars` (+ paired `season_dollars_se`; gaps under ~2× it are noise). The optimizer itself still maximizes win probability.
 - **`html_report.py`** — `generate_html_report(...)` renders the same picks / win-probability / game-importance / standings data `cli/optimize.py` already computes into a single self-contained, styled HTML string. Pure rendering — takes no simulator objects, only the plain dicts/DataFrames the CLI already has in scope. Written alongside the `.txt` report when `--html` is passed.
 - **`analyze_player_skills.py`** — parses cached HTML in `PickEmCache<year>/` (per season) into raw per-player hit/miss stats → `player_skills_<year>.json`.
 - **`apply_realistic_skills.py`** — combines every `player_skills_<year>.json` in the repo root (exact four-digit years only), converts raw stats to the three 0–1 knobs, fuzzy-matches historical names to the current roster, assigns distribution-sampled skills to unmatched players → `current_player_skills.json`, which `optimize.py` loads automatically if present (else default skills).
@@ -64,6 +66,8 @@ Pipeline: **scrape Yahoo → convert to simulator format → Monte Carlo simulat
 - `/archive-reports` — move finished weeks' `NFL_Week*` reports into `PreviousWeeks/`.
 
 ## Repo-specific conventions
+
+- Some cached pages are stale (saved before their games were played: 2024 wk1/wk18, 2025 wk18). `load_week_templates` / `load_season_history` skip any week with more than one winnerless game, so those seasons run 2024 wk2–17 and 2025 wk1–17.
 
 - **Runtime data lives in the repo root and is gitignored**: `cookies.txt` (Mozilla cookie-jar format, Yahoo session, expires in days), `current_player_skills*.json`, `player_skills_*.json`, `PickEmCache*/`, `PreviousWeeks/`, `.cache/`, `hill_climb_checkpoint.txt`, and generated `NFL_Week*_*.txt`/`.html` reports (the latter written next to the `.txt` report when `optimize.py` is run with `--html`). Default league ID is `11465`.
 - Packaging uses **hatchling** (not setuptools, despite a leftover `[tool.setuptools]` block). Bump `version` in `pyproject.toml` and `__version__` in `src/confpickem/__init__.py` together. A GitHub **release** triggers `publish.yml` → PyPI.

@@ -185,6 +185,15 @@ def _build_comparison_rows(comparison_df: Optional[pd.DataFrame]) -> List[Dict]:
                 "label": row["label"],
                 "win_probability": float(row["win_probability"]),
                 "win_std": float(row["win_std"]),
+                **(
+                    {
+                        "weekly_dollars": float(row["weekly_dollars"]),
+                        "season_dollars": float(row["season_dollars"]),
+                        "expected_dollars": float(row["expected_dollars"]),
+                    }
+                    if "expected_dollars" in comparison_df.columns
+                    else {}
+                ),
             }
         )
     return rows
@@ -288,6 +297,14 @@ def generate_html_report(
 """
 
     comparison_section = ""
+    has_dollars = bool(comparison_rows) and "expected_dollars" in comparison_rows[0]
+    dollar_heads = (
+        '\n            <th class="num">Weekly $</th>'
+        '\n            <th class="num">Season $</th>'
+        '\n            <th class="num">Total $</th>'
+        if has_dollars
+        else ""
+    )
     if comparison_rows:
         comparison_section = f"""
   <section class="panel">
@@ -302,7 +319,7 @@ def generate_html_report(
             <th class="num">Rank</th>
             <th>Slate</th>
             <th class="num">Win %</th>
-            <th class="num">Win Std</th>
+            <th class="num">Win Std</th>{dollar_heads}
           </tr>
         </thead>
         <tbody><!-- rows injected by script --></tbody>
@@ -1144,6 +1161,13 @@ def generate_html_report(
       tr.appendChild(tdLabel);
       tr.appendChild(tdWin);
       tr.appendChild(tdStd);
+      ['weekly_dollars', 'season_dollars', 'expected_dollars'].forEach(function(k){{
+        if(c[k] === undefined) return;
+        var td = document.createElement('td');
+        td.className = 'num';
+        td.textContent = '$' + c[k].toFixed(2);
+        tr.appendChild(td);
+      }});
       comparisonBody.appendChild(tr);
     }});
   }}

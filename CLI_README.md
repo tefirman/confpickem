@@ -152,6 +152,18 @@ confidence on a coin-flip game) concentrates the week into a sharper
 win/lose boundary than spreading confidence across a few moderate-impact
 picks. Not available in `--mode locked` (nothing to optimize against).
 
+**Dollar columns.** When Yahoo standings and `PickEmCache<year>/` history are
+available, the table also values each slate in dollars: `Weekly $` = $500 x win
+probability; `Season $` = the slate's effect on season-prize equity
+($2250/$1000/$500/$250 for 1st-4th), from a season-long simulation that scores
+this week on the *same* outcome draws as everyone else's picks and simulates the
+remaining weeks once; `Total $` is their sum and `Top-4 %` the chance of a paying
+season finish. `Season $ SE` is the paired standard error against the best
+win-probability slate: one week's slate moves season equity by only a few
+dollars, so a `Season $` gap smaller than about twice that is noise (raise
+`--an-outcomes` to tighten it). `--compare-objective expected_dollars` ranks by
+`Total $` instead of win %; the optimizer itself still maximizes win probability.
+
 ---
 
 ### 2. `confpickem-win-probability` - Win Probability Calculator
@@ -233,6 +245,31 @@ confpickem-player-skills update --years 2024,2025
 # Just apply all available years (no analysis)
 confpickem-player-skills update
 ```
+
+---
+
+### 4. `confpickem-season` - Season-Long Outlook
+
+Simulates every remaining week from the current Yahoo standings and reports each
+entry's chance at each season prize plus expected dollars (weekly prizes still to
+win + season-prize equity). Future slates are sampled from the finished weeks in
+`PickEmCache<year>/`; picks follow each player's skill model, widened and
+supplemented with a persistent per-player edge estimated from their season so far
+(see `docs/season-sim-calibration.md` for why and how well it holds up).
+
+```bash
+# Weeks 1-7 final; simulate 8-18
+confpickem-season --week 8
+
+# Highlight your entry, top 25 only, save everything to CSV
+confpickem-season --week 8 --player "Educated Guesses" --top 25 --csv season.csv
+```
+
+Key flags: `--week` (required; the current week -- earlier weeks count as final and
+this one is simulated in full), `--completed-weeks` (override), `--num-sims`
+(default 10000), `--weekly-prize`, `--season-prizes` (comma-separated, 1st first),
+`--skills`, `--cache-root`. Ties split prizes evenly. Entries that missed their
+last two weeks are treated as inactive.
 
 ---
 

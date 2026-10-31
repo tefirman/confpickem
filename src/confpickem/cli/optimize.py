@@ -42,6 +42,40 @@ from src.confpickem.confidence_pickem_sim import ConfidencePickEmSimulator, Play
 from src.confpickem.html_report import generate_html_report, generate_locked_board_html_report
 
 
+def comparison_lines(comparison_df, indent: str = "") -> list:
+    """Render the ``--compare-slate`` table; adds the dollar columns when the
+    comparison carries them (``compare_slates(season_standings=...)``)."""
+    has_dollars = "expected_dollars" in comparison_df.columns
+    head = f"{indent}{'Rank':<6} {'Label':<20} {'Win %':<10} {'Win Std'}"
+    if has_dollars:
+        head += (
+            f"    {'Weekly $':>9} {'Season $':>9} {'Total $':>9} {'Top-4 %':>8} {'Season $ SE':>12}"
+        )
+    lines = [head, f"{indent}{'-' * (len(head) - len(indent))}"]
+    for _, row in comparison_df.iterrows():
+        line = (
+            f"{indent}{int(row['rank']):<6} {row['label']:<20} "
+            f"{row['win_probability']:>6.1%}     {row['win_std']:.4f}"
+        )
+        if has_dollars:
+            line += (
+                f"    {row['weekly_dollars']:>9.2f} {row['season_dollars']:>9.2f} "
+                f"{row['expected_dollars']:>9.2f} {row['p_season_top4']:>8.1%} "
+                f"{row['season_dollars_se']:>12.2f}"
+            )
+        lines.append(line)
+    if has_dollars:
+        lines.append(
+            f"{indent}Weekly $ = $500 x Win %; Season $ = season-prize equity from a season-long "
+            f"sim."
+        )
+        lines.append(
+            f"{indent}Season $ SE = paired std. error vs. the top Win % slate -- gaps in "
+            f"Season $ smaller than ~2x this are noise."
+        )
+    return lines
+
+
 def parse_compare_slate(raw: str) -> tuple:
     """Parse one ``--compare-slate`` value into ``(label, {TEAM: confidence})``.
 
@@ -369,6 +403,16 @@ Examples:
         '\'manual:KC 16, SF 15, MIN 14\'. Repeatable -- pass multiple times '
         "to compare several slates at once. Reports win_probability and "
         "win_std (how much the slate's fate swings week to week).",
+    )
+
+    parser.add_argument(
+        "--compare-objective",
+        choices=["win_probability", "expected_dollars"],
+        default="win_probability",
+        help="How --compare-slate ranks slates. 'expected_dollars' = $500 x win "
+        "probability + the slate's effect on season-prize equity ($2250/$1000/"
+        "$500/$250) from a season-long simulation. Dollar columns are always "
+        "shown when Yahoo standings and PickEmCache<year>/ history are available.",
     )
 
     args = parser.parse_args()
@@ -1098,20 +1142,43 @@ Examples:
                     try:
                         slates_to_compare = {"optimized": optimal_picks}
                         slates_to_compare.update(dict(parsed_compare_slates))
-                        comparison_df = simulator.compare_slates(
+                        season_kwargs = {}
+                        standings = getattr(yahoo, "standings", None)
+                        if standings is not None and len(standings) > 0:
+                            from src.confpickem.season_sim import load_week_templates
+
+                            templates = load_week_templates()
+                            if templates:
+                                season_kwargs = dict(
+                                    season_standings=standings,
+                                    completed_weeks=args.week - 1,
+                                    week_templates=templates,
+                                )
+                            else:
+                                print("   ℹ️  No PickEmCache<year>/ history found -- skipping dollars")
+                        compare_args = dict(
                             player_name=selected,
                             slates=slates_to_compare,
                             player_data=yahoo.players if args.mode == "midweek" else None,
                             as_of=datetime.now() if args.mode == "midweek" else None,
                             n_outcomes=args.an_outcomes,
                         )
-                        print(f"   {'Rank':<6} {'Label':<20} {'Win %':<10} {'Win Std'}")
-                        print(f"   {'-'*6} {'-'*20} {'-'*10} {'-'*10}")
-                        for _, row in comparison_df.iterrows():
-                            print(
-                                f"   {int(row['rank']):<6} {row['label']:<20} "
-                                f"{row['win_probability']:>6.1%}     {row['win_std']:.4f}"
+                        try:
+                            comparison_df = simulator.compare_slates(
+                                **compare_args,
+                                objective=args.compare_objective
+                                if season_kwargs
+                                else "win_probability",
+                                **season_kwargs,
                             )
+                        except Exception as e:
+                            if not season_kwargs:
+                                raise
+                            # Don't lose the win-probability table over the dollars add-on.
+                            print(f"   ⚠️  Dollar valuation unavailable ({e}); win % only")
+                            comparison_df = simulator.compare_slates(**compare_args)
+                        for line in comparison_lines(comparison_df, indent="   "):
+                            print(line)
                     except ValueError as e:
                         print(f"   ⚠️  Could not compare slates: {e}")
                         comparison_df = None
@@ -1244,13 +1311,8 @@ Examples:
                     # Write slate comparison if available
                     if comparison_df is not None and len(comparison_df) > 0:
                         f.write(f"\nSLATE COMPARISON:\n")
-                        f.write(f"{'Rank':<6} {'Label':<20} {'Win %':<10} {'Win Std'}\n")
-                        f.write(f"{'-'*6} {'-'*20} {'-'*10} {'-'*10}\n")
-                        for _, row in comparison_df.iterrows():
-                            f.write(
-                                f"{int(row['rank']):<6} {row['label']:<20} "
-                                f"{row['win_probability']:>6.1%}     {row['win_std']:.4f}\n"
-                            )
+                        for line in comparison_lines(comparison_df):
+                            f.write(line + "\n")
 
                     # Write summary statistics if available
                     if summary_stats is not None and len(summary_stats) > 0:

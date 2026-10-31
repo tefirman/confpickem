@@ -116,10 +116,17 @@ def parse_week_data(week_file):
                 elif "yspNflPickWin" in games_meta[2][game].get("class", []):
                     winner = underdog
 
+                spread_text = games_meta[1][game].text.strip()
+                try:
+                    spread = float(spread_text)
+                except ValueError:  # "Off" / "--" -> no line
+                    spread = 0.0
+
                 entry = {
                     'favorite': favorite,
                     'underdog': underdog,
                     'winner': winner,
+                    'spread': spread,
                 }
 
                 if crowd_by_index and game < len(crowd_by_index):
