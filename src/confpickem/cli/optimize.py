@@ -76,6 +76,24 @@ def comparison_lines(comparison_df, indent: str = "") -> list:
     return lines
 
 
+def season_context_lines(ctx, indent: str = "") -> list:
+    """Console / .txt summary of ``ConfidencePickEmSimulator.season_context``."""
+    you = ctx["you"]
+    return [
+        f"\n{indent}🏆 SEASON OUTLOOK (before this week; weeks 1-{ctx['completed_weeks']} final, "
+        f"{ctx['num_sims']:,} sims):",
+        f"{indent}   P(1st) {you['p_place_1']:.1%}  P(2nd) {you['p_place_2']:.1%}  "
+        f"P(3rd) {you['p_place_3']:.1%}  P(4th) {you['p_place_4']:.1%}  "
+        f"P(top 4) {you['p_top4']:.1%}",
+        f"{indent}   Expected ${you['exp_dollars']:,.0f} = ${you['exp_weekly_dollars']:,.0f} weekly "
+        f"+ ${you['exp_season_dollars']:,.0f} season",
+        f"{indent}   This week's leverage: ${ctx['dollars_per_point']:.2f} of season equity per "
+        f"point (+/-${ctx['dollars_per_point_se']:.2f}); a 1-SD week (+/-{ctx['week_score_sd']:.0f} "
+        f"pts) moves it +/-${abs(ctx['season_swing']):,.0f} -> {ctx['leverage'].upper()} vs. "
+        f"the ${ctx['weekly_prize']:,.0f} weekly prize",
+    ]
+
+
 def parse_compare_slate(raw: str) -> tuple:
     """Parse one ``--compare-slate`` value into ``(label, {TEAM: confidence})``.
 
@@ -1183,6 +1201,31 @@ Examples:
                         print(f"   ⚠️  Could not compare slates: {e}")
                         comparison_df = None
 
+                # Season-long picture: outlook + how much this week moves it
+                season_ctx = None
+                standings = getattr(yahoo, "standings", None)
+                if standings is not None and len(standings) > 0 and args.mode != "locked":
+                    try:
+                        from src.confpickem.season_sim import load_week_templates
+
+                        templates = load_week_templates()
+                        if templates:
+                            season_ctx = simulator.season_context(
+                                selected,
+                                optimal_picks,
+                                standings,
+                                completed_weeks=args.week - 1,
+                                week_templates=templates,
+                                player_data=yahoo.players if args.mode == "midweek" else None,
+                                as_of=datetime.now() if args.mode == "midweek" else None,
+                                n_outcomes=args.an_outcomes,
+                            )
+                    except Exception as e:
+                        print(f"\n   ⚠️  Season outlook unavailable: {e}")
+                if season_ctx is not None:
+                    for line in season_context_lines(season_ctx):
+                        print(line)
+
                 # Display summary statistics if available (from hill climbing)
                 if summary_stats is not None and len(summary_stats) > 0:
                     print(f"\n📊 PICK ROBUSTNESS ANALYSIS:")
@@ -1314,6 +1357,10 @@ Examples:
                         for line in comparison_lines(comparison_df):
                             f.write(line + "\n")
 
+                    if season_ctx is not None:
+                        for line in season_context_lines(season_ctx):
+                            f.write(line.replace("🏆 ", "") + "\n")
+
                     # Write summary statistics if available
                     if summary_stats is not None and len(summary_stats) > 0:
                         f.write(f"\nPICK ROBUSTNESS ANALYSIS:\n")
@@ -1389,6 +1436,7 @@ Examples:
                         total_games=len(simulator.games),
                         summary_stats=summary_stats,
                         comparison_df=comparison_df,
+                        season_context=season_ctx,
                     )
                     with open(html_filename, "w") as f:
                         f.write(html_report)

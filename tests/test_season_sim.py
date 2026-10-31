@@ -325,3 +325,19 @@ def test_compare_slates_objective_validation(league):
             completed_weeks=2,
             week_templates=_templates(n=6),
         )
+
+
+def test_season_context_reports_outlook_and_leverage(league):
+    sim, standings, chalk, _ = league
+    ctx = sim.season_context("p0", chalk, standings, completed_weeks=2,
+                             week_templates=_templates(n=6), n_outcomes=800)
+    assert ctx["you"]["player"] == "p0"
+    assert ctx["outlook"]["p_place_1"].sum() == pytest.approx(1.0)
+    assert ctx["dollars_per_point"] > 0           # more points never hurt season equity
+    assert ctx["week_score_sd"] > 0
+    assert ctx["season_swing"] == pytest.approx(ctx["dollars_per_point"] * ctx["week_score_sd"])
+    assert ctx["leverage"] in ("low", "moderate", "high")
+    assert "p0" in ctx["top"]["player"].tolist()
+    with pytest.raises(ValueError):
+        sim.season_context("nobody", chalk, standings, completed_weeks=2,
+                           week_templates=_templates(n=6))

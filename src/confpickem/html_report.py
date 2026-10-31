@@ -199,6 +199,90 @@ def _build_comparison_rows(comparison_df: Optional[pd.DataFrame]) -> List[Dict]:
     return rows
 
 
+def _build_season_section(ctx: Optional[Dict], player_name: str) -> str:
+    """Season Outlook panel from ``ConfidencePickEmSimulator.season_context``."""
+    if not ctx:
+        return ""
+    you = ctx["you"]
+    top = ctx["top"]
+    weekly_prize = ctx["weekly_prize"]
+    leverage = ctx["leverage"]
+    weeks_left = ctx["total_weeks"] - ctx["completed_weeks"]
+    sd = ctx["week_score_sd"]
+
+    rows = []
+    for i, r in enumerate(top.itertuples(index=False), 1):
+        is_you = str(r.player).casefold() == str(player_name).casefold()
+        tag = '<span class="you-tag">you</span>' if is_you else ""
+        idle = ' <span style="color:var(--ink-faint)">(inactive)</span>' if not r.active else ""
+        row_class = "you" if is_you else ""
+        rows.append(
+            f'<tr class="{row_class}">'
+            f'<td class="num">{int(r.current_rank)}</td>'
+            f"<td>{_esc(r.player)}{tag}{idle}</td>"
+            f'<td class="num">{r.points:.0f}</td>'
+            f'<td class="num">{r.p_place_1 * 100:.1f}%</td>'
+            f'<td class="num">{r.p_top4 * 100:.1f}%</td>'
+            f'<td class="num">${r.exp_weekly_dollars:,.0f}</td>'
+            f'<td class="num">${r.exp_season_dollars:,.0f}</td>'
+            f'<td class="num">${r.exp_dollars:,.0f}</td>'
+            f"</tr>"
+        )
+
+    return f"""
+  <section class="panel">
+    <div class="panel-head">
+      <span class="panel-title">Season Outlook</span>
+      <span class="panel-note">weeks 1&ndash;{ctx["completed_weeks"]} final &middot; {weeks_left} weeks simulated &middot; {ctx["num_sims"]:,} seasons</span>
+    </div>
+    <div class="summary-strip" style="border-radius:0;box-shadow:none;border-width:1px 0;">
+      <div class="stat">
+        <span class="stat-label">Season Prize Odds</span>
+        <span class="stat-value accent">{you["p_place_1"] * 100:.1f}%</span>
+        <span class="stat-sub">1st &middot; 2nd {you["p_place_2"] * 100:.1f}% &middot; 3rd {you["p_place_3"] * 100:.1f}% &middot; 4th {you["p_place_4"] * 100:.1f}%</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Top-4 Finish</span>
+        <span class="stat-value">{you["p_top4"] * 100:.1f}%</span>
+        <span class="stat-sub">rank {int(you["current_rank"])} now on {you["points"]:.0f} pts &middot; exp. {you["exp_final_points"]:,.0f}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Expected Dollars</span>
+        <span class="stat-value">${you["exp_dollars"]:,.0f}</span>
+        <span class="stat-sub">${you["exp_weekly_dollars"]:,.0f} weekly + ${you["exp_season_dollars"]:,.0f} season</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">This Week&rsquo;s Leverage</span>
+        <span class="stat-value">${ctx["dollars_per_point"]:.2f}<span style="font-size:15px;color:var(--ink-faint);">/pt</span></span>
+        <span class="stat-sub">{_esc(leverage)}: a 1-SD week (&plusmn;{sd:.0f} pts) moves season equity &plusmn;${abs(ctx["season_swing"]):,.0f} vs. the ${weekly_prize:,.0f} weekly prize</span>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="standings" id="season-table">
+        <thead>
+          <tr>
+            <th class="num">Rank</th>
+            <th>Entry</th>
+            <th class="num">Pts</th>
+            <th class="num">1st</th>
+            <th class="num">Top 4</th>
+            <th class="num">Weekly $</th>
+            <th class="num">Season $</th>
+            <th class="num">Total $</th>
+          </tr>
+        </thead>
+        <tbody>{"".join(rows)}</tbody>
+      </table>
+    </div>
+    <div class="panel-note" style="padding:10px 18px 14px;">
+      Season outlook is measured before this week&rsquo;s results. Leverage = change in season-prize
+      equity per extra point scored this week (&plusmn;${ctx["dollars_per_point_se"]:.2f}/pt simulation error).
+      Low leverage means the slate choice should be driven by win&nbsp;%.
+    </div>
+  </section>
+"""
+
+
 def generate_html_report(
     *,
     week: int,
@@ -220,6 +304,7 @@ def generate_html_report(
     all_games: Optional[List[Dict[str, str]]] = None,
     summary_stats: Optional[pd.DataFrame] = None,
     comparison_df: Optional[pd.DataFrame] = None,
+    season_context: Optional[Dict] = None,
     generated_at: Optional[datetime] = None,
 ) -> str:
     """Build a single self-contained HTML report string.
@@ -239,6 +324,7 @@ def generate_html_report(
     standings_rows = _build_standings_rows(all_win_probs, has_standings)
     robustness_rows = _build_robustness_rows(summary_stats, dict(sorted_picks))
     comparison_rows = _build_comparison_rows(comparison_df)
+    season_section = _build_season_section(season_context, player_name)
 
     paste_format = ", ".join(f"{team} {conf}" for team, conf in sorted_picks)
 
@@ -857,6 +943,7 @@ def generate_html_report(
       </table>
     </div>
   </section>
+{season_section}
 {robustness_section}
 {comparison_section}
   <footer>

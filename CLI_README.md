@@ -164,6 +164,15 @@ dollars, so a `Season $` gap smaller than about twice that is noise (raise
 `--an-outcomes` to tighten it). `--compare-objective expected_dollars` ranks by
 `Total $` instead of win %; the optimizer itself still maximizes win probability.
 
+**Season Outlook.** Beginning-of-week and mid-week runs also print (and write to the
+`.txt` / `--html` report) a Season Outlook for your entry: P(1st–4th), P(top 4),
+expected dollars, and the league's top entries by expected dollars. Its
+*This Week's Leverage* tile is the change in your season-prize equity per extra
+point scored this week, plus what a typical one-SD week does to it, labelled
+low / moderate / high against the $500 weekly prize (under 10% / under 25% / more).
+Low leverage means the slate choice should be driven by win %. The outlook is
+measured before this week's results.
+
 ---
 
 ### 2. `confpickem-win-probability` - Win Probability Calculator

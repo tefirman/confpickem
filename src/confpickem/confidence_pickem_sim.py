@@ -944,29 +944,7 @@ class ConfidencePickEmSimulator:
         rows = []
         my_scores = {}
         for label, picks in slates.items():
-            pick_home = np.zeros(n, dtype=bool)
-            points = np.zeros(n, dtype=int)
-
-            for i, (ph_i, pts_i) in my_frozen.items():
-                pick_home[i], points[i] = ph_i, pts_i
-
-            for i, g in enumerate(games):
-                if frozen[i]:
-                    continue
-                if g.home_team in picks:
-                    pick_home[i], points[i] = True, int(picks[g.home_team])
-                elif g.away_team in picks:
-                    pick_home[i], points[i] = False, int(picks[g.away_team])
-
-            missing = [f"{games[i].away_team}@{games[i].home_team}"
-                       for i in range(n) if not frozen[i] and points[i] == 0]
-            if missing:
-                raise ValueError(f"Slate {label!r} is missing a pick for: {', '.join(missing)}")
-            if sorted(points.tolist()) != list(range(1, n + 1)):
-                raise ValueError(
-                    f"Slate {label!r} is not a valid 1..{n} confidence "
-                    f"permutation: {sorted(points.tolist())}")
-
+            pick_home, points = self._slate_vectors(label, picks, field)
             per_outcome = pwin.per_outcome(pick_home, points)  # type: ignore[attr-defined]
             rows.append({
                 'label': label,
@@ -990,15 +968,118 @@ class ConfidencePickEmSimulator:
         results['rank'] = range(1, len(results) + 1)
         return results.reset_index(drop=True)
 
-    def _add_expected_dollars(self, results, my_scores, field, player_name,
-                              standings, completed_weeks, templates, player_data):
-        """Add weekly / season / total expected dollars to a compare_slates table."""
+    def season_context(self, player_name: str, picks: Dict[str, int],
+                       season_standings: pd.DataFrame,
+                       completed_weeks: int = None, week_templates=None,
+                       player_data: pd.DataFrame = None, as_of: datetime = None,
+                       n_outcomes: int = 6000, seed: int = 51,
+                       top_n: int = 10, step: float = 10.0) -> Dict:
+        """Season-long picture for the week's report: outlook + how much this week matters.
+
+        Args:
+            picks: the slate being reported on (full 1..N for the games not frozen).
+            season_standings: ``yahoo.standings``.
+            completed_weeks: final weeks in the standings (default: this week - 1).
+            step: points used to measure this week's leverage.
+            (other arguments as in :meth:`compare_slates`)
+
+        Returns a dict:
+
+        * ``outlook`` -- DataFrame from ``SeasonSimulator.run()`` (season *before*
+          this week's results), sorted by expected dollars; ``top`` its first
+          ``top_n`` rows plus yours; ``you`` your row as a dict.
+        * ``dollars_per_point`` -- change in your season-prize equity per extra point
+          scored this week (central difference at ``+/- step``), measured on the same
+          outcome draws as every rival's week; ``dollars_per_point_se`` is its paired
+          standard error.
+        * ``week_score_sd`` -- SD of your score this week under ``picks``.
+        * ``season_swing`` -- ``dollars_per_point * week_score_sd``: what a typical
+          one-SD good-or-bad week does to your season equity, in dollars;
+          ``leverage`` labels it low / moderate / high against the weekly prize.
+        * ``weekly_prize`` -- the weekly prize, for scale.
+        """
+        from . import season_sim as _ss
+
+        field = self._build_analytic_field(
+            player_name, n_outcomes, seed, player_data=player_data, as_of=as_of)
+        season, me, frozen = self._season_setup(
+            field, player_name, season_standings, completed_weeks, week_templates,
+            player_data)
+        pick_home, points = self._slate_vectors('picks', picks, field)
+        base = (points[None, :] * (pick_home[None, :] == field['outcomes'])).sum(axis=1)
+
+        eq = _ss.slate_season_equity(
+            season, me, _ss.week_spec_from_games(field['games']), field['outcomes'],
+            {'base': base, 'up': base + step, 'down': base - step}, frozen=frozen,
+            ref='base')
+        per_point = (eq['up'][0] - eq['down'][0]) / (2 * step)
+        # paired SE of (up - base) scaled to a per-point central difference
+        per_point_se = eq['up'][2] / step
+        sd = float(base.std())
+
+        outlook = season.run()
+        you_mask = outlook['player'].str.casefold() == str(player_name).casefold()
+        top = outlook.head(top_n)
+        if not you_mask.any():
+            raise ValueError(f"{player_name!r} not found in season standings")
+        if not top['player'].str.casefold().eq(str(player_name).casefold()).any():
+            top = pd.concat([top, outlook[you_mask]])
+        swing = float(per_point * sd)
+        ratio = abs(swing) / season.weekly_prize
+        return {
+            'outlook': outlook,
+            'top': top.reset_index(drop=True),
+            'you': outlook[you_mask].iloc[0].to_dict(),
+            'dollars_per_point': float(per_point),
+            'dollars_per_point_se': float(per_point_se),
+            'week_score_sd': sd,
+            'season_swing': swing,
+            # vs. the weekly prize: <10% low, <25% moderate, otherwise high (a heuristic)
+            'leverage': 'low' if ratio < 0.10 else 'moderate' if ratio < 0.25 else 'high',
+            'weekly_prize': season.weekly_prize,
+            'completed_weeks': season.completed_weeks,
+            'total_weeks': season.total_weeks,
+            'num_sims': len(field['outcomes']),
+        }
+
+    def _slate_vectors(self, label, picks, field):
+        """Validate a slate and return ``(pick_home[n], points[n])`` with this
+        player's frozen-game picks filled in."""
+        games, n = field['games'], field['n']
+        frozen, my_frozen = field['frozen'], field['my_frozen']
+        pick_home = np.zeros(n, dtype=bool)
+        points = np.zeros(n, dtype=int)
+
+        for i, (ph_i, pts_i) in my_frozen.items():
+            pick_home[i], points[i] = ph_i, pts_i
+
+        for i, g in enumerate(games):
+            if frozen[i]:
+                continue
+            if g.home_team in picks:
+                pick_home[i], points[i] = True, int(picks[g.home_team])
+            elif g.away_team in picks:
+                pick_home[i], points[i] = False, int(picks[g.away_team])
+
+        missing = [f"{games[i].away_team}@{games[i].home_team}"
+                   for i in range(n) if not frozen[i] and points[i] == 0]
+        if missing:
+            raise ValueError(f"Slate {label!r} is missing a pick for: {', '.join(missing)}")
+        if sorted(points.tolist()) != list(range(1, n + 1)):
+            raise ValueError(
+                f"Slate {label!r} is not a valid 1..{n} confidence "
+                f"permutation: {sorted(points.tolist())}")
+        return pick_home, points
+
+    def _season_setup(self, field, player_name, standings, completed_weeks, templates,
+                      player_data):
+        """Shared setup for the season-aware methods: the ``SeasonSimulator``, this
+        player's index in it, and rivals' real locked picks (midweek)."""
         from . import season_sim as _ss
 
         games, n = field['games'], field['n']
-        week = games[0].week
         if completed_weeks is None:
-            completed_weeks = int(week) - 1
+            completed_weeks = int(games[0].week) - 1
         if templates is None:
             templates = _ss.load_week_templates()
         skills_by_name = {p.name: {'skill_level': p.skill_level,
@@ -1031,6 +1112,16 @@ class ConfidencePickEmSimulator:
                     if got is not None:
                         pick_a[j, g_idx], points[j, g_idx] = got
             frozen = _ss.FrozenPicks(mask, pick_a, points)
+        return season, me, frozen
+
+    def _add_expected_dollars(self, results, my_scores, field, player_name,
+                              standings, completed_weeks, templates, player_data):
+        """Add weekly / season / total expected dollars to a compare_slates table."""
+        from . import season_sim as _ss
+
+        games = field['games']
+        season, me, frozen = self._season_setup(
+            field, player_name, standings, completed_weeks, templates, player_data)
 
         equity = _ss.slate_season_equity(
             season, me, _ss.week_spec_from_games(games), field['outcomes'],
