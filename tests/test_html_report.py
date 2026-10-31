@@ -577,3 +577,51 @@ def test_locked_board_without_player_name_omits_win_loss_probability():
     assert '"hasPickColumns": false' in html
     assert '"winProb"' not in html
     assert '"lossProb"' not in html
+
+
+def _season_ctx(**overrides):
+    top = pd.DataFrame(
+        [
+            dict(player="Leader", points=300.0, current_rank=1, active=True, p_place_1=0.3,
+                 p_top4=0.7, exp_weekly_dollars=90.0, exp_season_dollars=900.0,
+                 exp_dollars=990.0),
+            dict(player="You", points=280.0, current_rank=4, active=True, p_place_1=0.1,
+                 p_top4=0.4, exp_weekly_dollars=110.0, exp_season_dollars=300.0,
+                 exp_dollars=410.0),
+            dict(player="<b>Gone</b>", points=100.0, current_rank=50, active=False,
+                 p_place_1=0.0, p_top4=0.0, exp_weekly_dollars=0.0, exp_season_dollars=0.0,
+                 exp_dollars=0.0),
+        ]
+    )
+    ctx = dict(
+        top=top, you=top.iloc[1].to_dict(), completed_weeks=7, total_weeks=18, num_sims=6000,
+        weekly_prize=500.0, dollars_per_point=2.3, dollars_per_point_se=0.28,
+        week_score_sd=15.0, season_swing=34.5, leverage="low",
+    )
+    ctx["you"].update(p_place_2=0.1, p_place_3=0.1, p_place_4=0.1, exp_final_points=1400.0)
+    ctx.update(overrides)
+    return ctx
+
+
+def test_season_outlook_panel_rendered_with_leverage():
+    html = generate_html_report(**_base_kwargs(season_context=_season_ctx()))
+    assert "Season Outlook" in html and 'id="season-table"' in html
+    assert "$2.30" in html and "low: a 1-SD week" in html and "$34" in html
+    assert 'class="you"' in html and "$410" in html
+    assert "weeks 1&ndash;7 final" in html
+    # rank sits under the 1st-place headline; the per-place odds sit under Top-4
+    assert html.index("rank 4 now on 280 pts") < html.index("Top-4 Finish")
+    assert html.index("Top-4 Finish") < html.index(
+        "1st 10.0% &middot; 2nd 10.0% &middot; 3rd 10.0% &middot; 4th 10.0%"
+    )
+
+
+def test_season_outlook_escapes_names_and_flags_inactive():
+    html = generate_html_report(**_base_kwargs(season_context=_season_ctx()))
+    assert "<b>Gone</b>" not in html and "&lt;b&gt;Gone&lt;/b&gt;" in html
+    assert "(inactive)" in html
+
+
+def test_season_outlook_omitted_without_context():
+    html = generate_html_report(**_base_kwargs())
+    assert "Season Outlook" not in html
