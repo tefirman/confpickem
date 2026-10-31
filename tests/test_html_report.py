@@ -609,8 +609,11 @@ def test_season_outlook_panel_rendered_with_leverage():
     assert "$2.30" in html and "low: a 1-SD week" in html and "$34" in html
     assert 'class="you"' in html and "$410" in html
     assert "weeks 1&ndash;7 final" in html
-    # every place shows its own figure (1st used to be missing from the sub-line)
-    assert "1st 10.0% &middot; 2nd 10.0% &middot; 3rd 10.0% &middot; 4th 10.0%" in html
+    # rank sits under the 1st-place headline; the per-place odds sit under Top-4
+    assert html.index("rank 4 now on 280 pts") < html.index("Top-4 Finish")
+    assert html.index("Top-4 Finish") < html.index(
+        "1st 10.0% &middot; 2nd 10.0% &middot; 3rd 10.0% &middot; 4th 10.0%"
+    )
 
 
 def test_season_outlook_escapes_names_and_flags_inactive():

@@ -239,12 +239,12 @@ def _build_season_section(ctx: Optional[Dict], player_name: str) -> str:
       <div class="stat">
         <span class="stat-label">Season Prize Odds (1st)</span>
         <span class="stat-value accent">{you["p_place_1"] * 100:.1f}%</span>
-        <span class="stat-sub">1st {you["p_place_1"] * 100:.1f}% &middot; 2nd {you["p_place_2"] * 100:.1f}% &middot; 3rd {you["p_place_3"] * 100:.1f}% &middot; 4th {you["p_place_4"] * 100:.1f}%</span>
+        <span class="stat-sub">rank {int(you["current_rank"])} now on {you["points"]:.0f} pts &middot; exp. {you["exp_final_points"]:,.0f}</span>
       </div>
       <div class="stat">
         <span class="stat-label">Top-4 Finish</span>
         <span class="stat-value">{you["p_top4"] * 100:.1f}%</span>
-        <span class="stat-sub">rank {int(you["current_rank"])} now on {you["points"]:.0f} pts &middot; exp. {you["exp_final_points"]:,.0f}</span>
+        <span class="stat-sub">1st {you["p_place_1"] * 100:.1f}% &middot; 2nd {you["p_place_2"] * 100:.1f}% &middot; 3rd {you["p_place_3"] * 100:.1f}% &middot; 4th {you["p_place_4"] * 100:.1f}%</span>
       </div>
       <div class="stat">
         <span class="stat-label">Expected Dollars</span>
