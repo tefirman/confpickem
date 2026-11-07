@@ -282,6 +282,17 @@ last two weeks are treated as inactive.
 
 ---
 
+### 5. `confpickem-live` - Live Win-Probability Tracker
+
+Once every entry is locked (first Sunday kickoff), re-scores the pool on a timer and logs each entry's win % over time.
+
+```bash
+confpickem-live --week 10 --player "Educated Guesses"   # refresh every 10 min until all games final
+confpickem-live --week 10 --once                        # single snapshot
+```
+
+Each tick re-scrapes Yahoo, re-pulls live (in-play) odds from The Odds API, and appends a snapshot to `NFL_Week<N>_live.jsonl` (`--history` to change). A game that is underway but has no live line is flagged, since it is then using Yahoo's pregame odds. Each tick costs Odds API credits (3 per call: h2h, spreads, totals), so mind `--interval` on the free tier. `--interval` is in minutes, default 10.
+
 ## Prerequisites
 
 ### Required Files

@@ -24,6 +24,7 @@ The console entry points (defined in `[project.scripts]`) all resolve to `main()
 - `confpickem-win-probability` → `cli/win_probability.py`
 - `confpickem-player-skills` → `cli/player_skills.py`
 - `confpickem-season` → `cli/season.py`
+- `confpickem-live` → `cli/live.py` (loops `live_tracker.take_snapshot` → `NFL_Week<N>_live.jsonl`)
 
 See `CLI_README.md` for full flag documentation. (`README_OPTIMIZATION.md` is stale — it references a deleted `optimize_week1_picks.py`.)
 
