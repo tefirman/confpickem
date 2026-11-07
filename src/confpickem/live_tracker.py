@@ -134,7 +134,11 @@ def take_snapshot(
             "(or the league ID / week is wrong)"
         )
 
-    enhanced = update_odds_with_live_data(yahoo.games, week=week, odds_api_key=odds_api_key)
+    # Only moneylines are needed for win probabilities; h2h alone is a third of the
+    # Odds API credits of the default h2h,spreads,totals.
+    enhanced = update_odds_with_live_data(
+        yahoo.games, week=week, odds_api_key=odds_api_key, markets="h2h"
+    )
     games = build_games_frame(yahoo.games, enhanced, yahoo.results, week)
 
     simulator = ConfidencePickEmSimulator()
@@ -195,3 +199,28 @@ def history_frame(snapshots: List[Dict]) -> pd.DataFrame:
     return pd.DataFrame(
         rows, columns=["timestamp", "player", "win_pct", "expected_points", "locked_points"]
     )
+
+
+def win_pct_series(snapshots: List[Dict]) -> pd.DataFrame:
+    """Wide win % history: one row per snapshot, one column per entrant."""
+    df = history_frame(snapshots)
+    if df.empty:
+        return pd.DataFrame()
+    return df.pivot(index="timestamp", columns="player", values="win_pct").sort_index()
+
+
+def final_events(snapshots: List[Dict]) -> List[Dict]:
+    """Games that went final between snapshots, as ``{timestamp, game}`` -- the
+    first snapshot in which each game shows as final, for chart markers. Games
+    already final in the first snapshot are skipped (nothing observed changing)."""
+    events: List[Dict] = []
+    seen_final = None
+    for snap in snapshots:
+        final = {f"{g['away']} @ {g['home']}" for g in snap["games"] if g["status"] == "final"}
+        if seen_final is not None:
+            events.extend(
+                {"timestamp": pd.Timestamp(snap["timestamp"]), "game": g}
+                for g in sorted(final - seen_final)
+            )
+        seen_final = final
+    return events

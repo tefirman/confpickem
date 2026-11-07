@@ -128,7 +128,10 @@ def fake_yahoo(cache_dir_unused=None, **kwargs):
 
 
 def test_take_snapshot_scores_board_with_mocked_network(tmp_path):
-    def fake_odds(games, week=None, odds_api_key=None):
+    requested = {}
+
+    def fake_odds(games, week=None, odds_api_key=None, markets=None):
+        requested["markets"] = markets
         return games.assign(live_odds_source="OddsAPI")
 
     with patch.object(live_tracker, "YahooPickEm", side_effect=fake_yahoo), patch.object(
@@ -138,6 +141,7 @@ def test_take_snapshot_scores_board_with_mocked_network(tmp_path):
             10, 1, "c.txt", n_outcomes=500, cache_dir=str(tmp_path / "cache"), now=NOW
         )
 
+    assert requested["markets"] == "h2h"  # moneyline only: 1 credit/call
     assert snap["week"] == 10 and not snap["all_final"] and snap["stale_games"] == []
     by_player = {e["player"]: e for e in snap["standings"]}
     assert sum(e["win_pct"] for e in snap["standings"]) == pytest.approx(1.0, abs=1e-3)
@@ -204,3 +208,66 @@ def test_cli_once_failure_exits_nonzero(tmp_path, monkeypatch):
     with patch.object(live, "take_snapshot", side_effect=RuntimeError("boom")):
         with patch("sys.argv", ["live.py", "--week", "10", "--once"]):
             assert live.main() == 1
+
+
+def _snap(ts, finals, probs):
+    games = [
+        {"home": "KC", "away": "Den", "status": "final" if "KC" in finals else "live"},
+        {"home": "Buf", "away": "Mia", "status": "final" if "Buf" in finals else "live"},
+    ]
+    return {
+        "timestamp": ts,
+        "week": 10,
+        "games": games,
+        "all_final": False,
+        "stale_games": [],
+        "standings": [
+            {"player": p, "win_pct": v, "expected_points": 1.0, "locked_points": 0.0}
+            for p, v in probs.items()
+        ],
+    }
+
+
+def test_win_pct_series_and_final_events():
+    snaps = [
+        _snap("2025-11-09T13:00:00", {"KC"}, {"A": 0.4, "B": 0.6}),
+        _snap("2025-11-09T13:15:00", {"KC"}, {"A": 0.5, "B": 0.5}),
+        _snap("2025-11-09T13:30:00", {"KC", "Buf"}, {"A": 0.9, "B": 0.1}),
+    ]
+    wide = live_tracker.win_pct_series(snaps)
+    assert list(wide.columns) == ["A", "B"] and wide.A.tolist() == [0.4, 0.5, 0.9]
+    # KC was already final when tracking began, so only Buf is an observed event.
+    events = live_tracker.final_events(snaps)
+    assert [e["game"] for e in events] == ["Mia @ Buf"]
+    assert events[0]["timestamp"] == pd.Timestamp("2025-11-09T13:30:00")
+    assert live_tracker.win_pct_series([]).empty and live_tracker.final_events([]) == []
+
+
+def _odds_api_game(markets):
+    return {
+        "home_team": "Buffalo Bills",
+        "away_team": "Miami Dolphins",
+        "commence_time": "2025-11-09T18:00:00Z",
+        "bookmakers": [{"key": "fanduel", "markets": markets}],
+    }
+
+
+def test_parse_odds_game_h2h_only_uses_moneyline():
+    from src.confpickem.live_odds_scraper import LiveOddsScraper
+
+    h2h = {
+        "key": "h2h",
+        "outcomes": [
+            {"name": "Buffalo Bills", "price": -200},
+            {"name": "Miami Dolphins", "price": 170},
+        ],
+    }
+    parsed = LiveOddsScraper("k", markets="h2h")._parse_odds_api_game(_odds_api_game([h2h]))
+    assert parsed["home_win_prob"] > 0.6 and parsed["home_spread"] == 0.0
+
+
+def test_parse_odds_game_without_moneyline_or_spread_is_dropped():
+    from src.confpickem.live_odds_scraper import LiveOddsScraper
+
+    totals = {"key": "totals", "outcomes": [{"name": "Over", "point": 44.5}]}
+    assert LiveOddsScraper("k")._parse_odds_api_game(_odds_api_game([totals])) is None

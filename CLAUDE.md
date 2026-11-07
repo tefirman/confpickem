@@ -25,6 +25,7 @@ The console entry points (defined in `[project.scripts]`) all resolve to `main()
 - `confpickem-player-skills` → `cli/player_skills.py`
 - `confpickem-season` → `cli/season.py`
 - `confpickem-live` → `cli/live.py` (loops `live_tracker.take_snapshot` → `NFL_Week<N>_live.jsonl`)
+- `confpickem-app` → `cli/app.py`, launches the Streamlit viewer `live_app.py` over that JSONL (needs the `[app]` extra)
 
 See `CLI_README.md` for full flag documentation. (`README_OPTIMIZATION.md` is stale — it references a deleted `optimize_week1_picks.py`.)
 

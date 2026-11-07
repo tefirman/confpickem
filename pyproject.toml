@@ -45,8 +45,13 @@ confpickem-win-probability = "confpickem.cli.win_probability:main"
 confpickem-player-skills = "confpickem.cli.player_skills:main"
 confpickem-season = "confpickem.cli.season:main"
 confpickem-live = "confpickem.cli.live:main"
+confpickem-app = "confpickem.cli.app:main"
 
 [project.optional-dependencies]
+app = [
+    "streamlit>=1.37.0",
+    "plotly>=5.0.0"
+]
 dev = [
     "pytest>=6.0.0",
     "pytest-cov>=2.0.0",
