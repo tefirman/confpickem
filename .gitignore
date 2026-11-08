@@ -47,3 +47,4 @@ notes/
 
 # Crowd/line snapshot log (runtime data)
 crowd_lines.jsonl
+crowd_lines_college.jsonl

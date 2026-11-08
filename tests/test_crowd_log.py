@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 import pandas as pd
 import pytest
+from scipy.stats import norm
 
 from src.confpickem import crowd_log
 
@@ -63,13 +64,13 @@ def test_fetch_distribution_rejects_unknown_pool():
 def test_snapshot_week_logs_every_pool(monkeypatch):
     seen = []
 
-    def fake_fetch(session, week, pool):
-        seen.append(pool)
+    def fake_fetch(session, week, pool, sport):
+        seen.append((pool, sport))
         return _game_html("Jax", "Bal", {"n": 96, "s": 69}.get(pool, 80), 10.0)
 
     monkeypatch.setattr(crowd_log, "fetch_distribution", fake_fetch)
-    recs = crowd_log.snapshot_week(None, 9, 2026, pools=("n", "s"), pause=0)
-    assert seen == ["n", "s"]
+    recs = crowd_log.snapshot_week(None, 9, 2026, pools=("n", "s"), pause=0, sport="college")
+    assert seen == [("n", "college"), ("s", "college")]
     assert [(r["pool"], r["favorite_pick_pct"]) for r in recs] == [("n", 96.0), ("s", 69.0)]
     assert all(r["kind"] == "snapshot" and r["season"] == 2026 and r["week"] == 9 for r in recs)
 
@@ -119,7 +120,7 @@ def test_settle_log_only_looks_up_unsettled_games(tmp_path):
     )
     calls = []
 
-    def fetch(season, week):
+    def fetch(season, week, kickoffs):
         calls.append(week)
         return crowd_log.parse_espn_week({"events": [_espn("GB", "CAR", 27, 19)]})
 
@@ -204,7 +205,7 @@ def test_prepare_su_and_ats_outcomes():
     assert d.loc["D", "fav_covered"] == 0.0  # tied game, but a loss laying 3
     assert pd.isna(d.loc["G", "fav_covered"]) and d.loc["G", "fav_won"] == 1.0  # push
     assert len(crowd_log.ats_games(d)) == 4
-    assert abs(d.loc["A", "implied"] - (0.5 + 0.031 * 3.0)) < 1e-9
+    assert abs(d.loc["A", "implied"] - norm.cdf(3.0 / 12.4)) < 1e-9
 
 
 def test_prepare_cache_rows_use_winner_for_su_only():
@@ -301,3 +302,94 @@ def test_log_records_are_json_lines(tmp_path):
     log = tmp_path / "log.jsonl"
     crowd_log.append_records(str(log), [{"a": 1}, {"a": 2}])
     assert [json.loads(line) for line in log.read_text().splitlines()] == [{"a": 1}, {"a": 2}]
+
+
+def test_fetch_distribution_uses_sport_path():
+    class Resp:
+        text = "<html></html>"
+
+        def raise_for_status(self):
+            pass
+
+    class Session:
+        def get(self, url, params, timeout):
+            self.url, self.params = url, params
+            return Resp()
+
+    sess = Session()
+    crowd_log.fetch_distribution(sess, 9, "n", sport="college")
+    assert sess.url.endswith("/college/pickdistribution") and sess.params["type"] == ""
+    crowd_log.fetch_distribution(sess, 9, "sc")
+    assert sess.url.endswith("/pickem/pickdistribution") and sess.params["type"] == "sc"
+
+
+def test_college_aliases_bridge_yahoo_and_espn_abbreviations():
+    payload = {"events": [_espn("WASH", "BOIS", 31, 17), _espn("MD", "IU", 10, 24)]}
+    espn = crowd_log.parse_espn_week(payload, crowd_log.COLLEGE_ALIASES)
+    recs = crowd_log.result_records(
+        [("UW", "BSU"), ("IND", "UMD")], espn, 2026, 1, aliases=crowd_log.COLLEGE_ALIASES
+    )
+    assert [(r["favorite"], r["favorite_score"], r["underdog_score"]) for r in recs] == [
+        ("UW", 31, 17),
+        ("IND", 24, 10),  # Yahoo IND is ESPN IU, and was the away team
+    ]
+
+
+def test_fetch_espn_college_queries_each_day_and_group(monkeypatch):
+    calls = []
+
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"events": [_espn("WASH", "BOIS", 31, 17)]}
+
+    def fake_get(url, params, timeout):
+        calls.append((params["dates"], params["groups"]))
+        return Resp()
+
+    monkeypatch.setattr(crowd_log.requests, "get", fake_get)
+    kicks = ["2026-09-05T20:00:00-04:00", "2026-09-05T23:30:00-04:00", None]
+    games = crowd_log.fetch_espn_college(2026, 1, kicks)
+    assert sorted(set(calls)) == [
+        ("20260904", 80),
+        ("20260904", 81),
+        ("20260905", 80),
+        ("20260905", 81),
+    ]
+    assert len(calls) == 4 and len(games) == 4 and games[0]["home"] == "wash"
+    assert crowd_log.fetch_espn_college(2026, 1, [None]) == []
+
+
+def test_settle_log_passes_kickoffs_and_log_status(tmp_path):
+    log = str(tmp_path / "log.jsonl")
+    snap = {"kind": "snapshot", "season": 2026, "week": 1, "pool": "s", "spread": 3.0}
+    crowd_log.append_records(
+        log,
+        [
+            {
+                **snap,
+                "favorite": "UW",
+                "underdog": "BSU",
+                "kickoff_time": "2026-09-05T20:00:00-04:00",
+            },
+            {
+                **snap,
+                "favorite": "NW",
+                "underdog": "SDSU",
+                "kickoff_time": "2026-09-05T22:00:00-04:00",
+            },
+        ],
+    )
+    seen = {}
+
+    def fetch(season, week, kickoffs):
+        seen["kickoffs"] = sorted(kickoffs)
+        return crowd_log.parse_espn_week(
+            {"events": [_espn("WASH", "BOIS", 31, 17)]}, crowd_log.COLLEGE_ALIASES
+        )
+
+    assert crowd_log.settle_log(log, 2026, fetch=fetch, sport="college") == 1
+    assert seen["kickoffs"] == ["2026-09-05T20:00:00-04:00", "2026-09-05T22:00:00-04:00"]
+    assert crowd_log.log_status(log) == (2, 1)  # the unmatched game stays unsettled

@@ -13,6 +13,7 @@ Usage:
   crowd_log.py --settle                       # fetch ESPN finals for any unsettled games
   crowd_log.py --report                       # analyze cached history + the log
   crowd_log.py --report --no-history          # only the snapshot log
+  crowd_log.py --sport college --snapshot --week 10   # same, for college football
 
 Run --snapshot shortly before kickoff to capture a true pre-game line and crowd; run
 --settle after games finish. The log is JSONL ("snapshot" and "result" records).
@@ -29,17 +30,17 @@ import pandas as pd
 
 from src.confpickem.crowd_log import (
     POOLS,
+    SPORTS,
     append_records,
     crowd_signal_report,
     current_season,
     history_from_cache,
     load_log,
+    log_status,
     make_session,
     settle_log,
     snapshot_week,
 )
-
-DEFAULT_LOG = "crowd_lines.jsonl"
 
 
 def main():
@@ -54,12 +55,20 @@ def main():
     parser.add_argument(
         "--week", "-w", type=int, nargs="+", help="NFL week(s) (required with --snapshot)"
     )
+    parser.add_argument(
+        "--sport", choices=sorted(SPORTS), default="nfl", help="nfl (default) or college"
+    )
     parser.add_argument("--season", type=int, default=None, help="Season (default: current)")
     parser.add_argument(
         "--pools", nargs="+", choices=POOLS, default=list(POOLS), help="Pool types to snapshot"
     )
     parser.add_argument("--cookies", default="cookies.txt")
-    parser.add_argument("--log", default=DEFAULT_LOG, help=f"JSONL log (default: {DEFAULT_LOG})")
+    parser.add_argument(
+        "--log",
+        default=None,
+        help="JSONL log (default: crowd_lines.jsonl, or "
+        "crowd_lines_college.jsonl for --sport college)",
+    )
     parser.add_argument(
         "--cache-root", default=".", help="Directory holding PickEmCache<year>/ folders"
     )
@@ -69,26 +78,29 @@ def main():
     if not (args.snapshot or args.settle or args.report):
         parser.error("nothing to do: pass --snapshot, --settle and/or --report")
     season = args.season or current_season()
+    sport = SPORTS[args.sport]
+    log = args.log or sport["log"]
 
     if args.snapshot:
         if not args.week:
             parser.error("--snapshot requires --week")
         session = make_session(args.cookies)
         for week in args.week:
-            records = snapshot_week(session, week, season, pools=args.pools)
-            n = append_records(args.log, records)
-            print(f"📝 Logged {n} game-pool rows for {season} week {week} to {args.log}")
+            records = snapshot_week(session, week, season, pools=args.pools, sport=args.sport)
+            n = append_records(log, records)
+            print(f"📝 Logged {n} game-pool rows for {season} week {week} to {log}")
 
     if args.snapshot or args.settle:
         # --week limits settling to those weeks; a bare --settle covers every logged week
-        n = settle_log(args.log, season, weeks=args.week)
-        print(f"🏁 Settled {n} games from ESPN")
+        n = settle_log(log, season, weeks=args.week, sport=args.sport)
+        games, settled = log_status(log)
+        print(f"🏁 Settled {n} new games from ESPN ({settled}/{games} logged games have results)")
 
     if args.report:
         frames = []
-        if not args.no_history:
+        if not args.no_history and args.sport == "nfl":  # cached history is NFL only
             frames.append(history_from_cache(args.cache_root))
-        logged = load_log(args.log)
+        logged = load_log(log)
         if not logged.empty:
             frames.append(logged.assign(_src=0))
         if not frames:
@@ -99,7 +111,7 @@ def main():
         df["_src"] = df["_src"].fillna(1) if "_src" in df else 1
         key = ["season", "week", "pool", "favorite", "underdog"]
         df = df.sort_values("_src").drop_duplicates(key, keep="first")
-        print("\n".join(crowd_signal_report(df)))
+        print("\n".join(crowd_signal_report(df, sport["sigma"])))
     return 0
 
 

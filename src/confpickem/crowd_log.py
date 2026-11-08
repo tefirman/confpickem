@@ -35,6 +35,7 @@ import numpy as np
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
+from scipy.stats import norm
 
 from .yahoo_pickem_scraper import parse_kickoff
 
@@ -47,13 +48,15 @@ POOL_LABELS = {
 }
 SPREAD_POOLS = ("s", "sc")
 
-SPREAD_SLOPE = 0.031  # same spread -> win prob conversion the scraper uses
 BUCKET_EDGES = (0.0, 0.6, 0.75, 0.85, 0.92, 1.0)
 ATS_BUCKET_EDGES = (0.5, 0.6, 0.7, 1.0)  # crowd strength: share on its preferred side
 BREAKEVEN_ATS = 0.524  # win rate needed to beat -110 vig
 
-DISTRIBUTION_URL = "https://football.fantasysports.yahoo.com/pickem/pickdistribution"
-ESPN_SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+YAHOO_FOOTBALL = "https://football.fantasysports.yahoo.com"
+ESPN_NFL_SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+ESPN_COLLEGE_SCOREBOARD = (
+    "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard"
+)
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -62,8 +65,34 @@ USER_AGENT = (
 GAME_KEY = ("season", "week", "favorite", "underdog")
 POOL_GAME_KEY = ("season", "week", "pool", "favorite", "underdog")
 
-# ESPN abbreviations that differ from Yahoo's (compared case-insensitively)
-TEAM_ALIASES = {"wsh": "was", "arz": "ari", "jac": "jax", "la": "lar"}
+# Yahoo vs. ESPN abbreviations that differ (compared case-insensitively). Both sides are
+# normalized through the table, so a key may be either spelling.
+NFL_ALIASES = {"wsh": "was", "arz": "ari", "jac": "jax", "la": "lar"}
+COLLEGE_ALIASES = {
+    "bsu": "bois",
+    "uw": "wash",
+    "mizz": "miz",
+    "tamu": "ta&m",
+    "s fla": "usf",
+    "umd": "md",
+    "shs": "shsu",
+    "ncst": "ncsu",
+    "nw": "nu",
+    "ind": "iu",
+}
+
+# Per-sport settings: Yahoo URL path, team aliases, and the std. dev. of final margin
+# around the spread (turns a spread into an implied win probability). Fit to the 2026
+# logged games (122 NFL, 224 college), so treat as rough.
+SPORTS: Dict[str, Dict[str, Any]] = {
+    "nfl": {"path": "pickem", "aliases": NFL_ALIASES, "sigma": 12.4, "log": "crowd_lines.jsonl"},
+    "college": {
+        "path": "college",
+        "aliases": COLLEGE_ALIASES,
+        "sigma": 15.7,
+        "log": "crowd_lines_college.jsonl",
+    },
+}
 
 
 def current_season(now: Optional[datetime] = None) -> int:
@@ -87,12 +116,13 @@ def make_session(cookies_file: str) -> requests.Session:
     return session
 
 
-def fetch_distribution(session: requests.Session, week: int, pool: str) -> str:
+def fetch_distribution(session: requests.Session, week: int, pool: str, sport: str = "nfl") -> str:
     """Raw HTML of the league-wide pick distribution for one pool type."""
     if pool not in POOLS:
         raise ValueError(f"unknown pool {pool!r}; expected one of {POOLS}")
     params = {"gid": "", "week": week, "type": "" if pool == "n" else pool}
-    resp = session.get(DISTRIBUTION_URL, params=params, timeout=30)
+    url = f"{YAHOO_FOOTBALL}/{SPORTS[sport]['path']}/pickdistribution"
+    resp = session.get(url, params=params, timeout=30)
     resp.raise_for_status()
     return resp.text
 
@@ -155,6 +185,7 @@ def snapshot_week(
     pools: Sequence[str] = POOLS,
     snapshot_time: Optional[datetime] = None,
     pause: float = 1.0,
+    sport: str = "nfl",
 ) -> List[Dict[str, Any]]:
     """Snapshot records (one per game per pool) for a week."""
     import time
@@ -165,7 +196,7 @@ def snapshot_week(
     for i, pool in enumerate(pools):
         if i and pause:
             time.sleep(pause)
-        for g in parse_distribution(fetch_distribution(session, week, pool), season):
+        for g in parse_distribution(fetch_distribution(session, week, pool, sport), season):
             head = {"kind": "snapshot", "snapshot_time": stamp, "season": season, "week": week}
             records.append({**head, "pool": pool, **g})
     return records
@@ -176,12 +207,14 @@ def snapshot_week(
 # ---------------------------------------------------------------------------
 
 
-def norm_team(abbr: str) -> str:
+def norm_team(abbr: str, aliases: Optional[Dict[str, str]] = None) -> str:
     key = abbr.strip().casefold()
-    return TEAM_ALIASES.get(key, key)
+    return (aliases or NFL_ALIASES).get(key, key)
 
 
-def parse_espn_week(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+def parse_espn_week(
+    payload: Dict[str, Any], aliases: Optional[Dict[str, str]] = None
+) -> List[Dict[str, Any]]:
     """Home/away scores and completion for each game in an ESPN scoreboard payload."""
     out = []
     for ev in payload.get("events", []):
@@ -191,8 +224,8 @@ def parse_espn_week(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
             continue
         out.append(
             {
-                "home": norm_team(sides["home"]["team"]["abbreviation"]),
-                "away": norm_team(sides["away"]["team"]["abbreviation"]),
+                "home": norm_team(sides["home"]["team"]["abbreviation"], aliases),
+                "away": norm_team(sides["away"]["team"]["abbreviation"], aliases),
                 "home_score": int(sides["home"].get("score") or 0),
                 "away_score": int(sides["away"].get("score") or 0),
                 "completed": bool(ev["status"]["type"]["completed"]),
@@ -201,14 +234,52 @@ def parse_espn_week(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     return out
 
 
-def fetch_espn_week(season: int, week: int) -> List[Dict[str, Any]]:
+def fetch_espn_week(
+    season: int, week: int, kickoffs: Optional[Sequence[str]] = None
+) -> List[Dict[str, Any]]:
+    """NFL games for a week (``kickoffs`` is unused: ESPN indexes NFL by week number)."""
     resp = requests.get(
-        ESPN_SCOREBOARD,
+        ESPN_NFL_SCOREBOARD,
         params={"dates": season, "seasontype": 2, "week": week},
         timeout=30,
     )
     resp.raise_for_status()
-    return parse_espn_week(resp.json())
+    return parse_espn_week(resp.json(), NFL_ALIASES)
+
+
+def fetch_espn_college(
+    season: int, week: int, kickoffs: Optional[Sequence[str]] = None
+) -> List[Dict[str, Any]]:
+    """FBS + FCS games around the given kickoffs.
+
+    Yahoo's college weeks don't line up with ESPN's week numbers, so look games up by
+    date: the Eastern calendar days of ``kickoffs`` plus the day before each (a
+    late-night kickoff is listed under the previous day by ESPN).
+    """
+    stamps = [pd.Timestamp(k) for k in (kickoffs or []) if k]
+    if not stamps:
+        return []
+    wanted = set()
+    for t in stamps:
+        day = t.tz_convert("US/Eastern").normalize()
+        wanted |= {day, day - pd.Timedelta(days=1)}
+    games: List[Dict[str, Any]] = []
+    for day in sorted(wanted):  # ESPN rejects date ranges, so one request per day
+        for group in (80, 81):  # FBS, FCS
+            resp = requests.get(
+                ESPN_COLLEGE_SCOREBOARD,
+                params={"dates": f"{day:%Y%m%d}", "groups": group, "limit": 400},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            games += parse_espn_week(resp.json(), COLLEGE_ALIASES)
+    return games
+
+
+ESPN_FETCHERS: Dict[str, Callable[..., List[Dict[str, Any]]]] = {
+    "nfl": fetch_espn_week,
+    "college": fetch_espn_college,
+}
 
 
 def result_records(
@@ -217,16 +288,20 @@ def result_records(
     season: int,
     week: int,
     settled_time: Optional[datetime] = None,
+    aliases: Optional[Dict[str, str]] = None,
 ) -> List[Dict[str, Any]]:
-    """Result records for the ``(favorite, underdog)`` games ESPN reports as final."""
+    """Result records for the ``(favorite, underdog)`` games ESPN reports as final.
+
+    ``espn_games`` must already be normalized with the same ``aliases``.
+    """
     final = {frozenset((e["home"], e["away"])): e for e in espn_games if e["completed"]}
     stamp = (settled_time or datetime.now().astimezone()).isoformat(timespec="seconds")
     records = []
     for fav, und in games:
-        e = final.get(frozenset((norm_team(fav), norm_team(und))))
+        e = final.get(frozenset((norm_team(fav, aliases), norm_team(und, aliases))))
         if e is None:
             continue
-        fav_home = norm_team(fav) == e["home"]
+        fav_home = norm_team(fav, aliases) == e["home"]
         records.append(
             {
                 "kind": "result",
@@ -268,19 +343,23 @@ def settle_log(
     path: str,
     season: int,
     weeks: Optional[Iterable[int]] = None,
-    fetch: Callable[[int, int], List[Dict[str, Any]]] = fetch_espn_week,
+    fetch: Optional[Callable[..., List[Dict[str, Any]]]] = None,
+    sport: str = "nfl",
 ) -> int:
     """Append result records for logged games that ESPN now reports as final.
 
     Only games without a result yet are looked up, and only weeks that still have
-    some. Returns the number of results written.
+    some. ``fetch(season, week, kickoffs)`` defaults to the sport's ESPN lookup.
+    Returns the number of results written.
     """
+    fetch = fetch or ESPN_FETCHERS[sport]
+    aliases = SPORTS[sport]["aliases"]
     rows = read_log(path)
     wanted = set(weeks) if weeks is not None else None
     settled = {
         (r["season"], r["week"], r["favorite"], r["underdog"]) for r in rows if _is_result(r)
     }
-    pending: Dict[int, set] = {}
+    pending: Dict[int, Dict[Tuple[str, str], Optional[str]]] = {}
     for r in rows:
         if _is_result(r) or r["season"] != season:
             continue
@@ -288,13 +367,27 @@ def settle_log(
             continue
         key = (r["season"], r["week"], r["favorite"], r["underdog"])
         if key not in settled:
-            pending.setdefault(r["week"], set()).add((r["favorite"], r["underdog"]))
+            pending.setdefault(r["week"], {})[(r["favorite"], r["underdog"])] = r.get(
+                "kickoff_time"
+            )
     written = 0
     for week in sorted(pending):
-        written += append_records(
-            path, result_records(sorted(pending[week]), fetch(season, week), season, week)
-        )
+        games = sorted(pending[week])
+        espn = fetch(season, week, [pending[week][g] for g in games])
+        written += append_records(path, result_records(games, espn, season, week, aliases=aliases))
     return written
+
+
+def log_status(path: str) -> Tuple[int, int]:
+    """``(games logged, games settled)`` in a log."""
+    rows = read_log(path)
+    games = {
+        (r["season"], r["week"], r["favorite"], r["underdog"]) for r in rows if not _is_result(r)
+    }
+    settled = {
+        (r["season"], r["week"], r["favorite"], r["underdog"]) for r in rows if _is_result(r)
+    }
+    return len(games), len(settled & games)
 
 
 def _is_result(rec: Dict[str, Any]) -> bool:
@@ -384,7 +477,7 @@ def history_from_cache(root: str = ".") -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def prepare(df: pd.DataFrame) -> pd.DataFrame:
+def prepare(df: pd.DataFrame, sigma: float = SPORTS["nfl"]["sigma"]) -> pd.DataFrame:
     """Keep games with a real line and crowd %, add outcome and analysis columns.
 
     ``fav_won`` (straight up) and ``fav_covered`` (against the spread, pushes are NaN)
@@ -411,7 +504,7 @@ def prepare(df: pd.DataFrame) -> pd.DataFrame:
         d["fav_margin"] = margin
     d["fav_won"] = won
     d["fav_covered"] = covered
-    d["implied"] = (0.5 + SPREAD_SLOPE * d["spread"]).clip(0.01, 0.99)
+    d["implied"] = norm.cdf(d["spread"] / sigma).clip(0.01, 0.99)
     d["crowd"] = d["favorite_pick_pct"] / 100.0
     return d
 
@@ -507,7 +600,7 @@ def pool_comparison(d: pd.DataFrame) -> List[str]:
     return lines
 
 
-def _su_section(d: pd.DataFrame) -> List[str]:
+def _su_section(d: pd.DataFrame, sigma: float) -> List[str]:
     su = su_games(d[d["pool"] == "c"])
     if su.empty:
         return ["No settled confidence-pool games with a line and crowd % to analyze."]
@@ -534,8 +627,8 @@ def _su_section(d: pd.DataFrame) -> List[str]:
         + ("a detectable signal" if abs(c) > 2 * s else "no detectable signal beyond the line"),
         f"  Power: with {len(su)} games only edges over ~{min_detectable_edge(len(su)):.0%} "
         "are detectable; real betting edges are usually a few points.",
-        "  (The favorite beating its implied rate in most buckets mostly reflects the crude "
-        "linear spread->probability conversion, not crowd signal.)",
+        f"  (Implied = normal CDF of spread / {sigma:g}, the typical miss of the final margin "
+        "vs. the line; a favorite beating it across buckets points at that sigma, not the crowd.)",
     ]
     return lines
 
@@ -583,15 +676,15 @@ def _ats_section(d: pd.DataFrame) -> List[str]:
     return lines
 
 
-def crowd_signal_report(df: pd.DataFrame) -> List[str]:
+def crowd_signal_report(df: pd.DataFrame, sigma: float = SPORTS["nfl"]["sigma"]) -> List[str]:
     """Text report: pool comparison, straight-up check, and against-the-spread check."""
-    d = prepare(df)
+    d = prepare(df, sigma)
     if d.empty:
         return ["No settled games with a line and crowd % to analyze."]
     lines = pool_comparison(d)
     if lines:
         lines.append("")
-    lines += _su_section(d)
+    lines += _su_section(d, sigma)
     lines += _ats_section(d)
     if "pregame" in d:
         logged = d["pregame"].dropna().astype(bool)  # cached-history rows carry no flag
