@@ -44,6 +44,7 @@ confpickem-optimize = "confpickem.cli.optimize:main"
 confpickem-win-probability = "confpickem.cli.win_probability:main"
 confpickem-player-skills = "confpickem.cli.player_skills:main"
 confpickem-season = "confpickem.cli.season:main"
+confpickem-crowd-log = "confpickem.cli.crowd_log:main"
 
 [project.optional-dependencies]
 dev = [

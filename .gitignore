@@ -44,3 +44,6 @@ player_skills_*.json
 
 # Personal notes/documentation
 notes/
+
+# Crowd/line snapshot log (runtime data)
+crowd_lines.jsonl
