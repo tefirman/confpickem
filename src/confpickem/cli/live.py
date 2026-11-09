@@ -7,7 +7,7 @@ and appends a snapshot to a JSONL history file (default NFL_Week<N>_live.jsonl).
 Run it from the first Sunday kickoff; it stops by itself once every game is final.
 
 Usage:
-  live.py --week 10                         # refresh every 15 minutes until all games final
+  live.py --week 10                         # refresh every 10 minutes until all games final
   live.py --week 10 --once                  # one snapshot, then exit
   live.py --week 10 --interval 5 --player "Educated Guesses"
 """
@@ -63,7 +63,7 @@ def main():
     parser.add_argument("--league-id", "-l", type=int, default=11465)
     parser.add_argument("--cookies", default="cookies.txt")
     parser.add_argument("--odds-api-key", help="The Odds API key (or set ODDS_API_KEY)")
-    parser.add_argument("--interval", type=float, default=15.0, help="Minutes between refreshes")
+    parser.add_argument("--interval", type=float, default=10.0, help="Minutes between refreshes")
     parser.add_argument("--once", action="store_true", help="Take one snapshot and exit")
     parser.add_argument("--player", help="Highlight this entry in the console summary")
     parser.add_argument("--top", type=int, default=8, help="Entries to print per snapshot")

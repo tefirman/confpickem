@@ -56,3 +56,17 @@ def test_app_empty_history_prompts_refresh(tmp_path, monkeypatch):
     at.sidebar.toggle[0].set_value(False).run()  # auto-refresh off: no network in tests
     assert not at.exception
     assert any("No snapshots yet" in i.value for i in at.info)
+
+
+def test_app_renders_history_with_duplicate_timestamps(tmp_path, monkeypatch):
+    """Overlapping refreshes once wrote several snapshots in the same second, which
+    crashed the chart pivot ("Index contains duplicate entries")."""
+    monkeypatch.chdir(tmp_path)
+    for a in (0.4, 0.5, 0.6):
+        live_tracker.append_snapshot(
+            "NFL_Week10_live.jsonl", _snap("2025-11-09T13:00:00", a, 1 - a, all_final=True)
+        )
+    at = AppTest.from_file(APP, default_timeout=30)
+    at.run()
+    assert not at.exception
+    assert any("1 snapshots" in c.value for c in at.caption)

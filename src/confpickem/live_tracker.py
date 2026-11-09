@@ -173,19 +173,20 @@ def append_snapshot(path, snapshot: Dict) -> None:
 
 def read_snapshots(path, week: Optional[int] = None) -> List[Dict]:
     """All snapshots in ``path`` (optionally one week), oldest first. A missing
-    file is an empty history; a torn final line (crash mid-write) is skipped."""
+    file is an empty history; a torn final line (crash mid-write) is skipped. Two
+    snapshots with the same timestamp (overlapping refreshes) collapse to the last."""
     p = Path(path)
     if not p.exists():
         return []
-    snaps = []
+    by_timestamp: Dict[str, Dict] = {}
     for line in p.read_text().splitlines():
         try:
             snap = json.loads(line)
         except json.JSONDecodeError:
             continue
         if week is None or snap.get("week") == week:
-            snaps.append(snap)
-    return snaps
+            by_timestamp[snap["timestamp"]] = snap
+    return list(by_timestamp.values())
 
 
 def history_frame(snapshots: List[Dict]) -> pd.DataFrame:
@@ -206,6 +207,8 @@ def win_pct_series(snapshots: List[Dict]) -> pd.DataFrame:
     df = history_frame(snapshots)
     if df.empty:
         return pd.DataFrame()
+    # A repeated entrant name within one snapshot would make the pivot ambiguous.
+    df = df.drop_duplicates(["timestamp", "player"], keep="last")
     return df.pivot(index="timestamp", columns="player", values="win_pct").sort_index()
 
 

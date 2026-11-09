@@ -271,3 +271,20 @@ def test_parse_odds_game_without_moneyline_or_spread_is_dropped():
 
     totals = {"key": "totals", "outcomes": [{"name": "Over", "point": 44.5}]}
     assert LiveOddsScraper("k")._parse_odds_api_game(_odds_api_game([totals])) is None
+
+
+def test_read_snapshots_collapses_duplicate_timestamps_keeping_last(tmp_path):
+    path = tmp_path / "h.jsonl"
+    live_tracker.append_snapshot(path, _snap("2025-11-09T13:00:00", set(), {"A": 0.4, "B": 0.6}))
+    live_tracker.append_snapshot(path, _snap("2025-11-09T13:00:00", set(), {"A": 0.5, "B": 0.5}))
+    live_tracker.append_snapshot(path, _snap("2025-11-09T13:10:00", set(), {"A": 0.7, "B": 0.3}))
+    snaps = live_tracker.read_snapshots(path)
+    assert len(snaps) == 2
+    assert live_tracker.win_pct_series(snaps).A.tolist() == [0.5, 0.7]
+
+
+def test_win_pct_series_tolerates_repeated_entrant_name():
+    snap = _snap("2025-11-09T13:00:00", set(), {"A": 0.4, "B": 0.6})
+    snap["standings"].append(dict(snap["standings"][0], win_pct=0.1))  # second "A"
+    wide = live_tracker.win_pct_series([snap])
+    assert list(wide.columns) == ["A", "B"] and wide.A.tolist() == [0.1]

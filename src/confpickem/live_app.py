@@ -8,6 +8,7 @@ Run it alongside (or instead of) ``confpickem-live`` -- both append to the same 
 
 import os
 import sys
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -43,6 +44,14 @@ SERIES_DARK = [
     "#e66767",
 ]
 MUTED = {"light": "#c9c8c3", "dark": "#52514e"}
+
+
+@st.cache_resource
+def refresh_lock() -> threading.Lock:
+    """One lock shared by every rerun/session of this server process. Streamlit
+    reruns the script on each widget change, and each rerun can otherwise start its
+    own scrape of the same stale-looking history."""
+    return threading.Lock()
 
 
 def is_dark() -> bool:
@@ -133,13 +142,30 @@ def main():
         cookies = st.text_input("Cookies file", "cookies.txt")
         history = st.text_input("History file", f"NFL_Week{week}_live.jsonl")
         player = st.text_input("Your entry (substring)", "Educated Guesses")
-        interval = st.number_input("Auto-refresh interval (min)", 1.0, 120.0, 15.0, step=1.0)
+        interval = st.number_input("Auto-refresh interval (min)", 1.0, 120.0, 10.0, step=1.0)
         auto = st.toggle("Auto-refresh", value=True)
         top_n = st.slider("Entries highlighted", 2, 8, 6)
         api_key = st.text_input("Odds API key", os.getenv("ODDS_API_KEY", ""), type="password")
 
-    def refresh():
+    def is_due() -> bool:
+        snaps = lt.read_snapshots(history, week=int(week))
+        if not snaps:
+            return True
+        if snaps[-1]["all_final"]:
+            return False
+        age = datetime.now() - datetime.fromisoformat(snaps[-1]["timestamp"])
+        return age.total_seconds() >= interval * 60
+
+    def refresh(only_if_due: bool = False):
+        # If another run is already scraping, skip: its snapshot lands in the file
+        # the next read picks up. Once we hold the lock, re-check the history, since
+        # that run may have just finished and made this one unnecessary.
+        lock = refresh_lock()
+        if not lock.acquire(blocking=False):
+            return
         try:
+            if only_if_due and not is_due():
+                return
             snap = lt.take_snapshot(
                 week=int(week),
                 league_id=int(league_id),
@@ -150,6 +176,8 @@ def main():
             st.session_state.pop("error", None)
         except Exception as e:  # keep the page up; show what went wrong
             st.session_state["error"] = f"{type(e).__name__}: {e}"
+        finally:
+            lock.release()
 
     if st.button("Refresh now", type="primary"):
         with st.spinner("Scraping Yahoo, pulling odds, re-scoring..."):
@@ -158,14 +186,9 @@ def main():
     @st.fragment(run_every=60)
     def board():
         snaps = lt.read_snapshots(history, week=int(week))
-        due = (
-            not snaps
-            or (datetime.now() - datetime.fromisoformat(snaps[-1]["timestamp"])).total_seconds()
-            >= interval * 60
-        )
-        if auto and due and not (snaps and snaps[-1]["all_final"]):
+        if auto and is_due():
             with st.spinner("Auto-refreshing..."):
-                refresh()
+                refresh(only_if_due=True)
             snaps = lt.read_snapshots(history, week=int(week))
 
         if st.session_state.get("error"):
