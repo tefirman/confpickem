@@ -17,7 +17,7 @@ flake8 .                       # Lint (max-line-length 100, ignores E203/W503)
 mypy src/confpickem            # Type check
 ```
 
-CI (`.github/workflows/test.yml`) runs `pytest` across Python 3.8–3.13 on every push/PR to `main`. `conftest.py` prepends `src/` to `sys.path`, so tests import `confpickem` without an editable install.
+CI (`.github/workflows/test.yml`) runs `pytest` across Python 3.10–3.13 on every push/PR to `main`. `conftest.py` prepends `src/` to `sys.path`, so tests import `confpickem` without an editable install.
 
 The console entry points (defined in `[project.scripts]`) all resolve to `main()` in `src/confpickem/cli/`:
 - `confpickem` / `confpickem-optimize` → `cli/optimize.py`
