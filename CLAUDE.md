@@ -17,13 +17,15 @@ flake8 .                       # Lint (max-line-length 100, ignores E203/W503)
 mypy src/confpickem            # Type check
 ```
 
-CI (`.github/workflows/test.yml`) runs `pytest` across Python 3.8–3.13 on every push/PR to `main`. `conftest.py` prepends `src/` to `sys.path`, so tests import `confpickem` without an editable install.
+CI (`.github/workflows/test.yml`) runs `pytest` across Python 3.10–3.13 on every push/PR to `main`. `conftest.py` prepends `src/` to `sys.path`, so tests import `confpickem` without an editable install.
 
 The console entry points (defined in `[project.scripts]`) all resolve to `main()` in `src/confpickem/cli/`:
 - `confpickem` / `confpickem-optimize` → `cli/optimize.py`
 - `confpickem-win-probability` → `cli/win_probability.py`
 - `confpickem-player-skills` → `cli/player_skills.py`
 - `confpickem-season` → `cli/season.py`
+- `confpickem-live` → `cli/live.py` (loops `live_tracker.take_snapshot` → `NFL_Week<N>_live.jsonl`)
+- `confpickem-app` → `cli/app.py`, launches the Streamlit viewer `live_app.py` over that JSONL (needs the `[app]` extra)
 
 See `CLI_README.md` for full flag documentation. (`README_OPTIMIZATION.md` is stale — it references a deleted `optimize_week1_picks.py`.)
 

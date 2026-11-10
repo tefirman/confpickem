@@ -35,15 +35,21 @@ def devig_moneyline_pair(home_odds: float, away_odds: float) -> float:
     return home_implied / (home_implied + away_implied)
 
 
+DEFAULT_MARKETS = 'h2h,spreads,totals'
+
+
 class LiveOddsScraper:
     """Scrapes live NFL odds from multiple sources"""
 
-    def __init__(self, odds_api_key: Optional[str] = None):
+    def __init__(self, odds_api_key: Optional[str] = None, markets: str = DEFAULT_MARKETS):
         # ESPN API (for game schedule/scores)
         self.espn_base_url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl"
 
         # The Odds API (for betting odds)
         self.odds_api_key = odds_api_key or os.getenv('ODDS_API_KEY')
+        # Odds API credits are charged per market per call; callers that only need
+        # win probabilities (the live tracker) can pass markets="h2h".
+        self.markets = markets
         self.odds_base_url = "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds"
 
         self.session = requests.Session()
@@ -180,7 +186,7 @@ class LiveOddsScraper:
             params = {
                 'apiKey': self.odds_api_key,
                 'regions': 'us',
-                'markets': 'h2h,spreads,totals',
+                'markets': self.markets,
                 'bookmakers': 'draftkings,fanduel',
                 'oddsFormat': 'american'
             }
@@ -230,7 +236,7 @@ class LiveOddsScraper:
             away_team = game['away_team']
 
             # Get the best available odds (prefer DraftKings, fallback to FanDuel)
-            spread = 0.0
+            spread: Optional[float] = None
             total_points = 0.0
             home_moneyline: Optional[float] = None
             away_moneyline: Optional[float] = None
@@ -268,15 +274,19 @@ class LiveOddsScraper:
             # saturates at 0/1 for blowout lines or is inaccurate near a pick'em).
             if home_moneyline is not None and away_moneyline is not None:
                 home_win_prob = devig_moneyline_pair(home_moneyline, away_moneyline)
-            else:
+            elif spread is not None:
                 # No moneyline available from either bookmaker; fall back to the
                 # spread-based approximation so a game isn't dropped entirely.
                 home_win_prob = min(max(-spread * 0.031 + 0.5, 0.01), 0.99)
+            else:
+                # Neither moneyline nor spread (e.g. markets suspended in-play):
+                # drop the game so the caller falls back rather than seeing 50/50.
+                return None
 
             return {
                 'home_team': home_team,
                 'away_team': away_team,
-                'home_spread': spread,
+                'home_spread': spread if spread is not None else 0.0,
                 'home_moneyline': home_moneyline,
                 'away_moneyline': away_moneyline,
                 'total_points': total_points,
@@ -466,7 +476,7 @@ def get_live_nfl_odds(week: Optional[int] = None, odds_api_key: Optional[str] = 
     return scraper.get_live_odds(week)
 
 
-def update_odds_with_live_data(yahoo_games: pd.DataFrame, week: Optional[int] = None, odds_api_key: Optional[str] = None) -> pd.DataFrame:
+def update_odds_with_live_data(yahoo_games: pd.DataFrame, week: Optional[int] = None, odds_api_key: Optional[str] = None, markets: str = DEFAULT_MARKETS) -> pd.DataFrame:
     """
     Convenience function to update Yahoo odds with live data
 
@@ -478,6 +488,6 @@ def update_odds_with_live_data(yahoo_games: pd.DataFrame, week: Optional[int] = 
     Returns:
         Updated DataFrame with live odds
     """
-    scraper = LiveOddsScraper(odds_api_key=odds_api_key)
+    scraper = LiveOddsScraper(odds_api_key=odds_api_key, markets=markets)
     live_odds = scraper.get_live_odds(week, yahoo_games=yahoo_games)
     return scraper.update_yahoo_odds(yahoo_games, live_odds)

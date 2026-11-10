@@ -109,7 +109,7 @@ the full flow (sanity checks, game importance, mid-week re-optimization).
 
 ## Dependencies
 
-- Python ≥ 3.8
+- Python ≥ 3.10
 - requests
 - pandas 
 - numpy

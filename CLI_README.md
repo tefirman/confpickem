@@ -282,6 +282,26 @@ last two weeks are treated as inactive.
 
 ---
 
+### 5. `confpickem-live` - Live Win-Probability Tracker
+
+Once every entry is locked (first Sunday kickoff), re-scores the pool on a timer and logs each entry's win % over time.
+
+```bash
+confpickem-live --week 10 --player "Educated Guesses"   # refresh every 10 min until all games final
+confpickem-live --week 10 --once                        # single snapshot
+```
+
+Each tick re-scrapes Yahoo, re-pulls live (in-play) odds from The Odds API, and appends a snapshot to `NFL_Week<N>_live.jsonl` (`--history` to change). A game that is underway but has no live line is flagged, since it is then using Yahoo's pregame odds. Each tick requests only the moneyline market (1 Odds API credit per call, ~60 per Sunday at the default interval). `--interval` is in minutes, default 10.
+
+#### Web viewer
+
+```bash
+pip install -e ".[app]"      # adds streamlit + plotly
+confpickem-app               # opens a browser tab
+```
+
+Plots every entry's win % over time from the same history file. "Refresh now" takes a snapshot immediately; with auto-refresh on (default, every 10 min) it takes one whenever the newest snapshot is older than the interval. You can run it instead of `confpickem-live` or alongside it. Highlight your entry with the sidebar field; the diamonds mark games going final.
+
 ## Prerequisites
 
 ### Required Files

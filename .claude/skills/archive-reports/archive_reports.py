@@ -11,6 +11,7 @@ overwrites a file already in PreviousWeeks/.
 """
 
 import argparse
+import json
 import re
 import sys
 from datetime import datetime, timedelta
@@ -19,13 +20,22 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ARCHIVE = REPO_ROOT / "PreviousWeeks"
 REPORT = re.compile(r"NFL_Week(\d+)_.*_(\d{8})_\d{4}(?:_[^.]*)?\.(?:txt|html)$")
+# Live-tracker history has no date in its name; its first snapshot carries one.
+LIVE = re.compile(r"NFL_Week(\d+)_live\.jsonl")
 
 
 def season_week(path):
     m = REPORT.fullmatch(path.name)
-    if not m:
-        return None
-    stamp = datetime.strptime(m.group(2), "%Y%m%d")
+    if m:
+        stamp = datetime.strptime(m.group(2), "%Y%m%d")
+    else:
+        m = LIVE.fullmatch(path.name)
+        if not m:
+            return None
+        try:
+            stamp = datetime.fromisoformat(json.loads(path.read_text().splitlines()[0])["timestamp"])
+        except (OSError, IndexError, KeyError, ValueError):
+            return None  # empty or unreadable history: leave it alone
     # January games belong to the prior season (same rule as the scraper).
     return ((stamp - timedelta(days=90)).year, int(m.group(1)))
 
