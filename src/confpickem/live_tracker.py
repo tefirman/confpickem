@@ -24,6 +24,7 @@ from .yahoo_pickem_scraper import KICKOFF_TZ, YahooPickEm
 logger = logging.getLogger(__name__)
 
 YAHOO_FALLBACK = "Yahoo_Fallback"
+CARRIED = "Carried"
 
 
 def _same_game(result: Dict, home: str, away: str) -> bool:
@@ -79,10 +80,37 @@ def build_games_frame(
     return pd.DataFrame(rows)
 
 
+def carry_forward_odds(games: pd.DataFrame, previous: Optional[Dict]) -> pd.DataFrame:
+    """Hold a game's last known win probability when its live line disappears.
+
+    Books pull in-play lines once a game is a blowout, and the scraper then falls
+    back to Yahoo's *pregame* odds -- which jumps the probability back toward the
+    pre-kickoff favorite and shows false hope. For any game on the Yahoo fallback
+    whose ``previous`` snapshot had a real (live or carried) probability, reuse that
+    probability instead and tag the row ``Carried``. Without a usable previous
+    snapshot the Yahoo line stays (and the game is flagged stale as before).
+    """
+    if not previous:
+        return games
+    last = {
+        (g["home"], g["away"]): g["home_win_prob"]
+        for g in previous.get("games", [])
+        if g.get("source", YAHOO_FALLBACK) != YAHOO_FALLBACK
+    }
+    games = games.copy()
+    for idx, g in games.iterrows():
+        prob = last.get((g["home_team"], g["away_team"]))
+        if g["live_odds_source"] == YAHOO_FALLBACK and prob is not None:
+            games.at[idx, "vegas_win_prob"] = prob
+            games.at[idx, "live_odds_source"] = CARRIED
+    return games
+
+
 def game_states(games: pd.DataFrame, now: Optional[pd.Timestamp] = None) -> List[Dict]:
     """Per-game status for the snapshot: final / live / upcoming, plus ``stale``
     for a game that is underway but only has Yahoo's pregame line (so its
-    probability isn't tracking the game)."""
+    probability isn't tracking the game) and ``carried`` for one whose live line
+    vanished and is being held at its last known value."""
     now = now if now is not None else pd.Timestamp.now(tz=KICKOFF_TZ)
     states = []
     for g in games.itertuples(index=False):
@@ -101,7 +129,9 @@ def game_states(games: pd.DataFrame, now: Optional[pd.Timestamp] = None) -> List
                 "away": g.away_team,
                 "home_win_prob": round(float(g.vegas_win_prob), 4),
                 "status": status,
+                "source": g.live_odds_source,
                 "stale": status == "live" and g.live_odds_source == YAHOO_FALLBACK,
+                "carried": status == "live" and g.live_odds_source == CARRIED,
             }
         )
     return states
@@ -115,8 +145,13 @@ def take_snapshot(
     n_outcomes: int = 6000,
     cache_dir: str = ".cache",
     now: Optional[pd.Timestamp] = None,
+    previous: Optional[Dict] = None,
 ) -> Dict:
     """Scrape, update odds, score the board; return one JSON-serializable snapshot.
+
+    ``previous`` is the last snapshot of this week (if any); games whose live line
+    has dropped out reuse its probability rather than reverting to Yahoo's pregame
+    odds (see ``carry_forward_odds``).
 
     Intended for the locked state (first Sunday kickoff onward), like
     ``--mode locked``: entrants missing a pick score 0 on that game.
@@ -140,6 +175,7 @@ def take_snapshot(
         yahoo.games, week=week, odds_api_key=odds_api_key, markets="h2h"
     )
     games = build_games_frame(yahoo.games, enhanced, yahoo.results, week)
+    games = carry_forward_odds(games, previous)
 
     simulator = ConfidencePickEmSimulator()
     simulator.add_games_from_dataframe(games.drop(columns=["live_odds_source"]))
@@ -154,6 +190,7 @@ def take_snapshot(
         "games": states,
         "all_final": all(s["status"] == "final" for s in states),
         "stale_games": [f"{s['away']} @ {s['home']}" for s in states if s["stale"]],
+        "carried_games": [f"{s['away']} @ {s['home']}" for s in states if s["carried"]],
         "standings": [
             {
                 "player": r.player,
