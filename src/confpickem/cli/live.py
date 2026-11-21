@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from src.confpickem.live_tracker import append_snapshot, take_snapshot
+from src.confpickem.live_tracker import append_snapshot, read_snapshots, take_snapshot
 
 
 def format_snapshot(snapshot, player=None, top=8):
@@ -34,6 +34,11 @@ def format_snapshot(snapshot, player=None, top=8):
         lines.append(
             "  ⚠️  no live line for in-progress game(s), using Yahoo's pregame odds: "
             + ", ".join(snapshot["stale_games"])
+        )
+    if snapshot.get("carried_games"):
+        lines.append(
+            "  ⏸️  live line gone for game(s), holding last known odds: "
+            + ", ".join(snapshot["carried_games"])
         )
     standings = snapshot["standings"]
     shown = standings[:top]
@@ -89,6 +94,7 @@ def main():
                 cookies_file=args.cookies,
                 odds_api_key=args.odds_api_key,
                 n_outcomes=args.n_outcomes,
+                previous=(read_snapshots(history, week=args.week) or [None])[-1],
             )
         except Exception as e:
             # One bad tick (network blip, Yahoo hiccup) shouldn't kill a Sunday-long run.

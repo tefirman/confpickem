@@ -288,3 +288,43 @@ def test_win_pct_series_tolerates_repeated_entrant_name():
     snap["standings"].append(dict(snap["standings"][0], win_pct=0.1))  # second "A"
     wide = live_tracker.win_pct_series([snap])
     assert list(wide.columns) == ["A", "B"] and wide.A.tolist() == [0.1]
+
+
+def _prev_snapshot(source):
+    return {"games": [{"home": "KC", "away": "Den", "home_win_prob": 0.97, "source": source}]}
+
+
+def _frame_with_sources(sources):
+    return live_tracker.build_games_frame(
+        yahoo_games(), yahoo_games().assign(live_odds_source=sources), yahoo_results(), week=10
+    )
+
+
+def test_carry_forward_holds_last_live_prob_when_line_drops():
+    games = _frame_with_sources(["Yahoo_Fallback"] * 3)
+    out = live_tracker.carry_forward_odds(games, _prev_snapshot("OddsAPI"))
+    assert out.vegas_win_prob[0] == pytest.approx(0.97)
+    assert out.live_odds_source.tolist() == ["Carried", "Yahoo_Fallback", "Yahoo_Fallback"]
+    # Chains: a carried value is itself carried again next tick.
+    again = live_tracker.carry_forward_odds(games, _prev_snapshot("Carried"))
+    assert again.vegas_win_prob[0] == pytest.approx(0.97)
+
+
+def test_carry_forward_ignores_yahoo_or_missing_previous_and_fresh_lines():
+    games = _frame_with_sources(["Yahoo_Fallback"] * 3)
+    no_source = {"games": [{"home": "KC", "away": "Den", "home_win_prob": 0.97}]}
+    for prev in (None, _prev_snapshot("Yahoo_Fallback"), no_source):
+        out = live_tracker.carry_forward_odds(games, prev)
+        assert out.vegas_win_prob.tolist() == games.vegas_win_prob.tolist()
+    fresh = _frame_with_sources(["OddsAPI"] * 3)
+    out = live_tracker.carry_forward_odds(fresh, _prev_snapshot("OddsAPI"))
+    assert out.vegas_win_prob.tolist() == fresh.vegas_win_prob.tolist()
+
+
+def test_game_states_mark_carried_live_game_not_stale():
+    prev = {"games": [{"home": "Mia", "away": "Buf", "home_win_prob": 0.01, "source": "OddsAPI"}]}
+    games = live_tracker.carry_forward_odds(_frame_with_sources(["Yahoo_Fallback"] * 3), prev)
+    states = live_tracker.game_states(games, now=NOW)
+    assert [s["status"] for s in states] == ["final", "live", "upcoming"]
+    assert [s["carried"] for s in states] == [False, True, False]
+    assert [s["stale"] for s in states] == [False, False, False]

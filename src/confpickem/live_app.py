@@ -171,6 +171,7 @@ def main():
                 league_id=int(league_id),
                 cookies_file=cookies,
                 odds_api_key=api_key or None,
+                previous=(lt.read_snapshots(history, week=int(week)) or [None])[-1],
             )
             lt.append_snapshot(history, snap)
             st.session_state.pop("error", None)
@@ -210,6 +211,12 @@ def main():
             st.warning(
                 "No live line for in-progress game(s), using pregame odds: "
                 + ", ".join(last["stale_games"])
+            )
+
+        if last.get("carried_games"):
+            st.info(
+                "Live line unavailable (likely a blowout); holding last known odds for: "
+                + ", ".join(last["carried_games"])
             )
 
         wide = lt.win_pct_series(snaps)
