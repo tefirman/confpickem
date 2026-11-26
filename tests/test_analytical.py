@@ -367,6 +367,51 @@ def test_optimize_picks_analytic_respects_fixed_picks(analytic_simulator):
     assert sorted(optimal.values()) == list(range(1, n + 1))
 
 
+def test_optimize_opener_adaptive_shape_and_bounds(analytic_simulator):
+    """One row per (team, confidence); values are probabilities; the default
+    opener is the earliest kickoff and the joint pick is one of its teams."""
+    res = analytic_simulator.optimize_opener_adaptive(
+        "Me", iterations=40, restarts=1, n_outcomes=800, n_test=800, seed=3)
+    games = analytic_simulator.games
+    n = len(games)
+    opener = min(games, key=lambda g: g.kickoff_time)
+    assert len(res) == 2 * n
+    assert set(res.team) == {opener.home_team, opener.away_team}
+    assert sorted(res.conf.unique()) == list(range(1, n + 1))
+    assert res[["commit", "adaptive", "p_if_win", "p_if_lose"]].stack().between(0, 1).all()
+    assert res.adaptive.is_monotonic_decreasing
+    jt, jc, jv = res.attrs["joint"]
+    assert jt in (opener.home_team, opener.away_team) and 1 <= jc <= n and 0 <= jv <= 1
+
+
+def test_optimize_opener_adaptive_rejects_frozen_opener(analytic_simulator):
+    analytic_simulator.games[0].actual_outcome = True
+    with pytest.raises(ValueError, match="already decided"):
+        analytic_simulator.optimize_opener_adaptive(
+            "Me", game_idx=0, iterations=10, restarts=1, n_outcomes=200, n_test=200)
+
+
+def test_optimize_opener_adaptive_skips_frozen_and_spent_confidence(analytic_simulator):
+    """Midweek: the opener becomes the earliest unfrozen game and confidence
+    values already spent on frozen games are not offered."""
+    sim = analytic_simulator
+    first = min(sim.games, key=lambda g: g.kickoff_time)
+    first.actual_outcome = True
+    rows = [{"player_name": p.name} for p in sim.players]
+    for r in rows:
+        for i, g in enumerate(sim.games):
+            r[f"game_{i + 1}_pick"] = g.home_team
+            r[f"game_{i + 1}_confidence"] = i + 1
+    res = sim.optimize_opener_adaptive(
+        "Me", iterations=30, restarts=1, n_outcomes=600, n_test=600, seed=4,
+        player_data=pd.DataFrame(rows))
+    frozen_idx = sim.games.index(first)
+    assert res.attrs["game_idx"] != frozen_idx
+    assert frozen_idx + 1 not in set(res.conf)
+    assert len(res) == 2 * (len(sim.games) - 1)
+    assert (res.gain_se >= 0).all()
+
+
 def test_optimize_picks_analytic_team_only_fixed_pick(analytic_simulator):
     """A confidence value of None pins the team but leaves its point value free."""
     optimal = analytic_simulator.optimize_picks_analytic(

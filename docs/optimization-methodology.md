@@ -175,6 +175,47 @@ rest frozen-live" case. Analytical won a week in all three and kept the same
 higher-variance profile. Fewer decided games, if anything, helps — the field is
 less fragmented and there's more room to differentiate.
 
+## Adaptive opener
+
+Only the earliest game of a week (TNF, an international game, Thanksgiving)
+locks before the rest of the slate is decided, so the best pick *there* is not
+necessarily the one in the best fully-committed slate. The right value of an
+opener pick `(team, conf)` is
+
+    V = Σ_o P(o) · max_rest P(win | o, team, conf)
+
+-- the rest of the slate is re-optimized per result. `optimize_opener_adaptive`
+computes this (`--adaptive-opener`, or `scripts/adaptive_opener.py`) next to the
+"commit" value (one slate serving both outcomes).
+
+Two details matter for trusting it:
+
+- **Score out-of-sample.** The hill climb overfits the draws it optimizes on by
+  about as much as the effect being measured; scored in-sample the gain even came
+  out *negative*. Slates are optimized on the training draws and scored on a fresh
+  holdout, with the outcome pinned in each branch and weighted by the true win
+  probability.
+- **Pool the candidates.** Different climbs land in different local optima
+  (a single cell swung by >1 pt between seeds). Each opener pick's candidate
+  slates (commit climb + both branch climbs) are pooled and each objective takes
+  the best by training score, which removes most of that noise.
+
+**Result** (weeks 11 and 12, three seeds on week 11): the best opener pick did
+not change -- LAR ~11 (60% favorite, a flat plateau from ~7 to 12) and HOU 9
+(89% favorite) -- and its adaptive gain was 0.00-0.05 pts of P(win). Adaptivity
+is worth up to ~0.2-0.3 pts for *off-optimal* confidences (e.g. a heavy favorite
+at a low-ish value), which is exactly where waiting matters, but not enough to move
+the recommendation. An earlier, unpooled run suggested HOU 5 beat the joint pick
+by 0.2 pts; that was optimizer noise.
+
+**Staged chains.** The next early game is chosen after the previous one is
+final, which is just midweek mode: with `player_data`/`as_of` the method freezes
+finished/locked games to your real picks, takes the earliest unfrozen kickoff
+as the opener, and scans only unspent confidence values. Later early games stay
+part of the re-optimized "rest" per outcome without their own nested
+adaptivity, so the value of waiting is slightly understated when several early
+games remain. Opponents' real opener picks are not modeled as revealed.
+
 ## Game importance
 
 `assess_game_importance` ranks each game by how much its result swings your

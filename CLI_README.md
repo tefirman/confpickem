@@ -65,6 +65,9 @@ confpickem --week WEEK --mode MODE [OPTIONS]
 --an-outcomes      Outcome-vector draws for the analytic P(win) (default: 6000)
 --compare-slate    Score a full pick set head-to-head against the optimizer's
                    own picks (repeatable) -- 'label:TEAM CONF,TEAM CONF,...'
+--adaptive-opener  Value each pick on the next early-locking game (TNF,
+                   international, Thanksgiving) assuming you choose the rest of
+                   the slate after its result (1-4 min; beginning/midweek)
 ```
 
 **Examples:**
@@ -135,6 +138,19 @@ your row in the standings and the `.txt`/`.html` reports -- e.g.
 `--player "Educated Guesses"`. It must match exactly one entrant; an ambiguous
 or unmatched substring is an error rather than a silent guess. Omit it and the
 report still shows everyone's standings, just without a highlighted row.
+
+**`--adaptive-opener`:**
+
+Only the earliest game (Thursday night, an international game, Thanksgiving)
+locks before the rest of the slate is decided, so the right question for *that*
+pick is "which team and confidence leave me best placed once I see the result?"
+-- not "which full slate is best if I commit to everything now?". This option
+re-optimizes the other games once per outcome of the opener and reports each
+(team, confidence)'s win probability both ways (`Adaptive` vs `Commit`), scored
+on held-out outcome draws. In practice the best opener pick rarely changes; the
+gain concentrates in off-optimal confidences. See "Adaptive opener" in
+`docs/optimization-methodology.md`. Midweek, it values the next unfrozen game
+(run it again after each early game finishes for Thanksgiving-style chains).
 
 **`--compare-slate`:**
 
