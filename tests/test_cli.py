@@ -229,6 +229,27 @@ class TestOptimizeCLI:
                 result = optimize.main()
         assert result == 1
 
+    def test_adaptive_opener_rejected_in_locked_mode(self):
+        """--adaptive-opener has nothing to optimize in --mode locked"""
+        with patch("sys.argv", ["optimize.py", "--week", "10", "--mode", "locked",
+                                "--adaptive-opener"]):
+            with patch("builtins.print"):
+                assert optimize.main() == 1
+
+    def test_adaptive_opener_lines_render(self):
+        res = pd.DataFrame(
+            [
+                dict(team="HOU", conf=9, commit=0.0931, adaptive=0.0935, gain=0.0004,
+                     gain_se=0.0001, p_if_win=0.0964, p_if_lose=0.0704),
+                dict(team="HOU", conf=8, commit=0.0915, adaptive=0.0915, gain=0.0,
+                     gain_se=0.0, p_if_win=0.0921, p_if_lose=0.0873),
+            ]
+        )
+        res.attrs.update(joint=("HOU", 8, 0.09), game="IND @ HOU", home_win_prob=0.888)
+        text = "\n".join(optimize.adaptive_opener_lines(res))
+        assert "IND @ HOU" in text and "Best opener pick: HOU 9" in text
+        assert "joint-slate pick: HOU 8" in text
+
     def test_compare_slate_duplicate_labels_rejected(self):
         """--compare-slate labels must be unique"""
         parser_args = [

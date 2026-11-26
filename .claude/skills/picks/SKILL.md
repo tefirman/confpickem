@@ -48,6 +48,14 @@ session has expired. Don't try to work around it.
   each one from its picks, CamelCase with no spaces or colons (`Sea16`, `Kc16Buf15`).
 - Use Yahoo's team abbreviations exactly as `week_status.py` prints them.
 - Run `Neutral` **last** (step 3 feeds it the others' slates).
+- **Adaptive opener check**: on the `Neutral` run (beginning mode, or midweek before the
+  next early game kicks off) also pass `--adaptive-opener`. It values each pick on the
+  next early-locking game assuming the rest of the slate is chosen after its result
+  (1-4 extra minutes) and prints an `ADAPTIVE OPENER` table plus a section in the
+  `.txt` report. The all-in scenarios stay as head-to-head slates; this table is the
+  better guide to *which opener pick and confidence* to submit. Only mention it in
+  the summary if its best pick differs from the Neutral slate's opener pick (gains
+  under ~2x the `SE` column are noise).
 
 ## 3. Run each scenario
 
@@ -117,5 +125,8 @@ Keep it short:
   it's effectively a tie, and point to win std as the tiebreaker (lower = steadier,
   higher = more boom-or-bust -- which is better depends on whether the user
   is protecting a lead or chasing).
+- If `--adaptive-opener` ran: the best adaptive opener pick vs. the Neutral slate's, and
+  whether they differ. For Thanksgiving-style chains (several early games), re-run
+  after each one finishes -- the next is valued on the midweek run.
 - The recommended slate in copy-paste format, ready to enter on Yahoo.
 - Paths to the renamed `.html` reports.

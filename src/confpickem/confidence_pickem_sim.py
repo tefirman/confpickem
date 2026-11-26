@@ -627,7 +627,8 @@ class ConfidencePickEmSimulator:
 
         return dict(games=games, n=n, vegas_home=vegas_home, rng=rng,
                     outcomes=outcomes, pwin=pwin, completed=completed,
-                    frozen=frozen, my_frozen=my_frozen)
+                    frozen=frozen, my_frozen=my_frozen, opp_types=opp_types,
+                    actual_outcomes=actual_outcomes)
 
     def optimize_picks_analytic(self, player_name: str,
                                 fixed_picks: Dict[str, Dict[str, int]] = None,
@@ -755,6 +756,166 @@ class ConfidencePickEmSimulator:
 
         return {(games[i].home_team if ph[i] else games[i].away_team): int(pts[i])
                 for i in range(n)}
+
+    def optimize_opener_adaptive(self, player_name: str, game_idx: int = None,
+                                 iterations: int = 400, restarts: int = 4,
+                                 n_outcomes: int = 6000, n_test: int = 8000,
+                                 seed: int = 51,
+                                 player_data: pd.DataFrame = None,
+                                 as_of: datetime = None,
+                                 max_opponent_types: int = 16) -> pd.DataFrame:
+        """Value every pick (team, confidence) on the next early-locking game
+        *adaptively*, i.e. assuming the rest of the slate is chosen after the
+        game's result is known.
+
+        Only the early game (TNF, an international game, Thanksgiving...) locks
+        before the rest of the slate is decided, so the right objective for it is
+
+            V(team, conf) = sum_o P(o) * max_rest P(win | o, team, conf)
+
+        rather than the win probability of one slate committed to everything up
+        front. For each ``(team, conf)`` this re-optimizes the other games once
+        per outcome ``o`` (outcome column pinned in the same sampled draws, so
+        comparisons use common random numbers) and weights by the game's win
+        probability. ``commit`` is the same pick scored the old way (rest of the
+        slate fixed across both outcomes), so ``adaptive - commit`` is the value
+        of waiting.
+
+        Values are out-of-sample: slates are optimized on ``n_outcomes`` draws
+        and scored on ``n_test`` fresh ones (the hill climb overfits the draws it
+        sees by about as much as the effect being measured). ``gain_se`` is the
+        paired holdout standard error of ``gain`` -- it excludes optimizer
+        randomness, so treat gains within ~2x of it as noise.
+
+        Staged weeks (Wednesday/Thanksgiving/international chains): the next
+        early game is chosen after the previous one is final, which is just a
+        midweek run. Pass ``player_data`` (``yahoo.players``) and ``as_of`` as
+        for :meth:`optimize_picks_analytic`; finished/locked games are frozen to
+        your real picks, the opener defaults to the earliest *unfrozen* kickoff,
+        and only unspent confidence values are scanned. Later early games stay
+        part of the "rest" and are re-optimized as one committed block per
+        outcome (their own adaptivity is not nested), so the gain is a slight
+        underestimate when several early games remain.
+
+        Opponents' real picks on the opener are not modeled as revealed -- they
+        stay stochastic given the outcome -- so this captures *your*
+        re-optimization, not extra information about the field.
+
+        Args:
+            game_idx: index into ``self.games``; defaults to the earliest
+                kickoff among games that are not yet frozen.
+
+        Returns:
+            DataFrame sorted by ``adaptive`` (desc) with columns ``team``,
+            ``conf``, ``commit``, ``adaptive``, ``gain``, ``gain_se``,
+            ``p_if_win``, ``p_if_lose`` (best P(win) after the team wins /
+            loses). ``.attrs`` carries ``joint`` = the unconstrained joint-optimal
+            slate's ``(team, conf, value)`` on the game, ``game``, ``game_idx``
+            and ``home_win_prob``.
+        """
+        from . import analytical as _an
+
+        field = self._build_analytic_field(
+            player_name, n_outcomes, seed, player_data=player_data, as_of=as_of,
+            max_opponent_types=max_opponent_types)
+        games, n, vegas_home = field['games'], field['n'], field['vegas_home']
+        frozen, my_frozen = field['frozen'], field['my_frozen']
+        if game_idx is None:
+            open_idx = [i for i in range(n) if not frozen[i]]
+            if not open_idx:
+                raise ValueError("Every game is already decided or locked")
+            game_idx = min(open_idx, key=lambda i: (games[i].kickoff_time is None,
+                                                    games[i].kickoff_time))
+        if frozen[game_idx]:
+            raise ValueError(f"Game {game_idx} is already decided or locked")
+        g = games[game_idx]
+        p_home = float(vegas_home[game_idx])
+
+        # Slots already spent on frozen games (midweek) stay fixed throughout.
+        base_ph = np.zeros(n, dtype=bool)
+        base_pts = np.zeros(n, dtype=int)
+        for i, (ph_i, pts_i) in my_frozen.items():
+            base_ph[i], base_pts[i] = ph_i, pts_i
+        spent = set(base_pts[base_pts > 0].tolist())
+        confs = [c for c in range(1, n + 1) if c not in spent]
+
+        opp_types = field['opp_types']
+        test_draws = _an.sample_outcomes(
+            vegas_home, n_test, np.random.default_rng(seed + 1),
+            actual_outcomes=field['actual_outcomes'])
+
+        def _pinned(draws):
+            out = {}
+            for home_wins in (True, False):
+                pinned = draws.copy()
+                pinned[:, game_idx] = home_wins
+                out[home_wins] = _an.make_pwin(opp_types, pinned)
+            return out
+
+        train, test = _pinned(field['outcomes']), _pinned(test_draws)
+        train_joint = field['pwin']
+        weight = {True: p_home, False: 1.0 - p_home}
+
+        def _fixed(is_home: bool, conf: int):
+            ph, pts = base_ph.copy(), base_pts.copy()
+            ph[game_idx], pts[game_idx] = is_home, conf
+            return ph, pts
+
+        def _opt(pwin, ph_fix, pts_fix):
+            return _an.optimize_slate(
+                pwin, vegas_home, pick_home_fixed=ph_fix, points_fixed=pts_fix,
+                iterations=iterations, restarts=restarts,
+                rng=np.random.default_rng(seed))
+
+        def _held_out(ph, pts):
+            """Per-draw P(win) on each pinned holdout field: ``{home_wins: [K]}``."""
+            return {hw: test[hw].per_outcome(ph, pts) for hw in (True, False)}
+
+        def _value(per_draw):
+            return sum(weight[hw] * per_draw[hw].mean() for hw in (True, False))
+
+        rows = []
+        for is_home in (True, False):
+            team = g.home_team if is_home else g.away_team
+            for conf in confs:
+                ph_fix, pts_fix = _fixed(is_home, conf)
+                # Hill climbs land in different local optima, so pool every slate
+                # found for this opener pick and give each objective the best of
+                # them *by training score* -- a response to one outcome can never
+                # beat the slate that would also serve the other (adaptive >=
+                # commit in-sample), which strips most optimizer noise.
+                pool = [_opt(train_joint, ph_fix, pts_fix)[:2]]
+                pool += [_opt(train[hw], ph_fix, pts_fix)[:2] for hw in (True, False)]
+
+                def _best(pwin):
+                    return max(pool, key=lambda sl: pwin(*sl))
+
+                commit = _held_out(*_best(train_joint))
+                adapt = {hw: test[hw].per_outcome(*_best(train[hw]))
+                         for hw in (True, False)}
+                adaptive_v, commit_v = _value(adapt), _value(commit)
+                se = float(np.sqrt(sum(
+                    (weight[hw] * (adapt[hw] - commit[hw]).std() / np.sqrt(n_test)) ** 2
+                    for hw in (True, False))))
+                won, lost = (True, False) if is_home else (False, True)
+                rows.append(dict(
+                    team=team, conf=conf, commit=commit_v, adaptive=adaptive_v,
+                    gain=adaptive_v - commit_v, gain_se=se,
+                    p_if_win=float(adapt[won].mean()),
+                    p_if_lose=float(adapt[lost].mean())))
+
+        out = pd.DataFrame(rows).sort_values('adaptive', ascending=False,
+                                             ignore_index=True)
+        jph, jpts, _ = _an.optimize_slate(
+            train_joint, vegas_home, pick_home_fixed=base_ph if base_pts.any() else None,
+            points_fixed=base_pts if base_pts.any() else None,
+            iterations=iterations, restarts=restarts, rng=np.random.default_rng(seed))
+        out.attrs['joint'] = (g.home_team if jph[game_idx] else g.away_team,
+                              int(jpts[game_idx]), float(_value(_held_out(jph, jpts))))
+        out.attrs['game'] = f"{g.away_team} @ {g.home_team}"
+        out.attrs['game_idx'] = game_idx
+        out.attrs['home_win_prob'] = p_home
+        return out
 
     def assess_game_importance(self, player_name: str, picks_df: pd.DataFrame = None,
                             fixed_picks: Dict[str, Dict[str, int]] = None,

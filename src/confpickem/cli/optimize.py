@@ -76,6 +76,36 @@ def comparison_lines(comparison_df, indent: str = "") -> list:
     return lines
 
 
+def adaptive_opener_lines(res, top: int = 8, indent: str = "") -> list:
+    """Console / .txt summary of ``ConfidencePickEmSimulator.optimize_opener_adaptive``."""
+    jt, jc, _ = res.attrs["joint"]
+    best = res.iloc[0]
+    row = res[(res["team"] == jt) & (res["conf"] == jc)]
+    lines = [
+        f"{indent}Opener: {res.attrs['game']} (home win prob {res.attrs['home_win_prob']:.1%})",
+        f"{indent}Scored out-of-sample, assuming the rest of the slate is chosen after the "
+        f"opener's result.",
+        f"{indent}{'Team':<6} {'Conf':>4} {'Adaptive':>9} {'Commit':>8} {'Gain':>7} {'SE':>6}"
+        f" {'If win':>8} {'If lose':>8}",
+    ]
+    for _, r in res.head(top).iterrows():
+        lines.append(
+            f"{indent}{r['team']:<6} {int(r['conf']):>4} {r['adaptive']:>9.2%} "
+            f"{r['commit']:>8.2%} {r['gain'] * 100:>+6.2f}p {r['gain_se'] * 100:>5.2f}p"
+            f" {r['p_if_win']:>8.2%} {r['p_if_lose']:>8.2%}"
+        )
+    lines.append(
+        f"{indent}Best opener pick: {best['team']} {int(best['conf'])} "
+        f"({best['adaptive']:.2%}); joint-slate pick: {jt} {jc}"
+        + (f" ({row.iloc[0]['adaptive']:.2%})" if not row.empty else "")
+    )
+    lines.append(
+        f"{indent}Gain/SE = adaptive minus commit, in percentage points (SE is holdout-only; "
+        f"gains of a few hundredths are noise)."
+    )
+    return lines
+
+
 def season_context_lines(ctx, indent: str = "") -> list:
     """Console / .txt summary of ``ConfidencePickEmSimulator.season_context``."""
     you = ctx["you"]
@@ -424,6 +454,15 @@ Examples:
     )
 
     parser.add_argument(
+        "--adaptive-opener",
+        action="store_true",
+        help="Also value each pick on the next early-locking game (TNF, international, "
+        "Thanksgiving) assuming you choose the rest of the slate after its result, "
+        "and report it next to the joint-slate pick. Slower (1-4 min). "
+        "Beginning/midweek only.",
+    )
+
+    parser.add_argument(
         "--compare-objective",
         choices=["win_probability", "expected_dollars"],
         default="win_probability",
@@ -462,6 +501,10 @@ Examples:
 
     if args.num_opponents is not None and args.num_opponents < 1:
         print("❌ Error: --num-opponents must be at least 1")
+        return 1
+
+    if args.adaptive_opener and args.mode == "locked":
+        print("❌ Error: --adaptive-opener doesn't apply to --mode locked (nothing to optimize)")
         return 1
 
     if args.mode == "locked" and (args.greedy or args.hill_climb):
@@ -906,6 +949,23 @@ Examples:
         else:
             print(f"   ⏱️  Estimated time: a few seconds")
         print()
+
+        adaptive_res = None
+        if args.adaptive_opener:
+            print("🔀 ADAPTIVE OPENER (rest of slate chosen after the opener's result)...")
+            try:
+                adaptive_res = simulator.optimize_opener_adaptive(
+                    selected,
+                    iterations=args.an_iterations,
+                    n_outcomes=args.an_outcomes,
+                    player_data=yahoo.players if args.mode == "midweek" else None,
+                    as_of=datetime.now() if args.mode == "midweek" else None,
+                )
+                for line in adaptive_opener_lines(adaptive_res, indent="   "):
+                    print(line)
+            except ValueError as e:
+                print(f"   ⚠️  Skipped: {e}")
+            print()
 
         try:
             fixed_formatted = {selected: fixed_picks} if fixed_picks else None
@@ -1355,6 +1415,11 @@ Examples:
                     if comparison_df is not None and len(comparison_df) > 0:
                         f.write(f"\nSLATE COMPARISON:\n")
                         for line in comparison_lines(comparison_df):
+                            f.write(line + "\n")
+
+                    if adaptive_res is not None:
+                        f.write("\nADAPTIVE OPENER:\n")
+                        for line in adaptive_opener_lines(adaptive_res):
                             f.write(line + "\n")
 
                     if season_ctx is not None:
